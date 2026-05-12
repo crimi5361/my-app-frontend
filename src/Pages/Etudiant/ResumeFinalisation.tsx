@@ -124,20 +124,26 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
     checkIpMinistereField();
   }, [fileList, initialValues.annee_bac]);
 
-  const fetchFilieres = async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/api/filieres`);
-      if (!response.ok) throw new Error('Erreur lors de la récupération des filières');
-      const data: Filiere[] = await response.json();
-      setFilieres(data);
-    } catch (error) {
-      message.error('Erreur lors du chargement des filières');
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
+ const fetchFilieres = async () => {
+  setLoading(true);
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${API_URL}/api/filieres`, {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    if (!response.ok) throw new Error('Erreur lors de la récupération des filières');
+    const data: Filiere[] = await response.json();
+    setFilieres(data);
+  } catch (error) {
+    message.error('Erreur lors du chargement des filières');
+    console.error(error);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const fetchNiveauxByFiliere = async (filiereId: number) => {
     try {
