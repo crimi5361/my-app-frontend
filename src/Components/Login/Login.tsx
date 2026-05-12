@@ -407,7 +407,7 @@ const Login: React.FC = () => {
           {/* Stats */}
           <div className="stats-row">
             <div className="stat-item">
-              <div className="stat-num">5 000+</div>
+              <div className="stat-num">7 000+</div>
               <div className="stat-label">Étudiants</div>
             </div>
             <div className="stat-item">

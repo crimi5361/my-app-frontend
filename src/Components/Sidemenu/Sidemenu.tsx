@@ -32,7 +32,7 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
 
   const rolePermissions: Record<string, string[]> = {
     admin: ["dashboard", "scolarite", "Gestion_academique", "Etudiant", "Parametres"],
-    scolarite: ["Etudiant"],
+    scolarite: ["Etudiant","Gestion_academique"],
     comptabilite: ["scolarite"],
   };
 
@@ -121,7 +121,7 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
         { key: "/Etudiant/Cartes", label: "Cartes", icon: <IdcardOutlined /> },
         { key: "/Etudiant/Listes_Ministere", label: "Listes Ministère", icon: <ReadOutlined /> },
         { key: "/Etudiant/Verification", label: "Vérification", icon: <ContactsOutlined /> },
-        { key: "/Etudiant/DashScolarite", label: "Tableau recapitulatif", icon: <DashboardOutlined /> },
+        // { key: "/Etudiant/DashScolarite", label: "Tableau recapitulatif", icon: <DashboardOutlined /> },
         { key: "/Etudiant/Listes_Etudiant", label: "Listes Étudiants", icon: <UserSwitchOutlined /> },
       ],
     },

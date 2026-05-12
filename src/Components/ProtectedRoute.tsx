@@ -16,7 +16,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   // Définir les permissions par rôle - CORRIGÉ pour correspondre aux permissions utilisées dans AppRoutes
   const rolePermissions: Record<string, string[]> = {
     admin: ["admin", "scolarite", "comptabilite", "dashboard", "Gestion_academique", "Etudiant", "Parametres"],
-    scolarite: ["scolarite", "Etudiant"],
+    scolarite: ["scolarite", "Etudiant","Gestion_academique"],
     comptabilite: ["comptabilite", "dashboard", "scolarite"],
   };
 
