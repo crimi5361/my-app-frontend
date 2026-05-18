@@ -245,20 +245,41 @@ const NouvelleNote = () => {
     loadProfesseurs();
   }, [id]);
 
+  /**
+   * Extrait la filière depuis un nom de classe ou de maquette.
+   * Supprime : le niveau (Licence/Master/Doctorat/BTS + chiffre),
+   *            "Groupe N", les sigles connus, les espaces superflus.
+   */
   const extractFiliere = (name: string): string => {
     return name
-      .replace(/(licence|master|doctorat)\s*\d+/gi, '')
-      .replace(/\b(scj|sic|adaf|ang|lmo)\b/gi, '')
+      .replace(/(licence|master|doctorat)\s*\d+/gi, '')   // Licence 1, Master 2...
+      .replace(/\bbts\s*\d+/gi, '')                        // BTS 1, BTS 2, BTS1...
+      .replace(/\bgroupe\s*\d+/gi, '')                     // Groupe 1, Groupe 2...
+      .replace(/\b(scj|sic|adaf|ang|lmo)\b/gi, '')         // Sigles spécifiques
       .replace(/\s+/g, ' ')
       .trim()
       .toLowerCase();
   };
 
+  /**
+   * Extrait le niveau depuis un nom de classe ou de maquette.
+   * Gère : Licence/Master/Doctorat + chiffre  ET  BTS + chiffre.
+   * Retourne une chaîne normalisée ex: "bts 1", "licence 2", "master 1".
+   * Retourne '' si aucun niveau reconnu.
+   */
   const extractNiveau = (name: string): string => {
-    const match = name.match(/(licence|master|doctorat)\s*(\d+)/i);
-    if (match) {
-      return `${match[1].toLowerCase()} ${match[2]}`;
+    // Licence 1 / Master 2 / Doctorat 3
+    const matchLMD = name.match(/\b(licence|master|doctorat)\s*(\d+)/i);
+    if (matchLMD) {
+      return `${matchLMD[1].toLowerCase()} ${matchLMD[2]}`;
     }
+
+    // BTS 1 / BTS 2 / BTS1 / BTS2
+    const matchBTS = name.match(/\bbts\s*(\d+)/i);
+    if (matchBTS) {
+      return `bts ${matchBTS[1]}`;
+    }
+
     return '';
   };
 
@@ -275,15 +296,27 @@ const NouvelleNote = () => {
         const niveauClasse = extractNiveau(classeNom);
         
         console.log('🔍 Filtres:', { filiereClasse, niveauClasse });
+
+        // Si on n'a pas pu extraire le niveau, on ne peut pas matcher de façon fiable
+        if (!niveauClasse) {
+          console.warn('⚠️ Niveau non reconnu dans le nom du groupe:', classeNom);
+          message.warning('Impossible de détecter le niveau depuis le nom du groupe');
+          return;
+        }
         
-        const maquetteTrouvee = data.find(maquette => {
+        const maquetteTrouvee = data.find((maquette: any) => {
           const filiereMaquette = extractFiliere(maquette.filiere_nom);
           const niveauMaquette = extractNiveau(maquette.niveau_libelle);
           
-          const correspondanceFiliere = filiereClasse.includes(filiereMaquette) || 
-                                      filiereMaquette.includes(filiereClasse);
+          const correspondanceFiliere =
+            filiereClasse.includes(filiereMaquette) ||
+            filiereMaquette.includes(filiereClasse);
           
-          const correspondanceNiveau = niveauClasse === niveauMaquette;
+          // Les deux niveaux doivent être non vides ET identiques
+          const correspondanceNiveau =
+            niveauClasse !== '' &&
+            niveauMaquette !== '' &&
+            niveauClasse === niveauMaquette;
           
           return correspondanceFiliere && correspondanceNiveau;
         });
@@ -829,7 +862,7 @@ const NouvelleNote = () => {
                       notFoundContent={loadingProfesseurs ? "Chargement..." : "Aucun professeur disponible"}
                     >
                       {professeurs.map(professeur => {
-                        const nomComplet = `${professeur.prenom} ${professeur.nom}`; // A corriger
+                        const nomComplet = `${professeur.prenom} ${professeur.nom}`;
                         return (
                           <Option 
                             key={professeur.id} 
