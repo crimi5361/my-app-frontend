@@ -1,9 +1,15 @@
-import PageHeader from '../../Components/PageHeader/PageHeader'
+import PageHeader from '../../Components/PageHeader/PageHeader';
 
 const Cartes = () => {
   return (
-    <PageHeader/>
-  )
-}
+    <>
+      <PageHeader />
 
-export default Cartes
+      <div className="div">
+        page pour les cartes étudiantes
+      </div>
+    </>
+  );
+};
+
+export default Cartes;
