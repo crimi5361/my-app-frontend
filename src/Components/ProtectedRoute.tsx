@@ -13,11 +13,20 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   const storedUser = localStorage.getItem("user");
   const user = storedUser ? JSON.parse(storedUser) : null;
 
-  // Définir les permissions par rôle - CORRIGÉ pour correspondre aux permissions utilisées dans AppRoutes
+  // Définir les permissions par rôle
   const rolePermissions: Record<string, string[]> = {
-    admin: ["admin", "scolarite", "comptabilite", "dashboard", "Gestion_academique", "Etudiant", "Parametres"],
-    scolarite: ["scolarite", "Etudiant","Gestion_academique"],
-    comptabilite: ["comptabilite", "dashboard", "scolarite"],
+    admin: ["admin", "scolarite", "comptabilite", "caissier", "dashboard", "Gestion_academique", "Etudiant", "Parametres"],
+    scolarite: [ "Etudiant", "Gestion_academique"],
+    comptabilite: ["comptabilite", "dashboard", "scolarite", "caisse"],
+    caissier: ["caissier"], //  Le caissier a accès au module caisse
+  };
+
+  // Redirections par défaut selon le rôle
+  const defaultRedirects: Record<string, string> = {
+    admin: "/dashboard",
+    scolarite: "/Etudiant/Listes_Etudiant",
+    comptabilite: "/dashboard",
+    caissier: "/caisse/dashboard", //  Redirection corrigée
   };
 
   if (!user) {
@@ -41,11 +50,6 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     
     if (!hasPermission) {
       // Rediriger vers la page d'accueil autorisée
-      const defaultRedirects: Record<string, string> = {
-        admin: "/dashboard",
-        scolarite: "/Etudiant/Listes_Etudiant",
-        comptabilite: "/dashboard",
-      };
       return <Navigate to={defaultRedirects[userRole] || "/login"} />;
     }
   }

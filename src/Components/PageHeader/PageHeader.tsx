@@ -5,7 +5,7 @@ const titles: Record<string, string> = {
   // Dashboard
   "/dashboard": "Vue générale du tableau de bord",
   "/dashboard/ListePec": "Liste des PEC",
-  "/dashboard/PEC_traiter":"Prise en charge traiter",
+  "/dashboard/PEC_traiter": "Prise en charge traiter",
 
   // Enseignant
   "/enseignants/enregistrement": "Page des enregistrements",
@@ -26,6 +26,14 @@ const titles: Record<string, string> = {
   "/transport/itineraires": "Gestion des itinéraires",
   "/transport/abonnements": "Abonnements de transport",
 
+  // Caisse
+  "/caisse/dashboard": "Tableau de bord de la caisse",
+  "/caisse/encaisser": "Encaisser un paiement",
+  "/caisse/recherche": "Rechercher un étudiant",
+  "/caisse/paiements-jour": "Paiements du jour",
+  "/caisse/reçus": "Mes reçus",
+  "/caisse/fermer": "Fermer la caisse",
+
   // Gestion académique
   "/Gestion_academique/Statistique": "Statistiques académiques",
   "/Gestion_academique/Effectifs": "Effectifs généraux",
@@ -39,11 +47,11 @@ const titles: Record<string, string> = {
   "/Gestion_academique/Migrations": "Migrations d'étudiants",
   "/Gestion_academique/Fusion": "Fusion des classes ou filières",
   "/Gestion_academique/DetailMaquette/": "Détails de la maquette",
-  "/Gestion_academique/Groupe-Evaluation/:id" : "evaluation du Groupe",
-  "/Gestion_academique/Groupe-Resultats/:id" : "résultats du Groupe",
-  "/Gestion_academique/Groupe-NouvelleNote/:id" : "Nouvelle note du Groupe",
-  "/Gestion_academique/Professeur":"Gestion professeur",
-  "/Gestion_academique/Professeur_detail/:id":"Detail complet sur les prof",
+  "/Gestion_academique/Groupe-Evaluation/:id": "Evaluation du Groupe",
+  "/Gestion_academique/Groupe-Resultats/:id": "Résultats du Groupe",
+  "/Gestion_academique/Groupe-NouvelleNote/:id": "Nouvelle note du Groupe",
+  "/Gestion_academique/Professeur": "Gestion professeur",
+  "/Gestion_academique/Professeur_detail/:id": "Detail complet sur les prof",
 
   // Étudiant
   "/Etudiant/Nouvelle_Admission": "Nouvelle admission étudiant",
@@ -54,11 +62,10 @@ const titles: Record<string, string> = {
   "/Etudiant/Listes_Ministere": "Listes transmises au ministère",
   "/Etudiant/Verification": "Vérification des informations",
   "/Etudiant/Listes_Etudiant": "Liste des étudiants",
-  "/Etudiant/Details_Etudiant/:id" : "Détails de l'etudiant",
-  "/Etudiant/Certificat_Scolarite/:id" : "Certificat de scolarité",
-  "/Etudiant/Certificat_Frequentation/:id" : "Certificat de frequentation",
-  "/Etudiant/DashScolarite" : "DashScolarite",
-
+  "/Etudiant/Details_Etudiant/:id": "Détails de l'etudiant",
+  "/Etudiant/Certificat_Scolarite/:id": "Certificat de scolarité",
+  "/Etudiant/Certificat_Frequentation/:id": "Certificat de frequentation",
+  "/Etudiant/DashScolarite": "DashScolarite",
 
   // Dossier L3
   "/Dossier_l3/Nouveau": "Nouveau dossier L3",
@@ -73,12 +80,9 @@ const titles: Record<string, string> = {
   "/Moyens_Generaux/Reception_Commande": "Réception des commandes",
   "/Moyens_Generaux/Kit_et_Accessoires": "Kits et accessoires disponibles",
 
-
-
   // Parametre
-
-  "/Parametres/gestion_utilisateur": "gestion utilisateur",
-  "/Parametres/gestion_permission": "gestion permission utilisateur",
+  "/Parametres/gestion_utilisateur": "Gestion utilisateur",
+  "/Parametres/gestion_permission": "Gestion permission utilisateur",
 };
 
 const formatSegment = (segment: string) => {
@@ -90,7 +94,7 @@ const PageHeader: React.FC = () => {
   const location = useLocation();
   const path = location.pathname;
 
-  const segments = path.split("/").filter(Boolean); // ex: ["enseignants", "contrat"]
+  const segments = path.split("/").filter(Boolean);
   const folder = segments[0] ? formatSegment(segments[0]) : "Accueil";
   const page = segments[1] ? formatSegment(segments[1]) : "";
   const fullPath = `/${segments.join("/")}`;
@@ -98,7 +102,7 @@ const PageHeader: React.FC = () => {
   const title = titles[fullPath] || " ";
 
   return (
-    <div className="p-4 ">
+    <div className="p-4">
       <div className="text-sl text-gray-500 font-semibold">
         {folder} / {page} / {title}
       </div>

@@ -1,35 +1,35 @@
-name: Deploy Frontend
+# name: Deploy Frontend
 
-on:
-  push:
-    branches: ["main"]
+# on:
+#   push:
+#     branches: ["main"]
 
-jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
+# jobs:
+#   build-and-deploy:
+#     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
+#       - name: Setup Node
+#         uses: actions/setup-node@v4
+#         with:
+#           node-version: 20
 
-      - name: Install dependencies
-        run: npm ci
+#       - name: Install dependencies
+#         run: npm ci
 
-      - name: Build project
-        run: npm run build
+#       - name: Build project
+#         run: npm run build
 
-      - name: Deploy to server via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: root
-          key: ${{ secrets.SSH_KEY }}
-          script: |
-            cd /root/pern-app
-            docker compose up -d --build frontend
-            docker compose restart nginx
+#       - name: Deploy to server via SSH
+#         uses: appleboy/ssh-action@v1.0.3
+#         with:
+#           host: ${{ secrets.SERVER_IP }}
+#           username: root
+#           key: ${{ secrets.SSH_KEY }}
+#           script: |
+#             cd /root/pern-app
+#             docker compose up -d --build frontend
+#             docker compose restart nginx

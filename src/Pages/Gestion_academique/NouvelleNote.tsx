@@ -63,6 +63,7 @@ interface GroupeInfo {
   id: number;
   nom: string;
   classe_nom?: string;
+  classe_description?: string;   // NOUVEAU
 }
 
 interface MaquetteDetail {
@@ -226,11 +227,12 @@ const NouvelleNote = () => {
         
         const groupeInfo: GroupeInfo = {
           id: data.id,
-          nom: data.nom
+          nom: data.nom,
+          classe_description: data.classe_description   // NOUVEAU
         };
         
         setGroupeInfo(groupeInfo);
-        await fetchMaquetteForClasse(data.nom);
+        await fetchMaquetteForClasse(data.nom, data.classe_description);   // on passe la description
         
       } catch (error: any) {
         console.error('Erreur chargement groupe:', error);
@@ -262,6 +264,15 @@ const NouvelleNote = () => {
   };
 
   /**
+   * Extrait le régime (Jour/Soir) d'un texte.
+   */
+  const extractRegime = (text: string): string => {
+    if (!text) return '';
+    const match = text.match(/(Jour|Soir)/i);
+    return match ? match[1].toLowerCase() : '';
+  };
+
+  /**
    * Extrait le niveau depuis un nom de classe ou de maquette.
    * Gère : Licence/Master/Doctorat + chiffre  ET  BTS + chiffre.
    * Retourne une chaîne normalisée ex: "bts 1", "licence 2", "master 1".
@@ -283,9 +294,11 @@ const NouvelleNote = () => {
     return '';
   };
 
-  const fetchMaquetteForClasse = async (classeNom: string) => {
+  const fetchMaquetteForClasse = async (classeNom: string, classeDescription?: string) => {
     try {
       console.log('🔍 Recherche maquette pour:', classeNom);
+      console.log('📝 Description classe:', classeDescription);
+      
       const response = await fetch(`${API_URL}/api/maquettes`);
       const data = await response.json();
       
@@ -294,8 +307,9 @@ const NouvelleNote = () => {
       if (Array.isArray(data)) {
         const filiereClasse = extractFiliere(classeNom);
         const niveauClasse = extractNiveau(classeNom);
-        
-        console.log('🔍 Filtres:', { filiereClasse, niveauClasse });
+        const regimeClasse = extractRegime(classeDescription || '');
+
+        console.log('🔍 Filtres:', { filiereClasse, niveauClasse, regimeClasse });
 
         // Si on n'a pas pu extraire le niveau, on ne peut pas matcher de façon fiable
         if (!niveauClasse) {
@@ -304,7 +318,7 @@ const NouvelleNote = () => {
           return;
         }
         
-        const maquetteTrouvee = data.find((maquette: any) => {
+        const maquettesCandidates = data.filter((maquette: any) => {
           const filiereMaquette = extractFiliere(maquette.filiere_nom);
           const niveauMaquette = extractNiveau(maquette.niveau_libelle);
           
@@ -320,6 +334,27 @@ const NouvelleNote = () => {
           
           return correspondanceFiliere && correspondanceNiveau;
         });
+
+        console.log(`📊 ${maquettesCandidates.length} maquette(s) candidate(s) trouvée(s)`);
+
+        let maquetteTrouvee = null;
+
+        if (maquettesCandidates.length > 1 && regimeClasse) {
+          // Plusieurs maquettes possibles (jour/soir) : on filtre par régime
+          console.log('🔍 Plusieurs maquettes trouvées, filtrage par régime:', regimeClasse);
+          maquetteTrouvee = maquettesCandidates.find((m: any) => extractRegime(m.parcour || '') === regimeClasse);
+          if (maquetteTrouvee) {
+            console.log('✅ Maquette trouvée par régime:', maquetteTrouvee.id);
+          } else {
+            console.log('⚠️ Aucune maquette correspondant au régime trouvée');
+          }
+        }
+
+        // Fallback si un seul candidat, ou si le régime n'a pas permis de trancher
+        if (!maquetteTrouvee) {
+          maquetteTrouvee = maquettesCandidates[0];
+          console.log('📌 Fallback: première maquette candidate sélectionnée:', maquetteTrouvee?.id);
+        }
         
         if (maquetteTrouvee) {
           console.log('✅ Maquette trouvée:', maquetteTrouvee.id);
