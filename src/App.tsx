@@ -21,6 +21,7 @@ import CoursEtudiant from "./Pages/ESPACE_ETUDIANT/CoursEtudiant";
 import EdtEtudiant from "./Pages/ESPACE_ETUDIANT/EdtEtudiant";
 import MaquetteEtudiant from "./Pages/ESPACE_ETUDIANT/MaquetteEtudiant";
 import TransportEtudiant from "./Pages/ESPACE_ETUDIANT/TransportEtudiant";
+import DepotMemoire from "./Pages/ESPACE_ETUDIANT/DepotMemoire";
 
 function AppContent() {
   const { user, isAuthenticated, setIsAuthenticated, setUser } = useContext(UserContext);
@@ -87,6 +88,7 @@ function AppContent() {
       <Route path="/espace-etudiant/emploi-du-temps" element={<EdtEtudiant />} />
       <Route path="/espace-etudiant/maquette-pedagogique" element={<MaquetteEtudiant />} />
       <Route path="/espace-etudiant/transports" element={<TransportEtudiant />} />
+      <Route path="/espace-etudiant/depot-memoire" element={<DepotMemoire />} />
 
       <Route
         path="/*"

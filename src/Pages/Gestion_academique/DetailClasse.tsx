@@ -140,16 +140,16 @@ const DetailClasse = () => {
   };
 
   // Fonction pour normaliser les noms (supprimer les sigles et espaces superflus)
-  const normalizeName = (name: string): string => {
-    return name
-      .toLowerCase()
-      .replace(/\s+/g, ' ') // Remplacer les espaces multiples par un seul
-      .trim()
-      .replace(/[^a-z0-9\s]/g, '') // Supprimer les caractères spéciaux
-      .replace(/\b(scj|sic|adaf|lic|licence|master|doctorat)\b/gi, '') // Supprimer les sigles communs
-      .replace(/\s+/g, ' ') // Nettoyer à nouveau les espaces
-      .trim();
-  };
+  //   const normalizeName = (name: string): string => {
+  //   return name
+  //     .toLowerCase()
+  //     .replace(/\s+/g, ' ') // Remplacer les espaces multiples par un seul
+  //     .trim()
+  //     .replace(/[^a-z0-9\s]/g, '') // Supprimer les caractères spéciaux
+  //     .replace(/\b(scj|sic|adaf|lic|licence|master|doctorat)\b/gi, '') // Supprimer les sigles communs
+  //     .replace(/\s+/g, ' ') // Nettoyer à nouveau les espaces
+  //     .trim();
+  // };
 
   // Fonction pour extraire le niveau du nom
   const extractNiveau = (name: string): string => {
@@ -167,6 +167,13 @@ const DetailClasse = () => {
       .toLowerCase();
   };
 
+  // Fonction pour extraire le type de parcours (Jour ou Soir)
+  const extractRegime = (text: string): string => {
+    if (!text) return '';
+    const match = text.match(/(Jour|Soir)/i);
+    return match ? match[1].toLowerCase() : '';
+  };
+
   const fetchMaquettesForClasse = async () => {
     if (!classe) return;
     
@@ -180,27 +187,30 @@ const DetailClasse = () => {
       if (Array.isArray(data)) {
         console.log('Toutes les maquettes:', data);
         console.log('Nom de la classe:', classe.nom);
+        console.log('Description de la classe:', classe.description);
         
         // Filtrer les maquettes avec une correspondance plus intelligente
         const maquettesFiltrees = data.filter(maquette => {
-          const nomClasseNormalise = normalizeName(classe.nom);
-          const nomMaquetteNormalise = normalizeName(`${maquette.filiere_nom} ${maquette.niveau_libelle}`);
-          
           const filiereClasse = extractFiliere(classe.nom);
           const filiereMaquette = extractFiliere(maquette.filiere_nom);
-          
           const niveauClasse = extractNiveau(classe.nom);
           const niveauMaquette = extractNiveau(maquette.niveau_libelle);
           
-          console.log('Comparaison:', {
+          // Extraction du régime depuis la description de la classe et le parcours de la maquette
+          const regimeClasse = extractRegime(classe.description);
+          const regimeMaquette = extractRegime(maquette.parcour || '');
+
+          console.log('Comparaison détaillée:', {
             classe: classe.nom,
+            classeDescription: classe.description,
             maquette: `${maquette.filiere_nom} ${maquette.niveau_libelle}`,
-            nomClasseNormalise,
-            nomMaquetteNormalise,
+            maquetteParcours: maquette.parcour,
             filiereClasse,
             filiereMaquette,
             niveauClasse,
-            niveauMaquette
+            niveauMaquette,
+            regimeClasse,
+            regimeMaquette
           });
 
           // Vérifier la correspondance sur plusieurs critères
@@ -209,21 +219,20 @@ const DetailClasse = () => {
           
           const correspondanceNiveau = niveauClasse === niveauMaquette;
           
-          // Correspondance si la filière ET le niveau correspondent
-          const correspondanceExacte = correspondanceFiliere && correspondanceNiveau;
-          
-          // Correspondance partielle (pour debug)
-          const correspondancePartielle = nomClasseNormalise.includes(nomMaquetteNormalise) || 
-                                        nomMaquetteNormalise.includes(nomClasseNormalise);
+          // Correspondance du régime :
+          // - Si les deux ont un régime détecté, ils doivent correspondre.
+          // - Si aucun des deux n'a de régime (filières sans jour/soir), on ignore ce critère.
+          const correspondanceRegime =
+            (regimeClasse === '' && regimeMaquette === '') || regimeClasse === regimeMaquette;
 
           console.log('Résultat correspondance:', {
-            correspondanceExacte,
-            correspondancePartielle,
             correspondanceFiliere,
-            correspondanceNiveau
+            correspondanceNiveau,
+            correspondanceRegime,
+            correspondanceGlobale: correspondanceFiliere && correspondanceNiveau && correspondanceRegime
           });
 
-          return correspondanceExacte || correspondancePartielle;
+          return correspondanceFiliere && correspondanceNiveau && correspondanceRegime;
         });
         
         console.log('Maquettes filtrées:', maquettesFiltrees);
@@ -237,6 +246,7 @@ const DetailClasse = () => {
           console.warn('Aucune maquette trouvée. Raisons possibles:');
           console.warn('- Les noms ne correspondent pas');
           console.warn('- Différence de format (sigles, espaces)');
+          console.warn('- Le régime (Jour/Soir) ne correspond pas');
           console.warn('- Données de maquettes vides:', data.length === 0);
         }
       } else {

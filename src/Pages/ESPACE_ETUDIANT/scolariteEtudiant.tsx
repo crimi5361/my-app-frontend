@@ -199,9 +199,9 @@ const ScolariteEtudiant = () => {
   };
 
   const tabs = [
-    { id: 'details', label: '📊 Détails Financiers', icon: TrendingUp },
-    { id: 'paiements', label: '💳 Historique Paiements', icon: CreditCard },
-    { id: 'recus', label: '🧾 Reçus de Paiement', icon: Receipt }
+    { id: 'details', label: ' Détails Financiers', icon: TrendingUp },
+    { id: 'paiements', label: ' Historique Paiements', icon: CreditCard },
+    { id: 'recus', label: ' Reçus de Paiement', icon: Receipt }
   ];
 
   // Fonction helper pour obtenir l'icône de l'onglet actif

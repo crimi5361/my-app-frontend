@@ -13,8 +13,7 @@ import {
   BookOpen,
   ClipboardList,
   QrCode,
-  Sparkles
-} from 'lucide-react';
+  Sparkles} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import confetti from 'canvas-confetti';
@@ -40,13 +39,13 @@ const Acceuille = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+
     const fetchStudentData = async () => {
       try {
         const token = localStorage.getItem('token');
         const studentId = localStorage.getItem('user_id');
         
         if (!token || !studentId) {
-          // Redirection vers la page de login si token ou ID manquant
           navigate('/login');
           return;
         }
@@ -60,7 +59,6 @@ const Acceuille = () => {
 
         if (!response.ok) {
           if (response.status === 401) {
-            // Token invalide ou expiré - redirection vers login
             localStorage.removeItem('token');
             localStorage.removeItem('user_id');
             navigate('/login');
@@ -89,7 +87,6 @@ const Acceuille = () => {
             groupe: data.informations_academiques.groupe
           });
 
-          // Animation de confetti au premier chargement
           if (!hasPlayedConfetti) {
             setTimeout(() => {
               confetti({
@@ -104,7 +101,6 @@ const Acceuille = () => {
         }
       } catch (err) {
         if (err instanceof Error && err.message.includes('401')) {
-          // Erreur d'authentification - redirection vers login
           localStorage.removeItem('token');
           localStorage.removeItem('user_id');
           navigate('/login');
@@ -128,6 +124,17 @@ const Acceuille = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user_id');
     navigate('/login');
+  };
+
+  /**
+   * Vérifie si l'étudiant peut voir le bouton "Dépot de mon memoire"
+   * Condition: la classe doit contenir "LICENCE 3" ou "MASTER 2"
+   * (car la classe peut être comme: "SCIENCES JURIDIQUES ... LICENCE 3")
+   */
+  const canSeeMemoireButton = (): boolean => {
+    if (!studentInfo) return false;
+    const classe = studentInfo.classe?.toUpperCase();
+    return classe.includes('LICENCE 3') || classe.includes('MASTER 2');
   };
 
   // Couleurs pastel pour les cartes
@@ -160,6 +167,7 @@ const Acceuille = () => {
     'text-gray-600'
   ];
 
+  // Construction du tableau des cartes avec condition pour le bouton mémoire
   const allCards = [
     {
       id: 'scolarite',
@@ -231,6 +239,14 @@ const Acceuille = () => {
       colorIndex: 9,
       path: '#',
     },
+    // BOUTON MEMOIRE : s'affiche uniquement si la classe contient LICENCE 3 ou MASTER 2
+    ...(canSeeMemoireButton() ? [{
+      id: 'memoire',
+      title: 'Depot de mon memoire',
+      icon: BookOpen,
+      colorIndex: 9,
+      path: '/espace-etudiant/depot-memoire',
+    }] : []),
     {
       id: 'deconnexion',
       title: 'Déconnexion',
@@ -417,7 +433,7 @@ const Acceuille = () => {
           </div>
         </motion.div>
 
-        {/* Grille des services - RESPONSIVE 2 cartes par ligne sur mobile */}
+        {/* Grille des services */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -433,7 +449,6 @@ const Acceuille = () => {
             Mes services étudiants
           </motion.h2>
 
-          {/* Grid responsive : 2 colonnes sur mobile, 3 sur tablette, 4 sur desktop */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
             <AnimatePresence>
               {allCards.map((card, index) => {
@@ -453,22 +468,15 @@ const Acceuille = () => {
                     className="group cursor-pointer"
                     onClick={card.action || (() => handleNavigation(card.path))}
                   >
-                    {/* Carte rectangulaire adaptative */}
                     <div className={`h-20 sm:h-24 rounded-xl sm:rounded-2xl ${pastelColors[card.colorIndex]} border-2 border-white/50 shadow-lg hover:shadow-xl transition-all duration-300 group-hover:border-white/80 relative overflow-hidden`}>
-                      
-                      {/* Effet de brillance au hover */}
                       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-                      
                       <div className="p-2 sm:p-4 h-full flex items-center justify-between">
-                        {/* Icône centrée verticalement */}
                         <motion.div
                           whileHover={{ scale: 1.1 }}
                           className={`p-2 sm:p-3 rounded-lg sm:rounded-xl bg-white/50 backdrop-blur-sm shadow-lg ${iconColors[card.colorIndex]} flex items-center justify-center`}
                         >
                           <IconComponent size={18} className="sm:w-5 sm:h-5" />
                         </motion.div>
-                        
-                        {/* Titre centré avec texte responsive */}
                         <div className="flex-1 text-center">
                           <h3 className="font-semibold text-gray-800 text-xs sm:text-sm group-hover:text-gray-900 transition-colors leading-tight">
                             {card.title}
@@ -481,8 +489,6 @@ const Acceuille = () => {
                           />
                         </div>
                       </div>
-
-                      {/* Effet de glow autour de l'icône */}
                       <div className={`absolute left-2 sm:left-4 top-1/2 transform -translate-y-1/2 w-8 h-8 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-current opacity-0 group-hover:opacity-20 blur-md transition-opacity duration-300 ${iconColors[card.colorIndex].replace('text-', 'bg-')}`}></div>
                     </div>
                   </motion.div>
@@ -493,7 +499,7 @@ const Acceuille = () => {
         </motion.div>
       </div>
 
-      {/* Footer motivant */}
+      {/* Footer */}
       <motion.footer 
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -514,7 +520,6 @@ const Acceuille = () => {
         </div>
       </motion.footer>
 
-      {/* Étoiles discrètes */}
       <AnimatePresence>
         {!hasPlayedConfetti && (
           <motion.div

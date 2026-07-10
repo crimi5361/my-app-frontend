@@ -12,10 +12,15 @@ import {
   UserSwitchOutlined,
   CreditCardOutlined,
   IdcardOutlined,
+  DollarOutlined,
+  PrinterOutlined,
+  HistoryOutlined,
+  CloseCircleOutlined,
 } from "@ant-design/icons";
 
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { BookDashedIcon } from "lucide-react";
 
 interface SidemenuProps {
   isSidemenuOpen: boolean;
@@ -31,9 +36,10 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
   const currentUserRole = JSON.parse(localStorage.getItem("user") || "{}")?.role || "scolarite";
 
   const rolePermissions: Record<string, string[]> = {
-    admin: ["dashboard", "scolarite", "Gestion_academique", "Etudiant", "Parametres"],
-    scolarite: ["Etudiant","Gestion_academique"],
-    comptabilite: ["scolarite"],
+    admin: ["dashboard", "scolarite", "caisse", "Gestion_academique", "Etudiant", "Parametres"],
+    scolarite: ["Etudiant", "Gestion_academique"],
+    comptabilite: ["scolarite", "caisse"],
+    caissier: ["caisse"], // 
   };
 
   const allowedKeys = rolePermissions[currentUserRole] || [];
@@ -67,27 +73,44 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
           label: "Dashboard",
           icon: <AppstoreAddOutlined />,
         },
-         { key: "/Etudiant/DashScolarite", label: "Tableau recapitulatif", icon: <DashboardOutlined /> },
+        {
+          key: "/Etudiant/DashScolarite",
+          label: "Tableau recapitulatif",
+          icon: <DashboardOutlined />,
+        },
         {
           key: "/dashboard/ListePec",
           label: "Prise en charge",
-          icon: <SolutionOutlined/>,
+          icon: <SolutionOutlined />,
         },
         {
           key: "/dashboard/PEC_traiter",
           label: "Prise en charge traiter",
-          icon: <SolutionOutlined/>,
+          icon: <SolutionOutlined />,
         },
       ],
     },
     {
       key: "scolarite",
       icon: <ReadOutlined />,
-      label: "Scolarité",
+      label: "Comptabilité",
       children: [
         { key: "/scolarite/statuts", label: "Statuts", icon: <FileTextOutlined /> },
         { key: "/scolarite/paiements", label: "Historique Paiement", icon: <CreditCardOutlined /> },
         { key: "/scolarite/inscription_attentes", label: "Inscriptions en attente", icon: <SolutionOutlined /> },
+      ],
+    },
+    {
+      key: "caisse",
+      icon: <DollarOutlined />,
+      label: "Caisse",
+      children: [
+        { key: "/caisse/dashboard", label: "Tableau de bord", icon: <DashboardOutlined /> },
+        { key: "/caisse/encaisser", label: "Encaisser", icon: <CreditCardOutlined /> },
+        { key: "/caisse/recherche", label: "Rechercher étudiant", icon: <SolutionOutlined /> },
+        { key: "/caisse/paiements-jour", label: "Paiements du jour", icon: <HistoryOutlined /> },
+        { key: "/caisse/reçus", label: "Mes reçus", icon: <PrinterOutlined /> },
+        { key: "/caisse/fermer", label: "Fermer la caisse", icon: <CloseCircleOutlined /> },
       ],
     },
     {
@@ -96,6 +119,7 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
       label: "Gestion académique",
       children: [
         { key: "/Gestion_academique/Statistique", label: "Statistique", icon: <AppstoreAddOutlined /> },
+        { key: "/Gestion_academique/statistique_Resulat", label: "Statistique Resultat", icon: <AppstoreAddOutlined /> },
         { key: "/Gestion_academique/Effectifs", label: "Effectifs", icon: <TeamOutlined /> },
         { key: "/Gestion_academique/Annes_accademique", label: "Années", icon: <ReadOutlined /> },
         { key: "/Gestion_academique/Salles", label: "Salles", icon: <BankOutlined /> },
@@ -103,10 +127,10 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
         { key: "/Gestion_academique/Niviaux", label: "Niveaux", icon: <AppstoreAddOutlined /> },
         { key: "/Gestion_academique/Classes", label: "Classes", icon: <AppstoreAddOutlined /> },
         { key: "/Gestion_academique/Maquettes", label: "Maquettes", icon: <AppstoreAddOutlined /> },
-        // { key: "/Gestion_academique/Resultats", label: "Résultats", icon: <AppstoreAddOutlined /> },
         { key: "/Gestion_academique/Migrations", label: "Migrations", icon: <AppstoreAddOutlined /> },
-        { key: "/Gestion_academique/Fusion", label: "Fusion", icon: <AppstoreAddOutlined /> },
-        { key: "/Gestion_academique/Professeur", label: "Professeur", icon: <TeamOutlined /> }, 
+        { key: "/Gestion_academique/Memoires", label: "Memoires", icon: <BookDashedIcon /> },
+        { key: "/Gestion_academique/Professeur", label: "Professeur", icon: <TeamOutlined /> },
+        
       ],
     },
     {
@@ -121,7 +145,6 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
         { key: "/Etudiant/Cartes", label: "Cartes", icon: <IdcardOutlined /> },
         { key: "/Etudiant/Listes_Ministere", label: "Listes Ministère", icon: <ReadOutlined /> },
         { key: "/Etudiant/Verification", label: "Vérification", icon: <ContactsOutlined /> },
-        // { key: "/Etudiant/DashScolarite", label: "Tableau recapitulatif", icon: <DashboardOutlined /> },
         { key: "/Etudiant/Listes_Etudiant", label: "Listes Étudiants", icon: <UserSwitchOutlined /> },
       ],
     },
