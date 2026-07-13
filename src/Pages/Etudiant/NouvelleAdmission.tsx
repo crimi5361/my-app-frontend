@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import {
@@ -11,6 +10,7 @@ import ResumeFinalisation from './ResumeFinalisation';
 import type { UploadFile } from 'antd/es/upload/interface';
 import type { InitialValues } from './ResumeFinalisation';
 import dayjs from 'dayjs';
+import { apiFetch, ApiError } from '../../lib/api';
 
 const { Step } = Steps;
 const { Option } = Select;
@@ -119,9 +119,7 @@ const NouvelleAdmission = () => {
   // ── Pays & nationalités depuis /api/data/pays ─────────────────────────────────
   const fetchPays = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/data/pays`);
-      if (!res.ok) throw new Error(`Erreur HTTP: ${res.status}`);
-      const data = await res.json();
+      const data = await apiFetch('/api/data/pays');
       if (!data.success) throw new Error(data.message || 'Erreur inconnue');
 
       const liste: Pays[] = data.data;
@@ -130,6 +128,7 @@ const NouvelleAdmission = () => {
       const ci = liste.find(p => p.code_iso === 'CI');
       setPays(ci ? [ci, ...liste.filter(p => p.code_iso !== 'CI')] : liste);
     } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return;
       console.error('Erreur chargement pays:', e);
       message.error('Erreur lors du chargement des pays');
     }
@@ -137,29 +136,32 @@ const NouvelleAdmission = () => {
 
   const fetchVilles = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/data/villes`);
-      if (!res.ok) throw new Error('Erreur villes');
-      const data = await res.json();
+      const data = await apiFetch('/api/data/villes');
       if (data.success) setVilles(data.data);
-    } catch (e) { message.error('Erreur lors du chargement des villes'); console.error(e); }
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return;
+      message.error('Erreur lors du chargement des villes'); console.error(e);
+    }
   };
 
   const fetchSeriesBac = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/data/series-bac`);
-      if (!res.ok) throw new Error('Erreur séries BAC');
-      const data = await res.json();
+      const data = await apiFetch('/api/data/series-bac');
       if (data.success) setSeriesBac(data.data);
-    } catch (e) { message.error('Erreur lors du chargement des séries de BAC'); console.error(e); }
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return;
+      message.error('Erreur lors du chargement des séries de BAC'); console.error(e);
+    }
   };
 
   const fetchAnneesBac = async () => {
     try {
-      const res = await fetch(`${API_URL}/api/data/annees-bac`);
-      if (!res.ok) throw new Error('Erreur années BAC');
-      const data = await res.json();
+      const data = await apiFetch('/api/data/annees-bac');
       if (data.success) setAnneesBac(data.data);
-    } catch (e) { message.error('Erreur lors du chargement des années de BAC'); console.error(e); }
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return;
+      message.error('Erreur lors du chargement des années de BAC'); console.error(e);
+    }
   };
 
   const onFirstStepFinish = async (values: any) => {

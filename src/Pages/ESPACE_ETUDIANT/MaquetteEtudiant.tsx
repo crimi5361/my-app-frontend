@@ -15,6 +15,7 @@ import {
   Calendar
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../../lib/api';
 
 interface UE {
   id: number;
@@ -165,9 +166,8 @@ const MaquetteEtudiant = () => {
   const fetchMaquetteForStudent = async (academicInfo: any) => {
     setLoadingMaquette(true);
     try {
-      const response = await fetch(`${API_URL}/api/maquettes`);
-      const data = await response.json();
-      
+      const data = await apiFetch('/api/maquettes');
+
       if (Array.isArray(data)) {
         const maquettesFiltrees = data.filter(maquette => {
           const nomClasseNormalise = normalizeName(academicInfo.classe);
@@ -211,13 +211,7 @@ const MaquetteEtudiant = () => {
 
   const fetchMaquetteDetail = async (maquetteId: number) => {
     try {
-      const response = await fetch(`${API_URL}/api/detailaffichageMaquette/maquettes/${maquetteId}/structured`);
-      
-      if (!response.ok) {
-        throw new Error('Erreur de chargement des détails de la maquette');
-      }
-
-      const data = await response.json();
+      const data = await apiFetch(`/api/detailaffichageMaquette/maquettes/${maquetteId}/structured`);
       setMaquetteDetail(data.maquette);
       setSemestres(data.semestres || []);
       // Développer le premier semestre par défaut

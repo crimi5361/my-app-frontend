@@ -5,13 +5,8 @@ import { useEffect, useState } from "react";
 import { Table, Button, Modal, Form, Input, message, Popconfirm, Tag, Alert } from "antd";
 import { PlusOutlined, CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
 import PageHeader from "../../Components/PageHeader/PageHeader";
-
-interface AnneeAcademique {
-  id: number;
-  annee: string;
-  etat: "en cour" | "fermée";
-  departement_id: number;
-}
+import { apiFetch, ApiError } from "../../lib/api";
+import type { AnneeAcademique } from "../../type/AnneeAcademique";
 
 // ── Lecture utilisateur + departement_id (même fix que Paiements) ─────────
 const getUserInfo = () => {
@@ -34,7 +29,6 @@ const Annes_accademique = () => {
   const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
-  const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
 
   const currentUser = getUserInfo();
   const departement_id = currentUser?.departement_id;
@@ -45,10 +39,10 @@ const Annes_accademique = () => {
     if (!departement_id) return;
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/annees?departement_id=${departement_id}`);
-      const data: AnneeAcademique[] = await res.json();
+      const data: AnneeAcademique[] = await apiFetch(`/api/annees?departement_id=${departement_id}`);
       setAnnees(data);
-    } catch {
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return;
       message.error("Erreur lors du chargement des années académiques");
     } finally {
       setLoading(false);
@@ -63,9 +57,8 @@ const Annes_accademique = () => {
   const handleAdd = async () => {
     try {
       const values = await form.validateFields();
-      const res = await fetch(`${API_URL}/api/annees/ajouter`, {
+      await apiFetch("/api/annees/ajouter", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           annee: values.annee,
           etat: "en cour",
@@ -73,42 +66,37 @@ const Annes_accademique = () => {
         }),
       });
 
-      const data = await res.json();
-
-      if (res.ok) {
-        message.success("Année académique ajoutée avec succès");
-        form.resetFields();
-        setIsModalOpen(false);
-        fetchAnnees();
-      } else {
-        message.error(data.message || "Erreur lors de l'ajout");
-      }
-    } catch {
-      message.error("Erreur lors de la communication avec le serveur");
+      message.success("Année académique ajoutée avec succès");
+      form.resetFields();
+      setIsModalOpen(false);
+      fetchAnnees();
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return;
+      message.error(e instanceof Error ? e.message : "Erreur lors de la communication avec le serveur");
     }
   };
 
   // ── Fermer ───────────────────────────────────────────────────────────
   const handleCloseYear = async (id: number) => {
-    const res = await fetch(`${API_URL}/api/annees/${id}/fermer`, { method: "POST" });
-    if (res.ok) {
+    try {
+      await apiFetch(`/api/annees/${id}/fermer`, { method: "POST" });
       message.success("Année fermée");
       fetchAnnees();
-    } else {
-      const err = await res.json();
-      message.error(err.message || "Erreur");
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return;
+      message.error(e instanceof Error ? e.message : "Erreur");
     }
   };
 
   // ── Réouvrir ─────────────────────────────────────────────────────────
   const handleReopenYear = async (id: number) => {
-    const res = await fetch(`${API_URL}/api/annees/${id}/reouvrir`, { method: "POST" });
-    if (res.ok) {
+    try {
+      await apiFetch(`/api/annees/${id}/reouvrir`, { method: "POST" });
       message.success("Année rouverte");
       fetchAnnees();
-    } else {
-      const err = await res.json();
-      message.error(err.message || "Erreur");
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return;
+      message.error(e instanceof Error ? e.message : "Erreur");
     }
   };
 

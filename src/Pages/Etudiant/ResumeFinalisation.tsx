@@ -22,6 +22,7 @@ import {
 } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { apiFetch, ApiError } from '../../lib/api';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -147,11 +148,10 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
 
   const fetchNiveauxByFiliere = async (filiereId: number) => {
     try {
-      const response = await fetch(`${API_URL}/api/niveaux/${filiereId}`);
-      if (!response.ok) throw new Error('Erreur lors de la récupération des niveaux');
-      const data: Niveau[] = await response.json();
+      const data: Niveau[] = await apiFetch(`/api/niveaux/${filiereId}`);
       setNiveaux(data);
     } catch (error) {
+      if (error instanceof ApiError && error.status === 401) return;
       message.error('Erreur lors du chargement des niveaux');
       console.error(error);
     }
@@ -159,11 +159,10 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
 
   const fetchParcours = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/curcus`);
-      if (!response.ok) throw new Error('Erreur lors de la récupération des parcours');
-      const data: Parcours[] = await response.json();
+      const data: Parcours[] = await apiFetch(`/api/curcus`);
       setParcours(data);
     } catch (error) {
+      if (error instanceof ApiError && error.status === 401) return;
       message.error('Erreur lors du chargement des parcours');
       console.error(error);
     }

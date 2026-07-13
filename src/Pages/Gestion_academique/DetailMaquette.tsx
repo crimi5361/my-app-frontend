@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import { apiFetch } from '../../lib/api';
 import {
   Card, Button, Modal, Form, Input, InputNumber, Select, Space,
   message, Spin, Table, Tag, Row, Col, Typography, Tooltip, Popconfirm
@@ -14,7 +15,6 @@ import {
 } from '@ant-design/icons';
 
 const { Title, Text } = Typography;
-const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
 
@@ -169,9 +169,7 @@ const DetailMaquette: React.FC = () => {
   const fetchMaquetteDetail = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`${API_URL}/api/detailaffichageMaquette/maquettes/${id}/structured`);
-      if (!response.ok) throw new Error('Erreur de chargement');
-      const data = await response.json();
+      const data = await apiFetch(`/api/detailaffichageMaquette/maquettes/${id}/structured`);
       setMaquette(data.maquette);
       setSemestres(data.semestres || []);
     } catch {
@@ -183,9 +181,7 @@ const DetailMaquette: React.FC = () => {
 
   const fetchUesForMaquette = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/maquettes/maquettes/${id}/ues`);
-      if (!response.ok) throw new Error();
-      const data = await response.json();
+      const data = await apiFetch(`/api/maquettes/maquettes/${id}/ues`);
       const ues = Array.isArray(data) ? data : [];
       setAvailableUes(ues);
       return ues;
@@ -197,9 +193,7 @@ const DetailMaquette: React.FC = () => {
 
   const fetchAllSemestres = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/semestres`);
-      if (!response.ok) throw new Error();
-      const data = await response.json();
+      const data = await apiFetch('/api/semestres');
       setAllSemestres(Array.isArray(data) ? data : []);
     } catch {
       message.error('Erreur lors du chargement des semestres');
@@ -208,9 +202,7 @@ const DetailMaquette: React.FC = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch(`${API_URL}/api/categorie`);
-      if (!response.ok) throw new Error();
-      const data = await response.json();
+      const data = await apiFetch('/api/categorie');
       setCategories(Array.isArray(data) ? data : []);
     } catch {
       message.error('Erreur lors du chargement des catégories');
@@ -316,16 +308,12 @@ const DetailMaquette: React.FC = () => {
       // Mise à jour UE si c'est la 1ère ligne (rowspan > 0) ou UE sans matière
       if (record.ue_rowspan !== 0) {
         promises.push(
-          fetch(`${API_URL}/api/ues/ues/${record.ue_id}`, {
+          apiFetch(`/api/ues/ues/${record.ue_id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               libelle: values.ue_libelle,
               code_ue: values.ue_code,
             }),
-          }).then(async r => {
-            if (!r.ok) throw new Error(`Erreur UE: ${r.status}`);
-            return r.json();
           })
         );
       }
@@ -333,9 +321,8 @@ const DetailMaquette: React.FC = () => {
       // Mise à jour matière si elle existe
       if (record.id > 0) {
         promises.push(
-          fetch(`${API_URL}/api/matiere/${record.id}`, {
+          apiFetch(`/api/matiere/${record.id}`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               nom: values.nom,
               code_ecue: values.code_ecue,
@@ -345,9 +332,6 @@ const DetailMaquette: React.FC = () => {
               volume_horaire_td: values.volume_horaire_td ?? 0,
               taux_horaire_td: values.taux_horaire_td ?? 0,
             }),
-          }).then(async r => {
-            if (!r.ok) throw new Error(`Erreur matière: ${r.status}`);
-            return r.json();
           })
         );
       }
@@ -373,12 +357,10 @@ const DetailMaquette: React.FC = () => {
   const handleCreateUE = async (values: any) => {
     try {
       const codeUE = values.code_ue || generateUECode(values.libelle, values.semestre_id);
-      const response = await fetch(`${API_URL}/api/ues/ues`, {
+      const data = await apiFetch('/api/ues/ues', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...values, code_ue: codeUE, maquette_id: parseInt(id || '0') }),
       });
-      const data = await response.json();
       if (data.success) {
         message.success(`UE créée — Code: ${codeUE}`);
         setUeModalVisible(false);
@@ -397,9 +379,8 @@ const DetailMaquette: React.FC = () => {
   const handleCreateMatiere = async (values: any) => {
     try {
       const codeECUE = values.code_ecue || generateECUECode(values.nom, values.ue_id);
-      const response = await fetch(`${API_URL}/api/matiere`, {
+      const data = await apiFetch('/api/matiere', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...values,
           code_ecue: codeECUE,
@@ -409,8 +390,6 @@ const DetailMaquette: React.FC = () => {
           taux_horaire_cm: values.taux_horaire_cm || 0,
         }),
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
       if (data.success) {
         message.success(`Matière créée — Code: ${codeECUE}`);
         setMatiereModalVisible(false);

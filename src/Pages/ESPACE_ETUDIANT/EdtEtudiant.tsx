@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -21,6 +20,7 @@ import {
   FileExcelOutlined,
   CalendarOutlined,
 } from '@ant-design/icons';
+import { apiFetch } from '../../lib/api';
 
 const { Title, Text } = Typography;
 
@@ -44,7 +44,6 @@ const EdtEtudiant = () => {
   const [emploiDuTemps, setEmploiDuTemps] = useState<EmploiDuTemps | null>(null);
   const [groupe, setGroupe] = useState<GroupeEtudiant | null>(null);
   const [loading, setLoading] = useState(true);
-  const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
 
   useEffect(() => {
     fetchEmploiDuTempsEtudiant();
@@ -53,27 +52,17 @@ const EdtEtudiant = () => {
   const fetchEmploiDuTempsEtudiant = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
       const studentId = localStorage.getItem('user_id');
-      
-      if (!token || !studentId) {
+
+      if (!studentId) {
         message.error('Session invalide. Veuillez vous reconnecter.');
         setLoading(false);
         return;
       }
 
       // 1. Récupérer les infos de l'étudiant
-      const responseEtudiant = await fetch(`${API_URL}/api/donneeespaceetudiant/profile/${studentId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      });
+      const dataEtudiant = await apiFetch(`/api/donneeespaceetudiant/profile/${studentId}`);
 
-      const dataEtudiant = await responseEtudiant.json();
-      
-      console.log('Profil étudiant:', dataEtudiant);
-      
       // 2. Extraction du groupe_id
       let groupeId;
       let nomGroupe = '';
@@ -84,32 +73,12 @@ const EdtEtudiant = () => {
         
         nomGroupe = dataEtudiant.informations_academiques.groupe || '';
         
-        console.log('Groupe ID trouvé:', groupeId);
-        console.log('Nom du groupe:', nomGroupe);
       }
 
       if (groupeId) {
         // 3. Récupérer DIRECTEMENT l'emploi du temps
-        const responseEdt = await fetch(`${API_URL}/api/emploiDuTemps/${groupeId}/emploi-du-temps`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
+        const dataEdt = await apiFetch(`/api/emploiDuTemps/${groupeId}/emploi-du-temps`);
 
-        // Vérifie si la réponse est du JSON
-        const responseText = await responseEdt.text();
-        let dataEdt;
-        
-        try {
-          dataEdt = JSON.parse(responseText);
-          console.log('Emploi du temps:', dataEdt);
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        } catch (error) {
-          console.error('La réponse n\'est pas du JSON:', responseText);
-          throw new Error('Format de réponse invalide');
-        }
-        
         if (dataEdt.success && dataEdt.data) {
           const edt = dataEdt.data;
           const extension = edt.original_name.split('.').pop()?.toLowerCase();
@@ -241,7 +210,7 @@ const EdtEtudiant = () => {
                     type="primary" 
                     icon={<DownloadOutlined />}
                     size="large"
-                    href={`${API_URL}/api/emploiDuTemps/emploi-du-temps/${emploiDuTemps.id}/download`}
+                    href={`${import.meta.env.VITE_API_URL_SERVER}/api/emploiDuTemps/emploi-du-temps/${emploiDuTemps.id}/download?token=${encodeURIComponent(localStorage.getItem('token') || '')}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{ marginRight: '12px' }}

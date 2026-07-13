@@ -1,5 +1,6 @@
 import { Dialog } from '@headlessui/react';
 import { useEffect, useState } from 'react';
+import { apiFetch } from '../lib/api';
 
 interface Role {
   id: number;
@@ -26,18 +27,14 @@ export default function AddUserModal({ isOpen, onClose }: Props) {
   const [departements, setDepartements] = useState<Departement[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
 
   useEffect(() => {
     const fetchRolesAndDepartements = async () => {
       try {
-        const [rolesRes, depsRes] = await Promise.all([
-          fetch(`${API_URL}/api/roles`),
-          fetch(`${API_URL}/api/departements`),
+        const [rolesData, depsData] = await Promise.all([
+          apiFetch('/api/roles'),
+          apiFetch('/api/departements'),
         ]);
-        const rolesData = await rolesRes.json();
-        const depsData = await depsRes.json();
         setRoles(rolesData);
         setDepartements(depsData);
       } catch (error) {
@@ -54,7 +51,7 @@ export default function AddUserModal({ isOpen, onClose }: Props) {
       setDepartementId('');
       setErrors({});
     }
-  }, [API_URL, isOpen]);
+  }, [isOpen]);
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -96,21 +93,15 @@ export default function AddUserModal({ isOpen, onClose }: Props) {
     };
 
     try {
-      const response = await fetch(`${API_URL}/api/utilisateurs/ajouter`, {
+      await apiFetch('/api/utilisateurs/ajouter', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newUser),
       });
-
-      if (response.ok) {
-        alert('Utilisateur ajouté avec succès !');
-        onClose();
-      } else {
-        const error = await response.json();
-        alert(`Erreur: ${error.message}`);
-      }
+      alert('Utilisateur ajouté avec succès !');
+      onClose();
     } catch (error) {
       console.error('Erreur lors de l\'ajout de l\'utilisateur:', error);
+      alert(`Erreur: ${error instanceof Error ? error.message : 'inconnue'}`);
     } finally {
       setIsSubmitting(false);
     }

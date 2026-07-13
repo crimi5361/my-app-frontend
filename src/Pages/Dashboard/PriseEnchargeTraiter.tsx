@@ -17,6 +17,7 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import moment from 'moment';
+import { apiFetch, ApiError } from '../../lib/api';
 
 const { Option } = Select;
 
@@ -160,16 +161,16 @@ const PriseEnchargeTraiter = () => {
     const fetch_ = async () => {
       setLoadingYears(true);
       try {
-        const res = await fetch(`${API_URL}/api/annees?departement_id=${departement_id}`, {
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data = await res.json();
+        const data = await apiFetch(`/api/annees?departement_id=${departement_id}`);
         if (Array.isArray(data)) {
           setAcademicYears(data);
           const encours = data.find((y: AcademicYear) => y.etat === 'en cour' || y.etat === 'en cours');
           setSelectedYearId(encours ? encours.id : data[0]?.id ?? null);
         }
-      } catch { message.error('Impossible de charger les années'); }
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 401) return;
+        message.error('Impossible de charger les années');
+      }
       finally { setLoadingYears(false); }
     };
     fetch_();

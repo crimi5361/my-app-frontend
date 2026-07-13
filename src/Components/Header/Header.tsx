@@ -5,30 +5,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { FaUserCircle } from "react-icons/fa";
 import { FiLogOut, FiEye, FiEyeOff, FiX, FiCheck, FiAlertCircle } from "react-icons/fi";
 import { RiLockPasswordLine } from "react-icons/ri";
-
-// ─── Variable d'environnement ─────────────────────────────────────────────────
-const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
+import { apiFetch } from "../../lib/api";
 
 // ─── Hook : appel API changement de mot de passe ─────────────────────────────
 const useChangePassword = () => {
   const changePassword = async (oldPassword: string, newPassword: string): Promise<void> => {
-    const token = localStorage.getItem("token");
-    if (!token) throw new Error("Session expirée. Veuillez vous reconnecter.");
-
-    const response = await fetch(`${API_URL}/api/change_Password/changePassword`, {
+    await apiFetch("/api/change_Password/changePassword", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
       body: JSON.stringify({ oldPassword, newPassword }),
     });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Erreur lors du changement de mot de passe.");
-    }
   };
 
   return { changePassword };

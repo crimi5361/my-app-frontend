@@ -1,4 +1,3 @@
-/* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-unused-vars */
 import { useEffect, useState } from 'react';
 import { User } from '../../type/User';
@@ -7,13 +6,13 @@ import AddUserModal from '../../Components/AddUserModal';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import { Input, Button, Space, Card, message, Spin } from 'antd';
 import { SearchOutlined, UserAddOutlined } from '@ant-design/icons';
+import { apiFetch } from '../../lib/api';
 
 export default function UserManagement() {
   const [users, setUsers] = useState<User[]>([]);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [loading, setLoading] = useState(false);
-  const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
 
   useEffect(() => {
     fetchUsers();
@@ -22,8 +21,7 @@ export default function UserManagement() {
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/utilisateurs`);
-      const data = await res.json();
+      const data = await apiFetch('/api/utilisateurs');
       setUsers(data);
     } catch (error) {
       message.error('Erreur lors du chargement des utilisateurs');

@@ -272,12 +272,12 @@ const DepotMemoire = () => {
   // Le formulaire est verrouillé si :
   // - mémoire en_attente et délai de 2h dépassé
   // - mémoire validé
-  // - mémoire rejeté
   // - mémoire en cours de traitement
+  // (un mémoire rejeté n'est PAS bloquant : l'étudiant doit pouvoir soumettre
+  // une nouvelle version corrigée, ce que le backend autorise déjà)
   const formBloque =
     !!dernierMemoire &&
     (dernierMemoire.statut === 'valide' ||
-      dernierMemoire.statut === 'rejete' ||
       dernierMemoire.statut === 'encours' ||
       (dernierMemoire.statut === 'en_attente' && !modifPossible));
 
@@ -461,6 +461,21 @@ const DepotMemoire = () => {
                       <CalendarClock size={14} />
                       <span>Déposé le {formatDateDepot(dernierMemoire.date_depot)}</span>
                     </div>
+                    {/* Affichage du rapport d'analyse si disponible */}
+                    {dernierMemoire.rapport_analyse && (
+                      <div className="mt-3 flex items-center gap-3 bg-blue-50 rounded-xl px-3 py-2 border border-blue-200">
+                        <FilePdfOutlined size={16} className="text-blue-600 shrink-0" />
+                        <span className="text-xs text-blue-700 font-medium">Rapport d'analyse disponible</span>
+                        <button
+                          onClick={handleDownloadRapport}
+                          className="ml-auto flex items-center gap-1.5 text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition-colors"
+                        >
+                          <DownloadIcon size={14} />
+                          Télécharger
+                        </button>
+                      </div>
+                    )}
+
                     <div className="mt-3 flex items-start gap-2 bg-emerald-100 rounded-xl px-3 py-2">
                       <Info size={14} className="text-emerald-700 mt-0.5 shrink-0" />
                       <p className="text-xs text-emerald-800">
@@ -554,7 +569,6 @@ const DepotMemoire = () => {
               <Info size={16} className="mt-0.5 shrink-0 text-slate-400" />
               {dernierMemoire?.statut === 'encours' && 'Votre mémoire est en cours de traitement. Aucune modification n\'est possible.'}
               {dernierMemoire?.statut === 'valide' && 'Votre mémoire est validé. Aucune modification n\'est possible.'}
-              {dernierMemoire?.statut === 'rejete' && 'Votre mémoire a été rejeté. Veuillez consulter le motif ci-dessus et soumettre une nouvelle version corrigée.'}
               {dernierMemoire?.statut === 'en_attente' && !modifPossible && 'Le délai de modification est dépassé. La scolarité traite votre dossier.'}
             </div>
           )}
