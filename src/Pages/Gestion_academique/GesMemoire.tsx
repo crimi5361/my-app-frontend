@@ -424,28 +424,41 @@ const GesMemoire: React.FC = () => {
       return;
     }
     setSelectedMemoire(memoire);
+    setRapportFile(null);
+    setFileList([]);
     setShowValidateModal(true);
   };
 
-  // Confirmer la validation
+  // Confirmer la validation (avec upload optionnel du rapport d'analyse)
   const handleValidateConfirm = async (): Promise<void> => {
     if (!selectedMemoire) return;
-    
+
+    setUploading(true);
     setShowValidateModal(false);
-    
+
     try {
       const userId = localStorage.getItem('user_id');
-      
+      const formData = new FormData();
+      formData.append('traite_par', userId || '');
+
+      if (rapportFile) {
+        formData.append('rapport_analyse', rapportFile);
+      }
+
       const response = await fetch(`${API_URL}/api/memoire/${selectedMemoire.id}/valider`, {
         method: 'PUT',
-        headers: getHeaders(),
-        body: JSON.stringify({ traite_par: userId })
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: formData
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok && data.success) {
-        showToast('Mémoire validé avec succès', 'success');
+        showToast(rapportFile ? 'Mémoire validé avec rapport d\'analyse' : 'Mémoire validé avec succès', 'success');
+        setRapportFile(null);
+        setFileList([]);
         fetchMemoires();
       } else {
         showToast(data.message || 'Erreur lors de la validation', 'error');
@@ -454,6 +467,7 @@ const GesMemoire: React.FC = () => {
       console.error('Erreur:', error);
       showToast(error.message || 'Erreur lors de la validation', 'error');
     } finally {
+      setUploading(false);
       setSelectedMemoire(null);
     }
   };
@@ -636,7 +650,7 @@ const GesMemoire: React.FC = () => {
           {record.statut === 'encours' && record.traite_par && isAssignedToMe(record) && (
             <div style={{ fontSize: 11, color: '#52c41a' }}>● Vous êtes en charge</div>
           )}
-          {record.statut === 'rejete' && record.rapport_analyse && (
+          {record.rapport_analyse && (
             <div style={{ fontSize: 11, color: '#1890ff' }}>
               <FilePdfOutlined size={12} /> Rapport disponible
             </div>
@@ -671,7 +685,7 @@ const GesMemoire: React.FC = () => {
               />
             </Tooltip>
 
-            {record.statut === 'rejete' && record.rapport_analyse && (
+            {record.rapport_analyse && (
               <Tooltip title="Voir le rapport d'analyse">
                 <Button
                   type="text"
@@ -901,12 +915,22 @@ const GesMemoire: React.FC = () => {
           </Space>
         }
         open={showValidateModal}
-        onCancel={() => setShowValidateModal(false)}
+        onCancel={() => {
+          setShowValidateModal(false);
+          setSelectedMemoire(null);
+          setRapportFile(null);
+          setFileList([]);
+        }}
         footer={[
-          <Button key="cancel" onClick={() => setShowValidateModal(false)}>
+          <Button key="cancel" onClick={() => {
+            setShowValidateModal(false);
+            setSelectedMemoire(null);
+            setRapportFile(null);
+            setFileList([]);
+          }}>
             Annuler
           </Button>,
-          <Button key="submit" type="primary" style={{ backgroundColor: '#52c41a' }} onClick={handleValidateConfirm}>
+          <Button key="submit" type="primary" style={{ backgroundColor: '#52c41a' }} onClick={handleValidateConfirm} loading={uploading}>
             Valider
           </Button>
         ]}
@@ -916,9 +940,32 @@ const GesMemoire: React.FC = () => {
           Êtes-vous sûr de vouloir valider le mémoire de{' '}
           <strong>{selectedMemoire?.nom} {selectedMemoire?.prenoms}</strong> ?
         </p>
-        <p style={{ color: '#666', marginTop: 8 }}>
+        <p style={{ color: '#666', marginTop: 8, marginBottom: 16 }}>
           Cette action est irréversible. Le mémoire sera marqué comme <strong>Validé</strong> et l'étudiant en sera informé.
         </p>
+
+        <Form layout="vertical">
+          <Form.Item label="Rapport d'analyse (optionnel)">
+            <Upload {...uploadProps}>
+              <Button icon={<UploadIcon size={16} />}>
+                {rapportFile ? 'Changer le rapport' : 'Uploader le rapport d\'analyse'}
+              </Button>
+            </Upload>
+            {rapportFile && (
+              <div style={{ marginTop: 8 }}>
+                <Tag color="blue">
+                  <FilePdfOutlined size={14} /> {rapportFile.name}
+                </Tag>
+                <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                  ({(rapportFile.size / 1024 / 1024).toFixed(2)} Mo)
+                </Text>
+              </div>
+            )}
+            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+              Format PDF uniquement, taille max 5 Mo
+            </Text>
+          </Form.Item>
+        </Form>
       </Modal>
 
       {/* Modal de rejet avec upload du rapport */}
