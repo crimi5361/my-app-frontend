@@ -26,6 +26,7 @@ import {
   PlusOutlined
 } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import { apiFetch } from '../../lib/api';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -180,14 +181,9 @@ const DetailClasse = () => {
     setLoadingMaquettes(true);
     try {
       // Récupérer toutes les maquettes
-      const response = await fetch(`${API_URL}/api/maquettes`);
-      
-      const data = await response.json();
-      
+      const data = await apiFetch('/api/maquettes');
+
       if (Array.isArray(data)) {
-        console.log('Toutes les maquettes:', data);
-        console.log('Nom de la classe:', classe.nom);
-        console.log('Description de la classe:', classe.description);
         
         // Filtrer les maquettes avec une correspondance plus intelligente
         const maquettesFiltrees = data.filter(maquette => {
@@ -199,19 +195,6 @@ const DetailClasse = () => {
           // Extraction du régime depuis la description de la classe et le parcours de la maquette
           const regimeClasse = extractRegime(classe.description);
           const regimeMaquette = extractRegime(maquette.parcour || '');
-
-          console.log('Comparaison détaillée:', {
-            classe: classe.nom,
-            classeDescription: classe.description,
-            maquette: `${maquette.filiere_nom} ${maquette.niveau_libelle}`,
-            maquetteParcours: maquette.parcour,
-            filiereClasse,
-            filiereMaquette,
-            niveauClasse,
-            niveauMaquette,
-            regimeClasse,
-            regimeMaquette
-          });
 
           // Vérifier la correspondance sur plusieurs critères
           const correspondanceFiliere = filiereClasse.includes(filiereMaquette) || 
@@ -225,17 +208,9 @@ const DetailClasse = () => {
           const correspondanceRegime =
             (regimeClasse === '' && regimeMaquette === '') || regimeClasse === regimeMaquette;
 
-          console.log('Résultat correspondance:', {
-            correspondanceFiliere,
-            correspondanceNiveau,
-            correspondanceRegime,
-            correspondanceGlobale: correspondanceFiliere && correspondanceNiveau && correspondanceRegime
-          });
-
           return correspondanceFiliere && correspondanceNiveau && correspondanceRegime;
         });
         
-        console.log('Maquettes filtrées:', maquettesFiltrees);
         setMaquettes(maquettesFiltrees);
         
         // Si une maquette correspond, charger ses détails
@@ -263,13 +238,7 @@ const DetailClasse = () => {
   const fetchMaquetteDetail = async (maquetteId: number) => {
     setLoadingMaquetteDetail(true);
     try {
-      const response = await fetch(`${API_URL}/api/detailaffichageMaquette/maquettes/${maquetteId}/structured`);
-      
-      if (!response.ok) {
-        throw new Error('Erreur de chargement des détails de la maquette');
-      }
-
-      const data = await response.json();
+      const data = await apiFetch(`/api/detailaffichageMaquette/maquettes/${maquetteId}/structured`);
       setMaquetteDetail(data.maquette);
       setSemestres(data.semestres || []);
     } catch (error) {

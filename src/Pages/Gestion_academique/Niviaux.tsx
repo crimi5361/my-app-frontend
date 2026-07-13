@@ -18,9 +18,9 @@ import {
   ApartmentOutlined
 } from '@ant-design/icons';
 import PageHeader from "../../Components/PageHeader/PageHeader";
+import { apiFetch } from "../../lib/api";
 
 const { Title, Text } = Typography;
-const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
 
 interface Niveau {
   id: string;
@@ -38,8 +38,7 @@ const Niviaux = () => {
   useEffect(() => {
     const fetchNiveaux = async () => {
       try {
-        const res = await fetch(`${API_URL}/api/niveaux`);
-        const data = await res.json();
+        const data = await apiFetch('/api/niveaux');
         setNiveaux(data);
         
         // Calculate total formation prices

@@ -195,7 +195,6 @@ const Resultat: React.FC = () => {
         documentUrl = `${API_URL}/api/PV/vue/groupe/${groupeId}/bulletins/semestre/${card.semestre}?token=${encodedToken}`;
       }
       
-      console.log('Ouverture du document:', documentUrl);
       
       // Ouvrir dans un nouvel onglet
       const newWindow = window.open(documentUrl, '_blank');

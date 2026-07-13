@@ -13,6 +13,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../../lib/api';
 
 interface Documents {
   extrait_naissance: string;
@@ -43,28 +44,16 @@ const DocumentsEtudiant = () => {
   useEffect(() => {
     const fetchStudentData = async () => {
       try {
-        const token = localStorage.getItem('token');
         const studentId = localStorage.getItem('user_id');
-        
-        if (!token || !studentId) {
-          setError('Token ou ID étudiant manquant');
+
+        if (!studentId) {
+          setError('ID étudiant manquant');
           setLoading(false);
           return;
         }
 
-        const response = await fetch(`${API_URL}/api/donneeespaceetudiant/profile/${studentId}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
+        const data = await apiFetch(`/api/donneeespaceetudiant/profile/${studentId}`);
 
-        if (!response.ok) {
-          throw new Error(`Erreur HTTP: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
-        
         if (data.informations_personnelles && data.informations_academiques) {
           let photoUrl = data.informations_personnelles.photo_url || '';
           

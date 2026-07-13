@@ -4,13 +4,13 @@ import { useState, useEffect } from 'react';
 import { Card, Row, Col, Statistic, Select, Spin, Table, Progress, Button, message, Dropdown } from 'antd';
 import { ReloadOutlined, FileExcelOutlined, FilePdfOutlined, DownOutlined, TeamOutlined, CheckCircleOutlined, CloseCircleOutlined, TrophyOutlined } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import { apiFetch, ApiError } from '../../lib/api';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import moment from 'moment';
 
 const { Option } = Select;
-const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
 
 // ── getUserInfo ────────────────────────────────────────────────────────────
 const getUserInfo = () => {
@@ -187,15 +187,17 @@ const Statistique = () => {
     const fetchAnnees = async () => {
       try {
         setLoading(true);
-        const res = await fetch(`${API_URL}/api/annees?departement_id=${departement_id}`);
-        const data = await res.json();
+        const data = await apiFetch(`/api/annees?departement_id=${departement_id}`);
         if (Array.isArray(data)) {
           setAnnees(data);
           const encours = data.find((a: any) => a.etat === 'en cour' || a.etat === 'en cours');
           if (encours) setSelectedAnnee(encours.id);
           else if (data.length > 0) setSelectedAnnee(data[0].id);
         }
-      } catch { message.error('Erreur chargement des années'); }
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 401) return;
+        message.error('Erreur chargement des années');
+      }
       finally { setLoading(false); }
     };
     fetchAnnees();
@@ -210,14 +212,13 @@ const Statistique = () => {
     try {
       setLoading(true);
       const endpoints = [
-        `${API_URL}/api/statistiques/niveau?annee_academique_id=${selectedAnnee}&departement_id=${departement_id}`,
-        `${API_URL}/api/statistiques/cursus?annee_academique_id=${selectedAnnee}&departement_id=${departement_id}`,
-        `${API_URL}/api/statistiques/filiere?annee_academique_id=${selectedAnnee}&departement_id=${departement_id}`,
-        `${API_URL}/api/statistiques/cycle?annee_academique_id=${selectedAnnee}&departement_id=${departement_id}`,
-        `${API_URL}/api/statistiques/detailed?annee_academique_id=${selectedAnnee}&departement_id=${departement_id}`,
+        `/api/statistiques/niveau?annee_academique_id=${selectedAnnee}&departement_id=${departement_id}`,
+        `/api/statistiques/cursus?annee_academique_id=${selectedAnnee}&departement_id=${departement_id}`,
+        `/api/statistiques/filiere?annee_academique_id=${selectedAnnee}&departement_id=${departement_id}`,
+        `/api/statistiques/cycle?annee_academique_id=${selectedAnnee}&departement_id=${departement_id}`,
+        `/api/statistiques/detailed?annee_academique_id=${selectedAnnee}&departement_id=${departement_id}`,
       ];
-      const responses = await Promise.all(endpoints.map(u => fetch(u)));
-      const data = await Promise.all(responses.map(r => r.json()));
+      const data = await Promise.all(endpoints.map(p => apiFetch(p)));
       setStatistiques({
         niveau: data[0]?.data || [],
         cursus: data[1]?.data || [],
@@ -225,7 +226,10 @@ const Statistique = () => {
         cycle: data[3]?.data || [],
         detailed: data[4]?.data || null,
       });
-    } catch { message.error('Erreur chargement des statistiques'); }
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return;
+      message.error('Erreur chargement des statistiques');
+    }
     finally { setLoading(false); }
   };
 

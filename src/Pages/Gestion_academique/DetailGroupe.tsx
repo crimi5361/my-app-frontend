@@ -891,7 +891,7 @@ const DetailGroupe = () => {
                     <Button 
                       type="primary" 
                       icon={<EyeOutlined />}
-                      href={`${API_URL}/api/emploiDuTemps/emploi-du-temps/${emploiDuTemps.id}/download`}
+                      href={`${API_URL}/api/emploiDuTemps/emploi-du-temps/${emploiDuTemps.id}/download?token=${encodeURIComponent(localStorage.getItem('token') || '')}`}
                       target="_blank"
                       rel="noopener noreferrer"
                     >

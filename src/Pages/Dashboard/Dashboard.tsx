@@ -28,6 +28,7 @@ import {
 } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch, ApiError } from '../../lib/api';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -97,14 +98,7 @@ const Dashboard = () => {
     const fetchAcademicYears = async () => {
       try {
         // ← on passe le departement_id pour n'avoir que les années de ce département
-        const response = await fetch(
-          `${API_URL}/api/annees?departement_id=${departement_id}`,
-          { headers: { 'Content-Type': 'application/json' } }
-        );
-
-        if (!response.ok) throw new Error(`Erreur ${response.status}: ${response.statusText}`);
-
-        const data = await response.json();
+        const data = await apiFetch(`/api/annees?departement_id=${departement_id}`);
 
         if (Array.isArray(data)) {
           setAcademicYears(data);
@@ -123,6 +117,7 @@ const Dashboard = () => {
           throw new Error('Format de réponse inattendu');
         }
       } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return;
         console.error('Erreur récupération années académiques:', err);
         setError(err instanceof Error ? err.message : 'Une erreur est survenue');
         setLoading(false);

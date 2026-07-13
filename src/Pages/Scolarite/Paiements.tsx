@@ -29,6 +29,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import { apiFetch, ApiError } from '../../lib/api';
 import moment from 'moment';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
@@ -177,33 +178,16 @@ const Paiements = () => {
     const fetchAcademicYears = async () => {
       setLoadingYears(true);
       try {
-        const token = localStorage.getItem('token');
         const departement_id = localStorage.getItem('departement_id');
-  
-        if (!token || !departement_id) {
+
+        if (!departement_id) {
           message.error('Authentification requise');
           navigate('/login');
           return;
         }
-  
-        const response = await fetch(
-          `${API_URL}/api/annees?departement_id=${departement_id}`,
-          { headers: { 'Content-Type': 'application/json' } }
-        );
-  
-        if (response.status === 401) {
-          message.error('Session expirée, veuillez vous reconnecter');
-          localStorage.removeItem('token');
-          navigate('/login');
-          return;
-        }
-  
-        if (!response.ok) {
-          throw new Error(`Erreur ${response.status}: ${response.statusText}`);
-        }
-  
-        const data = await response.json();
-  
+
+        const data = await apiFetch(`/api/annees?departement_id=${departement_id}`);
+
         if (Array.isArray(data)) {
           setAcademicYears(data);
           
@@ -227,6 +211,7 @@ const Paiements = () => {
           throw new Error('Format de réponse inattendu');
         }
       } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return;
         console.error('Erreur récupération années académiques:', err);
         message.error('Impossible de charger les années académiques');
       } finally {

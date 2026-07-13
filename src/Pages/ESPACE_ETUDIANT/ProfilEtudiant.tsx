@@ -217,7 +217,6 @@ const MiseAJourProfil: React.FC = () => {
           pays_naissance: values.pays_naissance
         };
 
-        console.log('Données envoyées:', formattedValues);
 
         const response = await fetch(`${API_URL}/api/donneeespaceetudiant/mise-a-jour-profile/${studentId}`, {
           method: 'POST',

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
@@ -16,6 +15,8 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import moment from 'moment';
+import { apiFetch, ApiError } from '../../lib/api';
+import type { AnneeAcademique as AcademicYear } from '../../type/AnneeAcademique';
 
 const { TextArea } = Input;
 const { Option } = Select;
@@ -28,8 +29,6 @@ interface PECEnAttente {
   niveau: string; montant_scolarite: number; scolarite_verse: number;
   scolarite_restante: number; statut_etudiant: string; reduction_calculee: number;
 }
-interface AcademicYear { id: number; annee: string; etat: string; }
-
 // ── getUserInfo ──────────────────────────────────────────────────────────
 const getUserInfo = () => {
   try {
@@ -127,7 +126,6 @@ const ListePEC = () => {
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [selectedYearId, setSelectedYearId] = useState<number | null>(null);
   const [loadingYears, setLoadingYears] = useState(false);
-  const API_URL = import.meta.env.VITE_API_URL_SERVER || '';
 
   const currentUser = getUserInfo();
   const departement_id = currentUser?.departement_id;
@@ -139,16 +137,16 @@ const ListePEC = () => {
     const fetch_ = async () => {
       setLoadingYears(true);
       try {
-        const res = await fetch(`${API_URL}/api/annees?departement_id=${departement_id}`, {
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data = await res.json();
+        const data = await apiFetch(`/api/annees?departement_id=${departement_id}`);
         if (Array.isArray(data)) {
           setAcademicYears(data);
           const encours = data.find((y: AcademicYear) => y.etat === 'en cour' || y.etat === 'en cours');
           setSelectedYearId(encours ? encours.id : data[0]?.id ?? null);
         }
-      } catch { message.error('Impossible de charger les années académiques'); }
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 401) return;
+        message.error('Impossible de charger les années académiques');
+      }
       finally { setLoadingYears(false); }
     };
     fetch_();
@@ -160,16 +158,13 @@ const ListePEC = () => {
     if (!selectedYearId) return;
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(
-        `${API_URL}/api/priseEnCharge/pec-en-attente?anneeAcademiqueId=${selectedYearId}`,
-        { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } }
-      );
-      if (res.status === 401) { message.error('Session expirée'); localStorage.removeItem('token'); window.location.href = '/login'; return; }
-      const data = await res.json();
+      const data = await apiFetch(`/api/priseEnCharge/pec-en-attente?anneeAcademiqueId=${selectedYearId}`);
       if (data.success) setPecList(data.data);
       else message.error(data.message || 'Erreur chargement');
-    } catch { message.error('Erreur réseau'); }
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return;
+      message.error('Erreur réseau');
+    }
     finally { setLoading(false); }
   };
 
@@ -181,18 +176,18 @@ const ListePEC = () => {
       if (action === 'refuser') {
         try { const v = await form.validateFields(); motif_refus = v.motif_refus || null; } catch { motif_refus = null; }
       }
-      const token = localStorage.getItem('token');
-      const res = await fetch(`${API_URL}/api/paiements/valider-pec`, {
+      const data = await apiFetch('/api/paiements/valider-pec', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ pec_id: selectedPEC.pec_id, action, motif_refus }),
       });
-      const data = await res.json();
       if (data.success) {
         message.success(data.message);
         setModalVisible(false); setSelectedPEC(null); form.resetFields(); fetchPECEnAttente();
       } else message.error(data.message);
-    } catch { message.error('Erreur validation'); }
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return;
+      message.error('Erreur validation');
+    }
     finally { setActionLoading(false); }
   };
 

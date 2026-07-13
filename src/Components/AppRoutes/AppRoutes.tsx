@@ -13,7 +13,7 @@ import Annes_accademique from "../../Pages/Gestion_academique/Annes_accademique"
 import Salles from "../../Pages/Gestion_academique/Salles";
 import Niviaux from "../../Pages/Gestion_academique/Niviaux";
 import Filieres from "../../Pages/Gestion_academique/Filieres";
-import Classes from "../../Pages/Gestion_academique/Classes ";
+import Classes from "../../Pages/Gestion_academique/Classes";
 
 import Cartes from "../../Pages/Etudiant/Cartes";
 import Dossiers from "../../Pages/Etudiant/Dossiers";
@@ -50,13 +50,6 @@ import GesMemoire from "../../Pages/Gestion_academique/GesMemoire";
 // Caisse - Importer les pages
 import CaisseDashboard from "../../Pages/CAISSE/CaisseDashboard";
 import StatsResultat from "../../Pages/Gestion_academique/StatsResultat";
-
-
-// import Encaisser from "../../Pages/Caisse/Encaisser";
-// import RechercheEtudiant from "../../Pages/Caisse/RechercheEtudiant";
-// import PaiementsJour from "../../Pages/Caisse/PaiementsJour";
-// import MesRecus from "../../Pages/Caisse/MesRecus";
-// import FermerCaisse from "../../Pages/Caisse/FermerCaisse";
 
 const AppRoutes = () => {
   return (
@@ -113,11 +106,11 @@ const AppRoutes = () => {
       } />
       
       <Route path="/Gestion_academique/Annes_accademique" element={
-        <ProtectedRoute requiredPermission={["admin", "Gestion_academique"]}>
+        <ProtectedRoute requiredPermission="admin">
           <Annes_accademique />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/Gestion_academique/Salles" element={
         <ProtectedRoute requiredPermission={["admin", "Gestion_academique"]}>
           <Salles />
@@ -282,13 +275,13 @@ const AppRoutes = () => {
       } />
       
       <Route path="/Etudiant/Certificat_Scolarite/:id" element={
-        <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
+        <ProtectedRoute requiredPermission={["admin", "Etudiant"]}>
           <CertidicatScolarite />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/Etudiant/Certificat_Frequentation/:id" element={
-        <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
+        <ProtectedRoute requiredPermission={["admin", "Etudiant"]}>
           <CertificatFrequentation />
         </ProtectedRoute>
       } />

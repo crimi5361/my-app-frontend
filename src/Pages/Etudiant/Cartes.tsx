@@ -1,5 +1,3 @@
-/* eslint-disable no-empty */
-/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 // pages/Cartes/Cartes.tsx
@@ -35,8 +33,8 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import * as XLSX from 'xlsx';
 import PageHeader from '../../Components/PageHeader/PageHeader';
-
-const API_URL = import.meta.env.VITE_API_URL_SERVER || 'https://myiipea.ci';
+import { apiFetch } from '../../lib/api';
+import type { AnneeAcademique } from '../../type/AnneeAcademique';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,12 +80,6 @@ interface Etudiant {
   annee_academique: string;
 }
 
-interface AnneeAcademique {
-  id: number;
-  annee: string;
-  etat: string;
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 const getInitials = (nom: string, prenoms: string) => {
@@ -131,33 +123,12 @@ const Cartes = () => {
   const [loadingClasses, setLoadingClasses] = useState(false);
   const [loadingGroupes, setLoadingGroupes] = useState(false);
 
-  const token = localStorage.getItem('token');
-
-  // ── Fetch helper ────────────────────────────────────────────────────────────
-
-  const fetchWithAuth = async (url: string, options: RequestInit = {}) => {
-    const response = await fetch(`${API_URL}${url}`, {
-      ...options,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-    });
-    if (!response.ok) {
-      let msg = `Erreur ${response.status}: ${response.statusText}`;
-      try { const d = await response.json(); msg = d.message || msg; } catch { }
-      throw new Error(msg);
-    }
-    return response.json();
-  };
-
   // ── Loaders ─────────────────────────────────────────────────────────────────
 
   const loadClasses = async () => {
     setLoadingClasses(true);
     try {
-      const res = await fetchWithAuth('/api/CarteEtudiante/classes');
+      const res = await apiFetch('/api/CarteEtudiante/classes');
       if (res.success) setClasses(res.data);
       else throw new Error(res.message);
     } catch (e: any) {
@@ -169,7 +140,7 @@ const Cartes = () => {
 
   const loadAnneesAcademiques = async () => {
     try {
-      const res = await fetchWithAuth('/api/CarteEtudiante/annees');
+      const res = await apiFetch('/api/CarteEtudiante/annees');
       if (res.success && res.data.length > 0) {
         setAnneesAcademiques(res.data);
         const current = res.data.find((a: AnneeAcademique) => a.etat === 'en cours');
@@ -193,7 +164,7 @@ const Cartes = () => {
     setGroupesInfo(null);
     setLoadingGroupes(true);
     try {
-      const res = await fetchWithAuth(`/api/CarteEtudiante/classes/${classeId}/groupes`);
+      const res = await apiFetch(`/api/CarteEtudiante/classes/${classeId}/groupes`);
       setGroupes(res.success ? res.data : []);
     } catch {
       message.error('Erreur chargement des groupes');
@@ -208,7 +179,7 @@ const Cartes = () => {
     setLoading(true);
     try {
       const url = `/api/CarteEtudiante/groupes/${groupeId}/etudiants${selectedAnnee ? `?annee_id=${selectedAnnee}` : ''}`;
-      const res = await fetchWithAuth(url);
+      const res = await apiFetch(url);
       if (res.success) {
         setEtudiants(res.data.etudiants || []);
         setGroupesInfo(res.data.groupe_info);

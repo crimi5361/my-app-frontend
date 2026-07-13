@@ -109,8 +109,6 @@ const Evaluation = () => {
   // Récupérer le groupeId depuis les params
   const groupeId = params.groupeId || params.id; // Supporte les deux noms de paramètres
 
-  console.log('Params reçus:', params);
-  console.log('groupeId extrait:', groupeId);
 
   const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
   const [loading, setLoading] = useState(false);
@@ -123,7 +121,6 @@ const Evaluation = () => {
 
   const getToken = () => {
     const token = localStorage.getItem('token');
-    console.log('Token récupéré:', token ? 'Oui' : 'Non');
     return token;
   };
 
@@ -145,15 +142,12 @@ const Evaluation = () => {
       ...options
     };
 
-    console.log('Requête vers:', url);
 
     try {
       const response = await fetch(url, defaultOptions);
 
-      console.log('Statut réponse:', response.status);
 
       if (response.status === 401) {
-        console.log('Token invalide, suppression et redirection');
         localStorage.removeItem('token');
         navigate('/login');
         throw new Error('Session expirée');
@@ -180,7 +174,6 @@ const Evaluation = () => {
       return;
     }
 
-    console.log(`Chargement des évaluations pour le groupe ID: ${groupeId}`);
 
     setLoading(true);
     setError('');
@@ -190,29 +183,21 @@ const Evaluation = () => {
         url += `?annee_academique=${annee}`;
       }
 
-      console.log('URL API:', url);
 
       const data = await fetchWithAuth(url);
-      console.log('Données API reçues:', data);
 
       if (data.evaluations) {
-        console.log(`${data.evaluations.length} évaluations trouvées`);
         setEvaluations(data.evaluations);
       } else {
-        console.log('Aucune évaluation trouvée');
         setEvaluations([]);
       }
 
       if (data.statistiques) {
-        console.log('Statistiques:', data.statistiques);
         setStats(data.statistiques);
       }
 
       if (data.groupe) {
-        console.log('Infos groupe:', data.groupe);
         setGroupeInfo(data.groupe);
-      } else {
-        console.log('Aucune info groupe retournée');
       }
 
     } catch (error: any) {
@@ -224,16 +209,13 @@ const Evaluation = () => {
   };
 
   const loadEvaluationDetail = async (enseignementId: number) => {
-    console.log('Chargement détails pour enseignement ID:', enseignementId);
 
     setDetailLoading(true);
     setError('');
     try {
       const url = `${API_URL}/api/evaluation/detail/${enseignementId}`;
-      console.log('URL détails:', url);
 
       const data = await fetchWithAuth(url);
-      console.log('Détails reçus:', data);
 
       setSelectedEvaluation(data);
       setDetailDrawerVisible(true);
@@ -246,7 +228,6 @@ const Evaluation = () => {
   };
 
   useEffect(() => {
-    console.log('Effet déclenché avec groupeId:', groupeId);
     if (groupeId) {
       loadEvaluations();
     } else {

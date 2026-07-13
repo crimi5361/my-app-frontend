@@ -37,6 +37,7 @@ import {
   SyncOutlined,
 } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import { apiFetch } from '../../lib/api';
 import type { UploadFile } from 'antd';
 
 const { Title, Text } = Typography;
@@ -214,7 +215,6 @@ const NouvelleNote = () => {
       
       try {
         setLoading(true);
-        console.log('📥 Chargement info groupe, ID:', id);
         
         const response = await fetch(`${API_URL}/api/classes/groupe/${id}/info`);
         
@@ -223,7 +223,6 @@ const NouvelleNote = () => {
         }
         
         const data = await response.json();
-        console.log('✅ Info groupe reçue:', data);
         
         const groupeInfo: GroupeInfo = {
           id: data.id,
@@ -296,20 +295,14 @@ const NouvelleNote = () => {
 
   const fetchMaquetteForClasse = async (classeNom: string, classeDescription?: string) => {
     try {
-      console.log('🔍 Recherche maquette pour:', classeNom);
-      console.log('📝 Description classe:', classeDescription);
       
-      const response = await fetch(`${API_URL}/api/maquettes`);
-      const data = await response.json();
-      
-      console.log('📋 Maquettes disponibles:', data?.length || 0);
-      
+      const data = await apiFetch('/api/maquettes');
+
       if (Array.isArray(data)) {
         const filiereClasse = extractFiliere(classeNom);
         const niveauClasse = extractNiveau(classeNom);
         const regimeClasse = extractRegime(classeDescription || '');
 
-        console.log('🔍 Filtres:', { filiereClasse, niveauClasse, regimeClasse });
 
         // Si on n'a pas pu extraire le niveau, on ne peut pas matcher de façon fiable
         if (!niveauClasse) {
@@ -335,29 +328,20 @@ const NouvelleNote = () => {
           return correspondanceFiliere && correspondanceNiveau;
         });
 
-        console.log(`📊 ${maquettesCandidates.length} maquette(s) candidate(s) trouvée(s)`);
 
         let maquetteTrouvee = null;
 
         if (maquettesCandidates.length > 1 && regimeClasse) {
           // Plusieurs maquettes possibles (jour/soir) : on filtre par régime
-          console.log('🔍 Plusieurs maquettes trouvées, filtrage par régime:', regimeClasse);
           maquetteTrouvee = maquettesCandidates.find((m: any) => extractRegime(m.parcour || '') === regimeClasse);
-          if (maquetteTrouvee) {
-            console.log('✅ Maquette trouvée par régime:', maquetteTrouvee.id);
-          } else {
-            console.log('⚠️ Aucune maquette correspondant au régime trouvée');
-          }
         }
 
         // Fallback si un seul candidat, ou si le régime n'a pas permis de trancher
         if (!maquetteTrouvee) {
           maquetteTrouvee = maquettesCandidates[0];
-          console.log('📌 Fallback: première maquette candidate sélectionnée:', maquetteTrouvee?.id);
         }
         
         if (maquetteTrouvee) {
-          console.log('✅ Maquette trouvée:', maquetteTrouvee.id);
           await fetchMaquetteDetail(maquetteTrouvee.id);
         } else {
           console.warn('⚠️ Aucune maquette correspondante trouvée');
@@ -373,18 +357,8 @@ const NouvelleNote = () => {
   const fetchMaquetteDetail = async (maquetteId: number) => {
     setLoadingMatieres(true);
     try {
-      console.log('📥 Chargement détail maquette:', maquetteId);
       
-      const response = await fetch(
-        `${API_URL}/api/detailaffichageMaquette/maquettes/${maquetteId}/structured`
-      );
-      
-      if (!response.ok) {
-        throw new Error(`Erreur ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('✅ Détail maquette reçu');
+      const data = await apiFetch(`/api/detailaffichageMaquette/maquettes/${maquetteId}/structured`);
       setMaquetteDetail(data);
       
       const matieresList: Matiere[] = [];
@@ -408,7 +382,6 @@ const NouvelleNote = () => {
         });
       }
       
-      console.log(`📚 ${matieresList.length} matières chargées`);
       setMatieres(matieresList);
       
     } catch (error: any) {
@@ -424,17 +397,9 @@ const NouvelleNote = () => {
     
     try {
       setCheckingExistingNotes(true);
-      console.log('🔍 Vérification notes existantes:', { groupeId: id, matiereId });
       
-      const response = await fetch(`${API_URL}/api/notes/check-existing/${id}/${matiereId}`);
-      
-      if (!response.ok) {
-        throw new Error(`Erreur HTTP ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('✅ Info notes existantes:', data);
-      
+      const data = await apiFetch(`/api/notes/check-existing/${id}/${matiereId}`);
+
       if (data.success) {
         setExistingNotesInfo(data);
         
@@ -458,7 +423,6 @@ const NouvelleNote = () => {
   // Assigner un professeur à la matière
   const assignerProfesseur = async (professeurId: number, matiereId: number) => {
     try {
-      console.log(`🎯 Assignation professeur ${professeurId} à matière ${matiereId}`);
       
       const token = getToken();
       const response = await fetch(`${API_URL}/api/professeur/${professeurId}/assign-matiere`, {
@@ -478,7 +442,6 @@ const NouvelleNote = () => {
       }
       
       const result = await response.json();
-      console.log('✅ Assignation réussie:', result);
       return result;
     } catch (error) {
       console.error('❌ Erreur assignation professeur:', error);
@@ -487,7 +450,6 @@ const NouvelleNote = () => {
   };
 
   const onFinish = async (values: any) => {
-    console.log('🎯 Début importation des notes');
     
     if (fileList.length === 0) {
       message.error('Veuillez sélectionner un fichier Excel');
@@ -530,19 +492,10 @@ const NouvelleNote = () => {
         formData.append('professeurId', String(selectedProfesseur));
       }
 
-      console.log('📤 Données envoyées:');
-      console.log('  - groupeId:', id);
-      console.log('  - matiereId:', selectedMatiere.id, `(nom: ${selectedMatiere.nom})`);
-      console.log('  - noteTypes:', values.noteTypes || ['Note 1']);
-      if (selectedProfesseur) {
-        console.log('  - professeurId:', selectedProfesseur);
-      }
-      
       const uploadFile = fileList[0];
       
       if (uploadFile.originFileObj) {
         formData.append('fichier', uploadFile.originFileObj);
-        console.log('✅ Fichier ajouté au FormData');
       } else if (uploadFile && typeof uploadFile === 'object') {
         const fileAsAny = uploadFile as any;
         const hasFileProperties = 
@@ -559,24 +512,12 @@ const NouvelleNote = () => {
         throw new Error('Impossible de récupérer le fichier.');
       }
       
-      console.log('📤 Envoi vers /api/notes/upload...');
       
-      const response = await fetch(`${API_URL}/api/notes/upload`, {
+      const result = await apiFetch('/api/notes/upload', {
         method: 'POST',
         body: formData,
       });
-      
-      console.log('📡 Réponse reçue, statut:', response.status);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Erreur HTTP:', errorText);
-        throw new Error(`Erreur ${response.status}: ${errorText.substring(0, 100)}`);
-      }
-      
-      const result = await response.json();
-      console.log('✅ Résultat upload:', result);
-      
+
       if (result.success) {
         setUploadResult(result);
         setShowResultModal(true);
@@ -608,12 +549,10 @@ const NouvelleNote = () => {
 
   const uploadProps = {
     onRemove: () => {
-      console.log('🗑️ Fichier retiré');
       setFileList([]);
       setCurrentStep(1);
     },
     beforeUpload: (file: UploadFile) => {
-      console.log('📁 Tentative upload fichier:', file.name);
       
       const isExcel = file.name.endsWith('.xlsx') || file.name.endsWith('.xls');
       if (!isExcel) {
@@ -627,7 +566,6 @@ const NouvelleNote = () => {
         return false;
       }
       
-      console.log('✅ Fichier valide:', file.name);
       setFileList([file]);
       setCurrentStep(2);
       return false;
@@ -638,7 +576,6 @@ const NouvelleNote = () => {
   };
 
   const handleMatiereChange = (matiereId: number) => {
-    console.log('📚 Matière sélectionnée ID:', matiereId);
     const matiere = matieres.find(m => m.id === matiereId);
     setSelectedMatiere(matiere || null);
     setCurrentStep(1);
@@ -648,7 +585,6 @@ const NouvelleNote = () => {
     setSelectedProfesseur(null);
     
     if (matiere) {
-      console.log('✅ Matière trouvée:', matiere.nom);
       // Vérifier si des notes existent déjà
       checkExistingNotes(matiereId);
       
@@ -662,11 +598,9 @@ const NouvelleNote = () => {
 
   const handleProfesseurChange = (professeurId: number) => {
     setSelectedProfesseur(professeurId);
-    console.log('👨‍🏫 Professeur sélectionné:', professeurId);
   };
 
   const handleReset = () => {
-    console.log('🔄 Réinitialisation formulaire');
     form.resetFields();
     setFileList([]);
     setSelectedMatiere(null);
@@ -678,21 +612,14 @@ const NouvelleNote = () => {
   };
 
   const handleCloseResultModal = () => {
-    console.log('❌ Fermeture modal résultats');
     setShowResultModal(false);
   };
 
   const handleViewImportedNotes = () => {
-    console.log('📊 Navigation vers notes du groupe:', id);
     navigate(`/notes/groupe/${id}`);
   };
 
   useEffect(() => {
-    console.log('🚀 Composant NouvelleNote monté');
-    console.log('🔧 Variables d\'environnement:', {
-      VITE_API_URL_SERVER: import.meta.env.VITE_API_URL_SERVER,
-      API_URL
-    });
   }, []);
 
   // Fonction de recherche pour les options du select
