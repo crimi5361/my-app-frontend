@@ -275,22 +275,54 @@ const AppRoutes = () => {
       } />
       
       <Route path="/Etudiant/Certificat_Scolarite/:id" element={
-        <ProtectedRoute requiredPermission={["admin", "Etudiant"]}>
+        <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
           <CertidicatScolarite />
         </ProtectedRoute>
       } />
 
       <Route path="/Etudiant/Certificat_Frequentation/:id" element={
-        <ProtectedRoute requiredPermission={["admin", "Etudiant"]}>
+        <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
           <CertificatFrequentation />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/Etudiant/DashScolarite" element={
         <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
           <DashScolarite />
         </ProtectedRoute>
       } />
+
+      {/* CAISSE - Nouveau module */}
+      <Route path="/caisse/dashboard" element={
+        <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
+          <CaisseDashboard />
+        </ProtectedRoute>
+      } />
+      
+      {/* <Route path="/caisse/encaisser" element={
+        <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
+          <Encaisser />
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/caisse/recherche" element={
+        <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
+          <RechercheEtudiant />
+        </ProtectedRoute>
+      } />
+      
+      <Route path="/caisse/paiements-jour" element={
+        <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
+          <PaiementsJour />
+        </ProtectedRoute>
+      } /> */}
+      
+      {/* <Route path="/caisse/reçus" element={
+        <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
+          <MesRecus />
+        </ProtectedRoute>
+      } /> */}
+      
 
       {/* CAISSE - Nouveau module */}
       <Route path="/caisse/dashboard" element={
