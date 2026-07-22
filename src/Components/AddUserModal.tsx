@@ -7,7 +7,7 @@ interface Role {
   nom: string;
 }
 
-interface Departement {
+interface Site {
   id: number;
   nom: string;
 }
@@ -24,26 +24,26 @@ export default function AddUserModal({ isOpen, onClose }: Props) {
   const [departementId, setDepartementId] = useState<number | ''>('');
 
   const [roles, setRoles] = useState<Role[]>([]);
-  const [departements, setDepartements] = useState<Departement[]>([]);
+  const [sites, setSites] = useState<Site[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const fetchRolesAndDepartements = async () => {
+    const fetchRolesAndSites = async () => {
       try {
-        const [rolesData, depsData] = await Promise.all([
+        const [rolesData, sitesData] = await Promise.all([
           apiFetch('/api/roles'),
-          apiFetch('/api/departements'),
+          apiFetch('/api/sites'),
         ]);
         setRoles(rolesData);
-        setDepartements(depsData);
+        setSites(sitesData);
       } catch (error) {
-        console.error('Erreur lors du chargement des rôles ou départements:', error);
+        console.error('Erreur lors du chargement des rôles ou sites:', error);
       }
     };
 
     if (isOpen) {
-      fetchRolesAndDepartements();
+      fetchRolesAndSites();
       // Reset form when opening
       setNom('');
       setEmail('');
@@ -71,7 +71,7 @@ export default function AddUserModal({ isOpen, onClose }: Props) {
     }
     
     if (!departementId) {
-      newErrors.departementId = 'Veuillez sélectionner un département';
+      newErrors.departementId = 'Veuillez sélectionner un site';
     }
     
     setErrors(newErrors);
@@ -146,7 +146,7 @@ export default function AddUserModal({ isOpen, onClose }: Props) {
 
               <div>
                 <label htmlFor="departement" className="block text-sm font-medium text-gray-700 mb-1">
-                  Département <span className="text-red-500">*</span>
+                  Site <span className="text-red-500">*</span>
                 </label>
                 <select
                   id="departement"
@@ -154,9 +154,9 @@ export default function AddUserModal({ isOpen, onClose }: Props) {
                   onChange={e => setDepartementId(Number(e.target.value))}
                   className={`w-full border ${errors.departementId ? 'border-red-500' : 'border-gray-300'} p-2 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                 >
-                  <option value="">Sélectionner un département</option>
-                  {departements.map(dep => (
-                    <option key={dep.id} value={dep.id}>{dep.nom}</option>
+                  <option value="">Sélectionner un site</option>
+                  {sites.map(site => (
+                    <option key={site.id} value={site.id}>{site.nom}</option>
                   ))}
                 </select>
                 {errors.departementId && <p className="mt-1 text-sm text-red-500">{errors.departementId}</p>}

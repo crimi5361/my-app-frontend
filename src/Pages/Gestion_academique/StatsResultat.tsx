@@ -193,7 +193,12 @@ const StatsResultat: React.FC = () => {
 
     // Niveaux filtrés par filière
     const [niveauxFiltres, setNiveauxFiltres] = useState<Niveau[]>([]);
-    const [anneeEnCours, setAnneeEnCours] = useState<AnneeAcademique | null>(null);
+    const [annees, setAnnees] = useState<AnneeAcademique[]>([]);
+    const [selectedAnneeId, setSelectedAnneeId] = useState<number | null>(null);
+    const selectedAnnee = useMemo(
+        () => annees.find(a => a.id === selectedAnneeId) || null,
+        [annees, selectedAnneeId]
+    );
 
     // Récupérer le département de l'utilisateur
     useEffect(() => {
@@ -210,14 +215,14 @@ const StatsResultat: React.FC = () => {
         }
     }, []);
 
-    // Récupérer l'année en cours
+    // Récupérer la liste des années académiques du site + sélectionner l'année en cours par défaut
     useEffect(() => {
-        const fetchAnneeEnCours = async () => {
+        const fetchAnnees = async () => {
             if (!departementId) return;
 
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch(`${API_URL}/api/annees?departement_id=${departementId}`, {
+                const response = await fetch(`${API_URL}/api/annees?site_id=${departementId}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`,
                         'Content-Type': 'application/json'
@@ -226,24 +231,24 @@ const StatsResultat: React.FC = () => {
 
                 if (response.ok) {
                     const data = await response.json();
-                    const anneeCourante = (data || []).find((a: AnneeAcademique) => a.etat === 'en cour');
-                    if (anneeCourante) {
-                        setAnneeEnCours(anneeCourante);
-                    }
+                    const liste: AnneeAcademique[] = data || [];
+                    setAnnees(liste);
+                    const anneeCourante = liste.find((a) => a.etat === 'en cour');
+                    setSelectedAnneeId((anneeCourante || liste[0])?.id ?? null);
                 }
             } catch (err) {
-                console.error('Erreur récupération année en cours:', err);
+                console.error('Erreur récupération des années académiques:', err);
             }
         };
 
         if (departementId) {
-            fetchAnneeEnCours();
+            fetchAnnees();
         }
     }, [departementId]);
 
     // ✅ fetchStats avec semestre
     const fetchStats = useCallback(async () => {
-        if (!anneeEnCours) return;
+        if (!selectedAnneeId) return;
 
         setLoading(true);
         setError(null);
@@ -253,7 +258,7 @@ const StatsResultat: React.FC = () => {
             if (filtres.filiereId) params.append('filiereId', filtres.filiereId);
             if (filtres.niveauId) params.append('niveauId', filtres.niveauId);
             if (filtres.semestreId) params.append('semestreId', filtres.semestreId);
-            params.append('anneeAcademiqueId', String(anneeEnCours.id));
+            params.append('anneeAcademiqueId', String(selectedAnneeId));
 
             const url = `${API_URL}/api/PV/stats/resultats?${params.toString()}`;
             const response = await fetch(url, {
@@ -293,14 +298,14 @@ const StatsResultat: React.FC = () => {
         } finally {
             setLoading(false);
         }
-    }, [filtres, anneeEnCours]);
+    }, [filtres, selectedAnneeId]);
 
-    // Charger les stats une fois l'année en cours disponible
+    // Charger les stats dès qu'une année académique est sélectionnée (ou changée)
     useEffect(() => {
-        if (anneeEnCours) {
+        if (selectedAnneeId) {
             fetchStats();
         }
-    }, [anneeEnCours, fetchStats]);
+    }, [selectedAnneeId, fetchStats]);
 
     // ✅ Filtrer les étudiants selon l'onglet actif et la recherche
     useEffect(() => {
@@ -429,7 +434,7 @@ const StatsResultat: React.FC = () => {
     // ============ EXPORT RÉCAP FILIÈRE/NIVEAU (BACKEND DÉDIÉ) ============
 
     const handleTelechargerRecapFiliereNiveau = async () => {
-        if (!anneeEnCours) return;
+        if (!selectedAnneeId) return;
 
         setRecapLoading(true);
         try {
@@ -438,7 +443,7 @@ const StatsResultat: React.FC = () => {
             if (filtres.filiereId) params.append('filiereId', filtres.filiereId);
             if (filtres.niveauId) params.append('niveauId', filtres.niveauId);
             if (filtres.semestreId) params.append('semestreId', filtres.semestreId);
-            params.append('anneeAcademiqueId', String(anneeEnCours.id));
+            params.append('anneeAcademiqueId', String(selectedAnneeId));
 
             const url = `${API_URL}/api/PV/stats/recap?${params.toString()}`;
             const response = await fetch(url, {
@@ -631,6 +636,22 @@ const StatsResultat: React.FC = () => {
     if (!stats || stats.total_etudiants === 0) {
         return (
             <div className="p-4 sm:p-8 max-w-6xl mx-auto">
+                <Card className="mb-6 shadow-sm" bodyStyle={{ padding: '16px' }}>
+                    <div className="flex items-center gap-2 max-w-xs">
+                        <FileTextOutlined className="text-gray-500 shrink-0" />
+                        <Select
+                            placeholder="Année académique"
+                            value={selectedAnneeId ?? undefined}
+                            onChange={(value) => setSelectedAnneeId(value)}
+                            className="w-full"
+                            loading={annees.length === 0}
+                        >
+                            {annees.map(a => (
+                                <Option key={a.id} value={a.id}>{a.annee} ({a.etat})</Option>
+                            ))}
+                        </Select>
+                    </div>
+                </Card>
                 <Empty
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
                     description="Aucune donnée disponible pour les filtres sélectionnés"
@@ -658,7 +679,7 @@ const StatsResultat: React.FC = () => {
                         <FileTextOutlined className="text-blue-500" />
                         <span>Statistiques des Résultats</span>
                         <Badge
-                            count={anneeEnCours?.annee || 'N/A'}
+                            count={selectedAnnee?.annee || 'N/A'}
                             style={{ backgroundColor: '#1890ff' }}
                         />
                         {stats.semestre && (
@@ -687,6 +708,22 @@ const StatsResultat: React.FC = () => {
                 {/* Filtres */}
                 <Card className="mb-6 shadow-sm" bodyStyle={{ padding: '16px' }}>
                     <Row gutter={[12, 12]}>
+                        <Col xs={24} sm={12} md={6}>
+                            <div className="flex items-center gap-2 min-w-0">
+                                <FileTextOutlined className="text-gray-500 shrink-0" />
+                                <Select
+                                    placeholder="Année académique"
+                                    value={selectedAnneeId ?? undefined}
+                                    onChange={(value) => setSelectedAnneeId(value)}
+                                    className="w-full min-w-0"
+                                    loading={annees.length === 0}
+                                >
+                                    {annees.map(a => (
+                                        <Option key={a.id} value={a.id}>{a.annee} ({a.etat})</Option>
+                                    ))}
+                                </Select>
+                            </div>
+                        </Col>
                         <Col xs={24} sm={12} md={6}>
                             <div className="flex items-center gap-2 min-w-0">
                                 <BookOutlined className="text-gray-500 shrink-0" />

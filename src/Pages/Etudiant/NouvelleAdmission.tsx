@@ -1,13 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import {
-  Form, Input, Select, DatePicker, Upload, Button, Card,
+  Form, Input, Select, DatePicker, Button, Card,
   Row, Col, Steps, message, Typography, Spin, Modal, Alert
 } from 'antd';
-import { UploadOutlined } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import ResumeFinalisation from './ResumeFinalisation';
-import type { UploadFile } from 'antd/es/upload/interface';
 import type { InitialValues } from './ResumeFinalisation';
 import dayjs from 'dayjs';
 import { apiFetch, ApiError } from '../../lib/api';
@@ -42,7 +40,6 @@ const getUserInfo = (): UserInfo | null => {
 const NouvelleAdmission = () => {
   const [form] = Form.useForm();
   const [currentStep, setCurrentStep] = useState<number>(0);
-  const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [anneesAcademiques, setAnneesAcademiques] = useState<AnneeAcademique[]>([]);
   const [pays, setPays] = useState<Pays[]>([]);
   const [villes, setVilles] = useState<Ville[]>([]);
@@ -57,8 +54,10 @@ const NouvelleAdmission = () => {
     nom: '', prenoms: '', sexe: '', matricule: '', statut_scolaire: '',
     date_naissance: undefined, lieu_naissance: '', pays_naissance: '',
     telephone: '', contact_parent: '', contact_parent_2: '',
-    nom_parent_1: '', nom_parent_2: '', numero_table: '', lieu_residence: '',
-    annee_bac: '', serie_bac: '', etablissement_origine: '',
+    nom_parent_1: '', nom_parent_2: '', adresse_parent_1: '', adresse_parent_2: '',
+    numero_table: '', lieu_residence: '',
+    numero_acte_naissance: '', numero_piece_identite: '',
+    annee_bac: '', serie_bac: '', session_bac: '', mention_bac: '', etablissement_origine: '',
     annee_academique_id: '', nationalite: '', photo_url: ''
   });
 
@@ -81,7 +80,7 @@ const NouvelleAdmission = () => {
         const token = localStorage.getItem('token');
         if (!token) { message.error('Authentification requise'); return; }
 
-        const res = await fetch(`${API_URL}/api/annees?departement_id=${currentUser.departement_id}`, {
+        const res = await fetch(`${API_URL}/api/annees?site_id=${currentUser.departement_id}`, {
           headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
         });
         if (res.status === 401) { message.error('Session expirée'); localStorage.removeItem('token'); return; }
@@ -170,7 +169,6 @@ const NouvelleAdmission = () => {
       setFormData({
         ...values,
         date_naissance: values.date_naissance ? dayjs(values.date_naissance) : undefined,
-        photo_url: fileList[0]?.name || ''
       });
       setCurrentStep(1);
     } catch (e) {
@@ -182,7 +180,6 @@ const NouvelleAdmission = () => {
   const handleSuccess = () => {
     const reset = () => {
       form.resetFields();
-      setFileList([]);
       setCurrentStep(0);
       if (currentYearId) {
         form.setFieldsValue({ annee_academique_id: currentYearId.toString() });
@@ -190,8 +187,10 @@ const NouvelleAdmission = () => {
           nom: '', prenoms: '', sexe: '', matricule: '', statut_scolaire: '',
           date_naissance: undefined, lieu_naissance: '', pays_naissance: '',
           telephone: '', contact_parent: '', contact_parent_2: '',
-          nom_parent_1: '', nom_parent_2: '', numero_table: '', lieu_residence: '',
-          annee_bac: '', serie_bac: '', etablissement_origine: '',
+          nom_parent_1: '', nom_parent_2: '', adresse_parent_1: '', adresse_parent_2: '',
+          numero_table: '', lieu_residence: '',
+          numero_acte_naissance: '', numero_piece_identite: '',
+          annee_bac: '', serie_bac: '', session_bac: '', mention_bac: '', etablissement_origine: '',
           annee_academique_id: currentYearId.toString(), nationalite: '', photo_url: ''
         });
       }
@@ -284,6 +283,21 @@ const NouvelleAdmission = () => {
 
               <Row gutter={24}>
                 <Col span={8}>
+                  <Form.Item name="numero_acte_naissance" label="Numéro d'acte de naissance"
+                    rules={[{ required: true, message: "Veuillez saisir le numéro d'acte de naissance" }, { max: 50, message: 'Max 50 caractères' }]}>
+                    <Input placeholder="Ex: 123/2005" />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item name="numero_piece_identite" label="Numéro de pièce d'identité"
+                    rules={[{ required: true, message: "Veuillez saisir le numéro de pièce d'identité" }, { max: 50, message: 'Max 50 caractères' }]}>
+                    <Input placeholder="Ex: CI001234567890" />
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Row gutter={24}>
+                <Col span={8}>
                   <Form.Item name="lieu_residence" label="Lieu de résidence"
                     rules={[{ required: true, message: 'Veuillez sélectionner le lieu de résidence' }]}>
                     <Select placeholder="Sélectionnez la ville" showSearch optionFilterProp="children"
@@ -330,7 +344,7 @@ const NouvelleAdmission = () => {
                   </Form.Item>
                 </Col>
                 <Col span={8}>
-                  <Form.Item name="nom_parent_1" label="Nom parent/tuteur 1"
+                  <Form.Item name="nom_parent_1" label="Nom parent/tuteur 1 (Père)"
                     rules={[{ required: true, message: 'Veuillez saisir le nom du parent' }, { max: 100, message: 'Max 100 caractères' }]}>
                     <Input placeholder="Nom complet du parent/tuteur" />
                   </Form.Item>
@@ -339,23 +353,21 @@ const NouvelleAdmission = () => {
 
               <Row gutter={24}>
                 <Col span={8}>
-                  <Form.Item name="nom_parent_2" label="Nom parent/tuteur 2"
+                  <Form.Item name="adresse_parent_1" label="Adresse parent/tuteur 1 (Père)"
+                    rules={[{ max: 200, message: 'Max 200 caractères' }]}>
+                    <Input placeholder="Adresse complète" />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item name="nom_parent_2" label="Nom parent/tuteur 2 (Mère)"
                     rules={[{ max: 100, message: 'Max 100 caractères' }]}>
                     <Input placeholder="Nom complet du parent/tuteur secondaire" />
                   </Form.Item>
                 </Col>
-                <Col span={12}>
-                  <Form.Item name="photo_url" label="Photo d'identité"
-                    rules={[{ validator: (_, __, cb) => fileList.length === 0 ? cb('Veuillez téléverser une photo') : cb() }]}>
-                    <Upload listType="picture"
-                      beforeUpload={file => {
-                        if (file.size / 1024 / 1024 >= 2) { message.error('La photo doit faire moins de 2MB'); return false; }
-                        return false;
-                      }}
-                      onChange={({ fileList: fl }) => setFileList(fl)}
-                      fileList={fileList} accept="image/*" maxCount={1}>
-                      <Button icon={<UploadOutlined />}>Téléverser la photo</Button>
-                    </Upload>
+                <Col span={8}>
+                  <Form.Item name="adresse_parent_2" label="Adresse parent/tuteur 2 (Mère)"
+                    rules={[{ max: 200, message: 'Max 200 caractères' }]}>
+                    <Input placeholder="Adresse complète" />
                   </Form.Item>
                 </Col>
               </Row>
@@ -386,6 +398,29 @@ const NouvelleAdmission = () => {
                     <Select placeholder="Sélectionnez la série" showSearch optionFilterProp="children"
                       loading={seriesBac.length === 0} filterOption={filterOption}>
                       {seriesBac.map(s => <Option key={s.id} value={s.nom}>{s.nom}</Option>)}
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+
+              <Row gutter={24}>
+                <Col span={8}>
+                  <Form.Item name="session_bac" label="Session du BAC"
+                    rules={[{ required: true, message: 'Veuillez sélectionner la session du BAC' }]}>
+                    <Select placeholder="Sélectionnez la session">
+                      <Option value="Juin">Juin</Option>
+                      <Option value="Septembre">Septembre</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item name="mention_bac" label="Mention"
+                    rules={[{ required: true, message: 'Veuillez sélectionner la mention' }]}>
+                    <Select placeholder="Sélectionnez la mention">
+                      <Option value="Passable">Passable</Option>
+                      <Option value="Assez Bien">Assez Bien</Option>
+                      <Option value="Bien">Bien</Option>
+                      <Option value="Très Bien">Très Bien</Option>
                     </Select>
                   </Form.Item>
                 </Col>
@@ -468,7 +503,6 @@ const NouvelleAdmission = () => {
         <ResumeFinalisation
           initialValues={formData}
           onPrev={() => setCurrentStep(0)}
-          fileList={fileList.map(f => f.originFileObj as File)}
           onSuccess={handleSuccess}
         />
       ),

@@ -30,6 +30,7 @@ const titles: Record<string, string> = {
   "/caisse/dashboard": "Tableau de bord de la caisse",
   "/caisse/encaisser": "Encaisser un paiement",
   "/caisse/recherche": "Rechercher un étudiant",
+  "/caisse/situation-etudiant": "Situation et paiements de l'étudiant",
   "/caisse/paiements-jour": "Paiements du jour",
   "/caisse/reçus": "Mes reçus",
   "/caisse/fermer": "Fermer la caisse",

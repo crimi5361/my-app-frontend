@@ -1,18 +1,19 @@
- 
+
 import { useEffect, useState } from "react";
-import { 
-  Card, 
-  Table, 
-  Tag, 
-  Typography, 
-  Space, 
+import {
+  Card,
+  Table,
+  Tag,
+  Typography,
+  Space,
   Statistic,
-  Row, 
+  Row,
   Col,
   Spin,
-  Divider
+  Divider,
+  Select
 } from 'antd';
-import { 
+import {
   DollarOutlined,
   BookOutlined,
   ApartmentOutlined
@@ -21,26 +22,66 @@ import PageHeader from "../../Components/PageHeader/PageHeader";
 import { apiFetch } from "../../lib/api";
 
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 interface Niveau {
-  id: string;
+  id: number;
   libelle: string;
   prix_formation: string;
+  filiere_nom: string;
+  filiere_sigle: string;
   typefiliere_libelle: string;
-  // Add other properties if your data has more fields
 }
+
+interface AnneeAcademique {
+  id: number;
+  annee: string;
+  etat: string | null;
+}
+
+const getDepartementId = (): number | null => {
+  try {
+    const userStr = localStorage.getItem('user');
+    if (!userStr) return null;
+    const user = JSON.parse(userStr);
+    return user?.departement_id ?? null;
+  } catch {
+    return null;
+  }
+};
 
 const Niviaux = () => {
   const [niveaux, setNiveaux] = useState<Niveau[]>([]);
   const [loading, setLoading] = useState(true);
   const [totalFormation, setTotalFormation] = useState(0);
+  const [departementId] = useState<number | null>(getDepartementId());
+  const [annees, setAnnees] = useState<AnneeAcademique[]>([]);
+  const [selectedAnneeId, setSelectedAnneeId] = useState<number | null>(null);
+
+  // Récupère les années académiques du site et sélectionne l'année en cours par défaut
+  useEffect(() => {
+    if (!departementId) return;
+    apiFetch(`/api/annees?site_id=${departementId}`)
+      .then((data: AnneeAcademique[]) => {
+        const liste = data || [];
+        setAnnees(liste);
+        const anneeCourante = liste.find(a => a.etat === 'en cour');
+        setSelectedAnneeId((anneeCourante || liste[0])?.id ?? null);
+      })
+      .catch(err => console.error("Erreur lors du chargement des années académiques :", err));
+  }, [departementId]);
 
   useEffect(() => {
+    if (!departementId || !selectedAnneeId) return;
+
     const fetchNiveaux = async () => {
+      setLoading(true);
       try {
-        const data = await apiFetch('/api/niveaux');
+        const data = await apiFetch(
+          `/api/niveaux?site_id=${departementId}&anneeacademique_id=${selectedAnneeId}`
+        );
         setNiveaux(data);
-        
+
         // Calculate total formation prices
         const total = data.reduce((sum: number, niveau: Niveau) => {
           return sum + parseFloat(niveau.prix_formation);
@@ -54,9 +95,16 @@ const Niviaux = () => {
     };
 
     fetchNiveaux();
-  }, []);
+  }, [departementId, selectedAnneeId]);
 
   const columns = [
+    {
+      title: 'Filière',
+      dataIndex: 'filiere_nom',
+      key: 'filiere_nom',
+      render: (text: string, record: Niveau) => <Text>{text} {record.filiere_sigle ? `(${record.filiere_sigle})` : ''}</Text>,
+      sorter: (a: Niveau, b: Niveau) => (a.filiere_nom || '').localeCompare(b.filiere_nom || ''),
+    },
     {
       title: 'Libellé',
       dataIndex: 'libelle',
@@ -106,6 +154,21 @@ const Niviaux = () => {
         bordered={false}
         headStyle={{ borderBottom: 'none' }}
       >
+        <Space style={{ marginBottom: 16 }}>
+          <Text type="secondary">Année académique :</Text>
+          <Select
+            value={selectedAnneeId ?? undefined}
+            onChange={(value) => setSelectedAnneeId(value)}
+            style={{ minWidth: 220 }}
+            loading={annees.length === 0}
+            placeholder="Sélectionner une année"
+          >
+            {annees.map(a => (
+              <Option key={a.id} value={a.id}>{a.annee} ({a.etat})</Option>
+            ))}
+          </Select>
+        </Space>
+
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
             <Spin size="large" tip="Chargement des niveaux..." />

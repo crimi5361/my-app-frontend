@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { 
   Card, 
   Descriptions, 
@@ -102,6 +102,8 @@ interface EtudiantDetails {
 
 const RecuEtudiant = () => {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
+  const anneeAcademiqueId = searchParams.get('anneeAcademiqueId');
   const [paiements, setPaiements] = useState<Paiement[]>([]);
   const [etudiant, setEtudiant] = useState<EtudiantDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -113,7 +115,10 @@ const RecuEtudiant = () => {
         setLoading(true);
         const token = localStorage.getItem('token');
         
-        const response = await fetch(`${API_URL}/api/etudiants/recu-data/${id}`, {
+        const url = anneeAcademiqueId
+          ? `${API_URL}/api/etudiants/recu-data/${id}?anneeAcademiqueId=${encodeURIComponent(anneeAcademiqueId)}`
+          : `${API_URL}/api/etudiants/recu-data/${id}`;
+        const response = await fetch(url, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -146,7 +151,7 @@ const RecuEtudiant = () => {
     if (id) {
       fetchData();
     }
-  }, [id, API_URL]);
+  }, [id, API_URL, anneeAcademiqueId]);
 
   const handlePrint = () => {
     const printContent = document.getElementById('printable-area');

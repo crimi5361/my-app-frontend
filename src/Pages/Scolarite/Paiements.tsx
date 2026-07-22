@@ -186,7 +186,7 @@ const Paiements = () => {
           return;
         }
 
-        const data = await apiFetch(`/api/annees?departement_id=${departement_id}`);
+        const data = await apiFetch(`/api/annees?site_id=${departement_id}`);
 
         if (Array.isArray(data)) {
           setAcademicYears(data);

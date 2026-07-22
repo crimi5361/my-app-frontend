@@ -1,13 +1,40 @@
 // App.tsx
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState, useEffect, ReactNode } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { ConfigProvider, theme as antdTheme } from "antd";
 
 import Header from "./Components/Header/Header";
 import PageContent from "./Components/PageContent/PageContent";
 import Sidemenu from "./Components/Sidemenu/Sidemenu";
 import Login from "./Components/Login/Login";
 import AppRoutes from "./Components/AppRoutes/AppRoutes";
+import Hub from "./Pages/Hub/Hub";
 import { UserProvider, UserContext } from "./context/UserContext";
+import { useTheme } from "./context/ThemeContext";
+
+// Applique l'algorithme clair/sombre d'antd en fonction du thème choisi par
+// l'utilisateur — pose le socle pour les prochaines phases de refonte UI.
+const AntdThemeBridge = ({ children }: { children: ReactNode }) => {
+  const { theme } = useTheme();
+  return (
+    <ConfigProvider
+      theme={{
+        algorithm: theme === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
+        token: {
+          // En clair, l'encre (quasi noire) contraste bien sur fond clair.
+          // En sombre, garder cette même couleur rendrait invisibles tous les
+          // éléments qui s'appuient dessus (boutons, item de menu actif...)
+          // sur un fond déjà sombre — on passe donc sur un bleu lisible.
+          colorPrimary: theme === "dark" ? "#4C7FFF" : "#101a33",
+          fontFamily: "'Manrope', ui-sans-serif, system-ui, sans-serif",
+          borderRadius: 10,
+        },
+      }}
+    >
+      {children}
+    </ConfigProvider>
+  );
+};
 
 // Import des pages de l'espace étudiant
 import Acceuille from "./Pages/ESPACE_ETUDIANT/acceuille";
@@ -33,15 +60,11 @@ function AppContent() {
   const getDefaultRedirectPath = () => {
     const storedUser = localStorage.getItem("user");
     const currentUser = storedUser ? JSON.parse(storedUser) : null;
-    const currentUserRole = currentUser?.role || "scolarite";
-    
-    const defaultRedirects: Record<string, string> = {
-      admin: "/dashboard",
-      scolarite: "/Etudiant/Listes_Etudiant",
-      comptabilite: "/dashboard",
-      etudiant: "/acceuil/espace_etudiant", // Redirection pour les étudiants vers l'ancienne route
-    };
-    return defaultRedirects[currentUserRole] || "/login";
+    const currentUserRole = currentUser?.role;
+
+    if (!currentUserRole) return "/login";
+    if (currentUserRole === "etudiant") return "/acceuil/espace_etudiant";
+    return "/hub";
   };
 
   const isLoginPage = location.pathname === "/login";
@@ -74,7 +97,13 @@ function AppContent() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      
+
+      {/* Hub - point d'entrée après connexion pour les rôles staff */}
+      <Route
+        path="/hub"
+        element={isAuthenticated ? <Hub /> : <Navigate to="/login" replace />}
+      />
+
       {/* Routes de l'espace étudiant - Layout indépendant */}
       <Route path="/acceuil/espace_etudiant" element={<Acceuille />} />
       <Route path="/espace-etudiant" element={<Acceuille />} />
@@ -124,7 +153,9 @@ function AppContent() {
 export default function App() {
   return (
     <UserProvider>
-      <AppContent />
+      <AntdThemeBridge>
+        <AppContent />
+      </AntdThemeBridge>
     </UserProvider>
   );
 }

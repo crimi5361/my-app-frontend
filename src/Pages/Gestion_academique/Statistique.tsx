@@ -187,7 +187,7 @@ const Statistique = () => {
     const fetchAnnees = async () => {
       try {
         setLoading(true);
-        const data = await apiFetch(`/api/annees?departement_id=${departement_id}`);
+        const data = await apiFetch(`/api/annees?site_id=${departement_id}`);
         if (Array.isArray(data)) {
           setAnnees(data);
           const encours = data.find((a: any) => a.etat === 'en cour' || a.etat === 'en cours');

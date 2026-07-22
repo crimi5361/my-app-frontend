@@ -17,9 +17,10 @@ import {
   Space,
   Table,
   Progress,
-  Modal
+  Modal,
+  Upload
 } from 'antd';
-import { 
+import {
   ArrowLeftOutlined,
   IdcardOutlined,
   PhoneOutlined,
@@ -35,7 +36,8 @@ import {
   GiftOutlined,
   InsuranceOutlined,
   EyeOutlined,
-  EditOutlined
+  EditOutlined,
+  UploadOutlined
 } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 
@@ -46,6 +48,16 @@ interface Kit {
   montant: number;
   deposer: boolean;
   date_enregistrement: string | null;
+}
+
+interface DocumentJustificatif {
+  code: string;
+  libelle: string;
+  obligatoire: boolean;
+  fourni: boolean | null;
+  fichier_path: string | null;
+  storage_provider: string | null;
+  date_upload: string | null;
 }
 
 interface PriseEnCharge {
@@ -93,10 +105,6 @@ interface EtudiantDetails {
   photo_url: string;
   etablissement_origine: string;
   inscrit_par: string;
-  extrait_naissance: string;
-  justificatif_identite: string;
-  dernier_diplome: string;
-  fiche_orientation: string;
   montant_scolarite?: number;
   scolarite_verse?: number;
   scolarite_restante?: number;
@@ -112,6 +120,7 @@ interface EtudiantDetails {
   };
   kit: Kit | null;
   prise_en_charge: PriseEnCharge | null;
+  documents_justificatifs: DocumentJustificatif[];
 }
 
 const DetailEtudiant = () => {
@@ -123,6 +132,7 @@ const DetailEtudiant = () => {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [modalKitVisible, setModalKitVisible] = useState(false);
   const [modalPECVisible, setModalPECVisible] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
   const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
 
   useEffect(() => {
@@ -203,6 +213,47 @@ const DetailEtudiant = () => {
 
   const handleManagePEC = () => {
     navigate(`/Etudiant/GestionPEC/${id}`);
+  };
+
+  const canArchiveDocuments = userRole ? ['admin', 'scolarite', 'archiviste'].includes(userRole) : false;
+
+  const handleUploadDocument = async (code: string, file: File) => {
+    if (!id) return false;
+    setUploadingDoc(code);
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('fichier', file);
+
+      const response = await fetch(`${API_URL}/api/etudiants/etudiant/${id}/documents/${code}`, {
+        method: 'POST',
+        body: formData,
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || "Erreur lors du dépôt du document");
+      }
+
+      message.success('Document archivé avec succès');
+      setEtudiant(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          documents_justificatifs: prev.documents_justificatifs.map(doc =>
+            doc.code === code
+              ? { ...doc, fourni: true, fichier_path: data.data.fichier_path, storage_provider: data.data.storage_provider, date_upload: data.data.date_upload }
+              : doc
+          )
+        };
+      });
+    } catch (error) {
+      const err = error as Error;
+      message.error(err.message || "Erreur lors du dépôt du document");
+    } finally {
+      setUploadingDoc(null);
+    }
+    return false;
   };
 
   const getStatutColor = (statut: string | null) => {
@@ -750,78 +801,56 @@ const DetailEtudiant = () => {
           <FileDoneOutlined /> Documents
         </Divider>
         
-        <Row gutter={16}>
-          <Col xs={24} sm={12} md={6}>
-            <Card 
-              title="Extrait de Naissance" 
-              size="small"
-              headStyle={{ 
-                backgroundColor: etudiant.extrait_naissance === 'oui' ? '#f6ffed' : '#fff2f0',
-                borderBottom: 'none'
-              }}
-            >
-              <Tag 
-                color={etudiant.extrait_naissance === 'oui' ? 'green' : 'red'}
-                style={{ margin: 0 }}
+        <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+          Statut « Vérifié » = pièce présentée et vérifiée à l'inscription. Le fichier numérisé est archivé séparément par l'archiviste.
+        </Text>
+        <Row gutter={[16, 16]}>
+          {(etudiant.documents_justificatifs || []).map(doc => (
+            <Col xs={24} sm={12} md={6} key={doc.code}>
+              <Card
+                title={doc.libelle}
+                size="small"
+                headStyle={{
+                  backgroundColor: doc.fourni ? '#f6ffed' : '#fff2f0',
+                  borderBottom: 'none'
+                }}
               >
-                {etudiant.extrait_naissance === 'oui' ? 'Déposé' : 'Manquant'}
-              </Tag>
-            </Card>
-          </Col>
-          
-          <Col xs={24} sm={12} md={6}>
-            <Card 
-              title="Justificatif d'Identité" 
-              size="small"
-              headStyle={{ 
-                backgroundColor: etudiant.justificatif_identite === 'oui' ? '#f6ffed' : '#fff2f0',
-                borderBottom: 'none'
-              }}
-            >
-              <Tag 
-                color={etudiant.justificatif_identite === 'oui' ? 'green' : 'red'}
-                style={{ margin: 0 }}
-              >
-                {etudiant.justificatif_identite === 'oui' ? 'Déposé' : 'Manquant'}
-              </Tag>
-            </Card>
-          </Col>
-          
-          <Col xs={24} sm={12} md={6}>
-            <Card 
-              title="Dernier Diplôme" 
-              size="small"
-              headStyle={{ 
-                backgroundColor: etudiant.dernier_diplome === 'oui' ? '#f6ffed' : '#fff2f0',
-                borderBottom: 'none'
-              }}
-            >
-              <Tag 
-                color={etudiant.dernier_diplome === 'oui' ? 'green' : 'red'}
-                style={{ margin: 0 }}
-              >
-                {etudiant.dernier_diplome === 'oui' ? 'Déposé' : 'Manquant'}
-              </Tag>
-            </Card>
-          </Col>
-          
-          <Col xs={24} sm={12} md={6}>
-            <Card 
-              title="Fiche d'Orientation" 
-              size="small"
-              headStyle={{ 
-                backgroundColor: etudiant.fiche_orientation === 'oui' ? '#f6ffed' : '#fff2f0',
-                borderBottom: 'none'
-              }}
-            >
-              <Tag 
-                color={etudiant.fiche_orientation === 'oui' ? 'green' : 'red'}
-                style={{ margin: 0 }}
-              >
-                {etudiant.fiche_orientation === 'oui' ? 'Déposé' : 'Manquant'}
-              </Tag>
-            </Card>
-          </Col>
+                <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                  <Tag color={doc.fourni ? 'green' : 'red'} style={{ margin: 0 }}>
+                    {doc.fourni ? 'Vérifié à l\'inscription' : 'Non fourni'}
+                  </Tag>
+
+                  {doc.fichier_path ? (
+                    <a
+                      href={doc.fichier_path.startsWith('http') ? doc.fichier_path : `${API_URL}${doc.fichier_path}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <EyeOutlined /> Voir le fichier archivé{doc.storage_provider === 'drive' ? ' (Drive)' : ''}
+                    </a>
+                  ) : (
+                    <Text type="secondary" style={{ fontSize: 12 }}>Aucun scan archivé</Text>
+                  )}
+
+                  {canArchiveDocuments && (
+                    <Upload
+                      showUploadList={false}
+                      accept="image/*,.pdf"
+                      beforeUpload={(file) => handleUploadDocument(doc.code, file)}
+                    >
+                      <Button
+                        size="small"
+                        icon={<UploadOutlined />}
+                        loading={uploadingDoc === doc.code}
+                      >
+                        {doc.fichier_path ? 'Remplacer' : 'Archiver'}
+                      </Button>
+                    </Upload>
+                  )}
+                </Space>
+              </Card>
+            </Col>
+          ))}
         </Row>
       </Card>
 

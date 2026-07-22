@@ -98,7 +98,7 @@ const Dashboard = () => {
     const fetchAcademicYears = async () => {
       try {
         // ← on passe le departement_id pour n'avoir que les années de ce département
-        const data = await apiFetch(`/api/annees?departement_id=${departement_id}`);
+        const data = await apiFetch(`/api/annees?site_id=${departement_id}`);
 
         if (Array.isArray(data)) {
           setAcademicYears(data);

@@ -1,4 +1,4 @@
- 
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useState } from "react";
@@ -8,7 +8,7 @@ import PageHeader from "../../Components/PageHeader/PageHeader";
 import { apiFetch, ApiError } from "../../lib/api";
 import type { AnneeAcademique } from "../../type/AnneeAcademique";
 
-// ── Lecture utilisateur + departement_id (même fix que Paiements) ─────────
+// ── Lecture utilisateur + departement_id (= site_id) ────────────────────────
 const getUserInfo = () => {
   try {
     const userStr = localStorage.getItem("user");
@@ -31,15 +31,15 @@ const Annes_accademique = () => {
   const [form] = Form.useForm();
 
   const currentUser = getUserInfo();
-  const departement_id = currentUser?.departement_id;
-  const departementName = currentUser?.departementName;
+  const siteId = currentUser?.departement_id;
+  const siteName = currentUser?.departementName;
 
-  // ── Fetch années du département ──────────────────────────────────────
+  // ── Fetch années du site (état d'ouverture par site) ───────────────────
   const fetchAnnees = async () => {
-    if (!departement_id) return;
+    if (!siteId) return;
     setLoading(true);
     try {
-      const data: AnneeAcademique[] = await apiFetch(`/api/annees?departement_id=${departement_id}`);
+      const data: AnneeAcademique[] = await apiFetch(`/api/annees?site_id=${siteId}`);
       setAnnees(data);
     } catch (e) {
       if (e instanceof ApiError && e.status === 401) return;
@@ -53,20 +53,29 @@ const Annes_accademique = () => {
     fetchAnnees();
   }, []);
 
-  // ── Ajouter ──────────────────────────────────────────────────────────
+  // ── Ajouter (créer l'année globale si besoin, puis l'ouvrir pour ce site) ──
   const handleAdd = async () => {
     try {
       const values = await form.validateFields();
-      await apiFetch("/api/annees/ajouter", {
-        method: "POST",
-        body: JSON.stringify({
-          annee: values.annee,
-          etat: "en cour",
-          departement_id, // ← envoyé au backend
-        }),
-      });
 
-      message.success("Année académique ajoutée avec succès");
+      let anneeId: number;
+      try {
+        const created = await apiFetch<{ id: number }>("/api/annees/ajouter", {
+          method: "POST",
+          body: JSON.stringify({ annee: values.annee }),
+        });
+        anneeId = created.id;
+      } catch (e) {
+        // L'année existe peut-être déjà globalement (ouverte par un autre site) : on la retrouve.
+        const toutes: AnneeAcademique[] = await apiFetch("/api/annees");
+        const existante = toutes.find(a => a.annee === values.annee);
+        if (!existante) throw e;
+        anneeId = existante.id;
+      }
+
+      await apiFetch(`/api/annees/${anneeId}/site/${siteId}/ouvrir`, { method: "POST" });
+
+      message.success("Année académique ouverte pour votre site");
       form.resetFields();
       setIsModalOpen(false);
       fetchAnnees();
@@ -79,7 +88,7 @@ const Annes_accademique = () => {
   // ── Fermer ───────────────────────────────────────────────────────────
   const handleCloseYear = async (id: number) => {
     try {
-      await apiFetch(`/api/annees/${id}/fermer`, { method: "POST" });
+      await apiFetch(`/api/annees/${id}/site/${siteId}/fermer`, { method: "POST" });
       message.success("Année fermée");
       fetchAnnees();
     } catch (e) {
@@ -91,7 +100,7 @@ const Annes_accademique = () => {
   // ── Réouvrir ─────────────────────────────────────────────────────────
   const handleReopenYear = async (id: number) => {
     try {
-      await apiFetch(`/api/annees/${id}/reouvrir`, { method: "POST" });
+      await apiFetch(`/api/annees/${id}/site/${siteId}/reouvrir`, { method: "POST" });
       message.success("Année rouverte");
       fetchAnnees();
     } catch (e) {
@@ -110,17 +119,29 @@ const Annes_accademique = () => {
       title: "État",
       dataIndex: "etat",
       key: "etat",
-      render: (etat: string) =>
+      render: (etat: string | null) =>
         etat === "en cour" ? (
           <Tag color="green">En cours</Tag>
-        ) : (
+        ) : etat ? (
           <Tag color="red">Terminée</Tag>
+        ) : (
+          <Tag>Non ouverte pour ce site</Tag>
         ),
     },
     {
       title: "Action",
       key: "action",
       render: (_: any, record: AnneeAcademique) => {
+        if (!record.etat) {
+          return (
+            <Popconfirm
+              title="Ouvrir cette année pour votre site ?"
+              onConfirm={() => handleReopenYear(record.id)}
+            >
+              <Button type="primary" icon={<CheckCircleOutlined />}>Ouvrir</Button>
+            </Popconfirm>
+          );
+        }
         if (record.etat === "en cour") {
           return (
             <Popconfirm
@@ -130,28 +151,27 @@ const Annes_accademique = () => {
               <Button danger icon={<CloseCircleOutlined />}>Fermer</Button>
             </Popconfirm>
           );
-        } else {
-          return (
-            <Popconfirm
-              title="Voulez-vous réouvrir cette année ?"
-              onConfirm={() => handleReopenYear(record.id)}
-            >
-              <Button type="primary" icon={<CheckCircleOutlined />}>Réouvrir</Button>
-            </Popconfirm>
-          );
         }
+        return (
+          <Popconfirm
+            title="Voulez-vous réouvrir cette année ?"
+            onConfirm={() => handleReopenYear(record.id)}
+          >
+            <Button type="primary" icon={<CheckCircleOutlined />}>Réouvrir</Button>
+          </Popconfirm>
+        );
       },
     },
   ];
 
-  // ── Guard : pas de département ────────────────────────────────────────
-  if (!departement_id) {
+  // ── Guard : pas de site ────────────────────────────────────────
+  if (!siteId) {
     return (
       <div className="p-6">
         <PageHeader />
         <Alert
-          message="Département non assigné"
-          description="Votre compte n'est associé à aucun département. Veuillez contacter l'administrateur."
+          message="Site non assigné"
+          description="Votre compte n'est associé à aucun site. Veuillez contacter l'administrateur."
           type="warning"
           showIcon
         />
@@ -164,8 +184,8 @@ const Annes_accademique = () => {
       <PageHeader />
 
       <Alert
-        message={`Années académiques — ${departementName || "Département " + departement_id}`}
-        description="Seules les années de votre département sont affichées et modifiables."
+        message={`Années académiques — ${siteName || "Site " + siteId}`}
+        description="Une année académique est désormais commune à tout l'IIPEA ; seul son état d'ouverture (en cours / terminée) est propre à votre site."
         type="info"
         showIcon
         style={{ marginBottom: 16 }}
@@ -191,11 +211,11 @@ const Annes_accademique = () => {
       />
 
       <Modal
-        title={`Ajouter une Année Académique — ${departementName || ""}`}
+        title={`Ouvrir une Année Académique — ${siteName || ""}`}
         open={isModalOpen}
         onCancel={() => { setIsModalOpen(false); form.resetFields(); }}
         onOk={handleAdd}
-        okText="Ajouter"
+        okText="Ouvrir"
         cancelText="Annuler"
       >
         <Form form={form} layout="vertical">

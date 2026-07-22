@@ -152,14 +152,21 @@ const DetailClasse = () => {
   //     .trim();
   // };
 
-  // Fonction pour extraire le niveau du nom
-  const extractNiveau = (name: string): string => {
+  // Fonction pour extraire le niveau du nom (Licence/Master/Doctorat + numéro).
+  // Ne matche pas "BTS X" (pas de numéro après une abréviation à 3 lettres dans ce
+  // motif) — dans ce cas les deux côtés renvoient '' et se retrouvent "égaux" par
+  // coïncidence plutôt que par vérification réelle ; s'appuyer alors surtout sur
+  // correspondanceFiliere pour départager. Garde défensive : une maquette dont le
+  // niveau a été supprimé/recréé (édition de filière) peut avoir niveau_libelle=null.
+  const extractNiveau = (name: string | null | undefined): string => {
+    if (!name) return '';
     const niveauMatch = name.match(/(licence|master|doctorat)\s*(\d+)/i);
     return niveauMatch ? `${niveauMatch[1]} ${niveauMatch[2]}`.toLowerCase() : '';
   };
 
   // Fonction pour extraire la filière du nom (sans le niveau)
-  const extractFiliere = (name: string): string => {
+  const extractFiliere = (name: string | null | undefined): string => {
+    if (!name) return '';
     return name
       .replace(/(licence|master|doctorat)\s*\d+/gi, '') // Supprimer le niveau
       .replace(/\b(scj|sic|adaf)\b/gi, '') // Supprimer les sigles
@@ -184,35 +191,41 @@ const DetailClasse = () => {
       const data = await apiFetch('/api/maquettes');
 
       if (Array.isArray(data)) {
-        
-        // Filtrer les maquettes avec une correspondance plus intelligente
-        const maquettesFiltrees = data.filter(maquette => {
+
+        // Filtrer les maquettes avec une correspondance plus intelligente.
+        // Le régime (Jour/Soir) n'est utilisé que pour départager plusieurs maquettes
+        // candidates pour une même filière+niveau (ex: Licence 1 Pro Jour vs Soir) —
+        // jamais comme condition bloquante. La description de la classe embarque le
+        // type de filière ("Universitaire"/"Professionnelles"), pas le régime du
+        // parcours réellement affecté à l'étudiant (ex: BTS est toujours en
+        // "Professionnel jour" côté maquette) : les deux textes ne décrivent pas la
+        // même chose, donc les comparer en ET bloquant masquait des correspondances
+        // par ailleurs valides (filière + niveau identiques) dès que l'un des deux
+        // textes ne mentionnait pas "Jour"/"Soir".
+        const candidats = data.filter(maquette => {
           const filiereClasse = extractFiliere(classe.nom);
           const filiereMaquette = extractFiliere(maquette.filiere_nom);
           const niveauClasse = extractNiveau(classe.nom);
           const niveauMaquette = extractNiveau(maquette.niveau_libelle);
-          
-          // Extraction du régime depuis la description de la classe et le parcours de la maquette
-          const regimeClasse = extractRegime(classe.description);
-          const regimeMaquette = extractRegime(maquette.parcour || '');
 
-          // Vérifier la correspondance sur plusieurs critères
-          const correspondanceFiliere = filiereClasse.includes(filiereMaquette) || 
+          const correspondanceFiliere = filiereClasse.includes(filiereMaquette) ||
                                       filiereMaquette.includes(filiereClasse);
-          
           const correspondanceNiveau = niveauClasse === niveauMaquette;
-          
-          // Correspondance du régime :
-          // - Si les deux ont un régime détecté, ils doivent correspondre.
-          // - Si aucun des deux n'a de régime (filières sans jour/soir), on ignore ce critère.
-          const correspondanceRegime =
-            (regimeClasse === '' && regimeMaquette === '') || regimeClasse === regimeMaquette;
 
-          return correspondanceFiliere && correspondanceNiveau && correspondanceRegime;
+          return correspondanceFiliere && correspondanceNiveau;
         });
-        
+
+        // Si plusieurs candidats subsistent (même filière+niveau, régimes jour/soir
+        // distincts), on affine avec le régime pour ne garder que le bon.
+        let maquettesFiltrees = candidats;
+        if (candidats.length > 1) {
+          const regimeClasse = extractRegime(classe.description);
+          const parRegime = candidats.filter(m => extractRegime(m.parcour || '') === regimeClasse);
+          if (parRegime.length > 0) maquettesFiltrees = parRegime;
+        }
+
         setMaquettes(maquettesFiltrees);
-        
+
         // Si une maquette correspond, charger ses détails
         if (maquettesFiltrees.length > 0) {
           fetchMaquetteDetail(maquettesFiltrees[0].id);
@@ -221,7 +234,6 @@ const DetailClasse = () => {
           console.warn('Aucune maquette trouvée. Raisons possibles:');
           console.warn('- Les noms ne correspondent pas');
           console.warn('- Différence de format (sigles, espaces)');
-          console.warn('- Le régime (Jour/Soir) ne correspond pas');
           console.warn('- Données de maquettes vides:', data.length === 0);
         }
       } else {

@@ -247,7 +247,7 @@ const EffectuerPaiement = () => {
       const payload = {
         etudiant_id: id,
         montant: values.montant,
-        methode: 'especes',
+        methode: values.methode,
         date_paiement: values.date_paiement,
         veut_kit_ecole: isPremierPaiement && values.veut_kit_ecole,
         demande_pec: values.demande_pec,
@@ -458,7 +458,8 @@ const EffectuerPaiement = () => {
                 date_paiement: dayjs(),
                 veut_kit_ecole: false,
                 demande_pec: false,
-                montant: isPremierPaiement ? 0 : 0
+                montant: isPremierPaiement ? 0 : 0,
+                methode: 'Espèces'
               }}
             >
               {isPremierPaiement && !kit && (
@@ -555,10 +556,23 @@ const EffectuerPaiement = () => {
                 />
               </Form.Item>
 
+              <Form.Item
+                name="methode"
+                label="Méthode de paiement"
+                rules={[{ required: true, message: 'Veuillez sélectionner la méthode' }]}
+              >
+                <Select placeholder="Sélectionner la méthode">
+                  <Option value="Espèces">Espèces</Option>
+                  <Option value="Mobile Money">Mobile Money</Option>
+                  <Option value="Orange Money">Orange Money</Option>
+                  <Option value="Wave">Wave</Option>
+                </Select>
+              </Form.Item>
+
               <Form.Item>
-                <Button 
-                  type="primary" 
-                  htmlType="submit" 
+                <Button
+                  type="primary"
+                  htmlType="submit"
                   loading={submitting}
                   icon={<DollarOutlined />}
                   size="large"

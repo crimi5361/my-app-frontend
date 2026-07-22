@@ -11,6 +11,7 @@ import {
 } from '@ant-design/icons';
 import DataTable from 'react-data-table-component';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import AcademicCascadeSelect, { type AcademicSelection } from '../../Components/AcademicCascadeSelect/AcademicCascadeSelect';
 
 const { Option } = Select;
 
@@ -26,6 +27,7 @@ interface FiliereData {
   typefiliere_id: number;
   typefiliere_libelle: string;
   typefiliere_description: string;
+  departement_id: number | null;
   niveaux: Niveau[];
 }
 
@@ -55,11 +57,13 @@ const Filieres = () => {
   const [submitting, setSubmitting] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [filteredData, setFilteredData] = useState<any[]>([]);
+  const [academicSelection, setAcademicSelection] = useState<AcademicSelection>({});
+  const [departementsIndex, setDepartementsIndex] = useState<{ id: number; ecole_id: number }[]>([]);
 
   const nomValue = Form.useWatch('nom', form);
   const sigleValue = Form.useWatch('sigle', form);
   const typeFiliereValue = Form.useWatch('typeFiliere', form);
-  const canSubmit = !!nomValue && !!sigleValue && !!typeFiliereValue && niveaux.length > 0;
+  const canSubmit = !!nomValue && !!sigleValue && !!typeFiliereValue && !!academicSelection.departement_id && niveaux.length > 0;
 
   const API_URL = import.meta.env.VITE_API_URL_SERVER || '';
   const searchInput = React.useRef<InputRef>(null);
@@ -93,6 +97,10 @@ const Filieres = () => {
           headers: getAuthHeaders()
         });
         setTypesFiliere(await typesRes.json());
+        const depsRes = await fetch(`${API_URL}/api/departements`, {
+          headers: getAuthHeaders()
+        });
+        setDepartementsIndex(await depsRes.json());
       } catch (error) {
         console.error('Erreur chargement:', error);
         notification.error({ message: 'Erreur', description: 'Impossible de charger les données' });
@@ -112,6 +120,7 @@ const Filieres = () => {
       typefiliere_id: item.typefiliere_id,
       type_filiere_libelle: item.typefiliere_libelle,
       type_filiere_description: item.typefiliere_description,
+      departement_id: item.departement_id,
       niveaux: item.niveaux || [],
     })),
   [filieres]);
@@ -166,6 +175,7 @@ const Filieres = () => {
         nom: values.nom,
         sigle: values.sigle,
         type_filiere_id: values.typeFiliere,
+        departement_id: academicSelection.departement_id,
         niveaux,
       };
 
@@ -215,6 +225,7 @@ const Filieres = () => {
       typefiliere_id: row.typefiliere_id,
       typefiliere_libelle: row.type_filiere_libelle,
       typefiliere_description: row.type_filiere_description,
+      departement_id: row.departement_id,
       niveaux: row.niveaux || [],
     });
     form.setFieldsValue({
@@ -223,17 +234,21 @@ const Filieres = () => {
       typeFiliere: String(row.typefiliere_id),
     });
     setNiveaux(row.niveaux || []);
+    const dep = departementsIndex.find(d => d.id === row.departement_id);
+    setAcademicSelection({ ecole_id: dep?.ecole_id, departement_id: row.departement_id ?? undefined });
     setDrawerVisible(true);
   };
 
   const showDrawer = () => {
     setEditingFiliere(null);
+    setAcademicSelection({});
     setDrawerVisible(true);
   };
 
   const closeDrawer = () => {
     form.resetFields();
     setNiveaux([]);
+    setAcademicSelection({});
     setEditingFiliere(null);
     setDrawerVisible(false);
   };
@@ -367,6 +382,9 @@ const Filieres = () => {
               ))}
             </Select>
           </Form.Item>
+
+          <Divider orientation="left">École et Département de rattachement</Divider>
+          <AcademicCascadeSelect value={academicSelection} onChange={setAcademicSelection} />
 
           {/* ── Section Niveaux ────────────────────────────────────────────── */}
           <Divider orientation="left">

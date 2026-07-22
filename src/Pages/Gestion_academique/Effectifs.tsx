@@ -139,7 +139,7 @@ const Effectifs = () => {
         if (!token) { message.error('Authentification requise'); setLoading(false); return; }
 
         const res = await fetch(
-          `${API_URL}/api/annees?departement_id=${currentUser.departement_id}`,
+          `${API_URL}/api/annees?site_id=${currentUser.departement_id}`,
           { headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' } }
         );
 

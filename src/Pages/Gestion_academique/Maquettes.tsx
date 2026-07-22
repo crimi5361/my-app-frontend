@@ -146,7 +146,7 @@ const Maquettes: React.FC = () => {
           return;
         }
 
-        const response = await fetch(`${API_URL}/api/annees?departement_id=${currentUser.departement_id}`, {
+        const response = await fetch(`${API_URL}/api/annees?site_id=${currentUser.departement_id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -282,10 +282,17 @@ const Maquettes: React.FC = () => {
     }
   };
 
-  const fetchNiveauxByFiliere = async (filiereId: number) => {
+  // anneeId est requis : un niveau appartient à une année académique précise (la
+  // filière, elle, est un catalogue partagé entre années) — sans ce filtre, le Select
+  // proposait les niveaux de TOUTES les années de la filière, permettant de créer une
+  // maquette dont l'anneeacademique_id ne correspond pas à celle du niveau choisi.
+  const fetchNiveauxByFiliere = async (filiereId: number, anneeId?: number | null) => {
+    if (!currentUser?.departement_id) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`${API_URL}/api/niveaux/${filiereId}`, {
+      const params = new URLSearchParams({ site_id: String(currentUser.departement_id) });
+      if (anneeId) params.append('anneeacademique_id', String(anneeId));
+      const response = await fetch(`${API_URL}/api/niveaux/${filiereId}?${params.toString()}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -306,9 +313,17 @@ const Maquettes: React.FC = () => {
   const handleFiliereChange = (filiereId: number) => {
     form.setFieldsValue({ niveau_id: undefined });
     if (filiereId) {
-      fetchNiveauxByFiliere(filiereId);
+      fetchNiveauxByFiliere(filiereId, form.getFieldValue('anneeacademique_id'));
     } else {
       setNiveaux([]);
+    }
+  };
+
+  const handleAnneeCreationChange = (anneeId: number) => {
+    form.setFieldsValue({ niveau_id: undefined });
+    const filiereId = form.getFieldValue('filiere_id');
+    if (filiereId) {
+      fetchNiveauxByFiliere(filiereId, anneeId);
     }
   };
 
@@ -657,11 +672,12 @@ const Maquettes: React.FC = () => {
                 name="anneeacademique_id"
                 rules={[{ required: true, message: 'Veuillez sélectionner une année académique' }]}
               >
-                <Select 
+                <Select
                   placeholder="Sélectionner une année académique"
                   showSearch
                   optionFilterProp="children"
                   allowClear
+                  onChange={handleAnneeCreationChange}
                 >
                   {annees.map(annee => (
                     <Select.Option key={annee.id} value={annee.id}>

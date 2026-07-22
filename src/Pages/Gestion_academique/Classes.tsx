@@ -122,7 +122,7 @@ const Classes = () => {
           return;
         }
 
-        const response = await fetch(`${API_URL}/api/annees?departement_id=${currentUser.departement_id}`, {
+        const response = await fetch(`${API_URL}/api/annees?site_id=${currentUser.departement_id}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'

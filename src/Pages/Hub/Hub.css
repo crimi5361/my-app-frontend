@@ -1,0 +1,209 @@
+.hub-page {
+  min-height: 100vh;
+  background: var(--bg-wash);
+}
+
+/* Identité minimale — pas la barre de navigation complète de l'application,
+   juste de quoi se situer et accéder au mot de passe / à la déconnexion. */
+.hub-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px clamp(20px, 5vw, 40px);
+}
+
+.hub-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.hub-brand-logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+}
+.hub-brand-name {
+  font-family: 'Sora', ui-sans-serif, system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.hub-user { position: relative; }
+.hub-user-trigger {
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+}
+.hub-user-avatar { width: 100%; height: 100%; object-fit: cover; }
+
+.hub-user-dropdown {
+  position: absolute;
+  right: 0;
+  top: 46px;
+  width: 220px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lift);
+  overflow: hidden;
+  z-index: 30;
+}
+.hub-user-dropdown-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-soft);
+}
+.hub-user-dropdown-head .name { font-size: 13px; font-weight: 600; color: var(--text); }
+.hub-user-dropdown-head .role { font-size: 11.5px; color: var(--text-soft); }
+.hub-user-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--text);
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.hub-user-dropdown-item:hover { background: var(--surface-2); }
+.hub-user-dropdown-item.danger { color: var(--danger); }
+
+.hub-body {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 116px 32px 64px;
+}
+
+.hub-eyebrow {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--accent-ink);
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.dark .hub-eyebrow { color: var(--accent); }
+.hub-eyebrow::before {
+  content: "";
+  width: 16px;
+  height: 1.5px;
+  background: currentColor;
+  display: inline-block;
+}
+
+.hub-title {
+  font-family: 'Sora', ui-sans-serif, system-ui, sans-serif;
+  font-size: clamp(26px, 3.4vw, 36px);
+  font-weight: 700;
+  color: var(--text);
+  margin: 10px 0 6px;
+  text-wrap: balance;
+}
+
+.hub-sub {
+  color: var(--text-soft);
+  font-size: 14.5px;
+  max-width: 46ch;
+  margin: 0 0 40px;
+}
+
+.hub-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 16px;
+}
+
+.hub-tile {
+  position: relative;
+  flex: 1 1 190px;
+  max-width: 216px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px 16px 18px;
+  text-align: center;
+  cursor: pointer;
+  overflow: hidden;
+  isolation: isolate;
+  box-shadow: var(--shadow);
+  transition: transform 0.38s cubic-bezier(.2,.8,.2,1), box-shadow 0.38s ease, border-color 0.38s ease;
+}
+.hub-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(110px 90px at 50% 0%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  z-index: -1;
+}
+.hub-tile:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lift);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+.hub-tile:hover::before { opacity: 1; }
+.hub-tile:hover .hub-tile-icon { transform: translateY(-2px) scale(1.05); }
+.hub-tile:active { transform: translateY(-3px) scale(0.99); }
+
+.hub-tile-icon {
+  width: 32px;
+  height: 32px;
+  margin: 0 auto 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tile-color, var(--ink));
+  transition: transform 0.38s cubic-bezier(.2,.8,.2,1), color 0.3s ease;
+}
+
+.hub-tile h3 {
+  font-family: 'Sora', ui-sans-serif, system-ui, sans-serif;
+  font-size: 13.5px;
+  margin: 0 0 4px;
+  font-weight: 700;
+  color: var(--text);
+}
+.hub-tile p {
+  font-size: 11.5px;
+  color: var(--text-soft);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.hub-tile.restricted { opacity: 0.55; }
+.hub-tile.restricted .hub-tile-icon { color: var(--text-soft); }
+.hub-tile.restricted:hover { transform: none; box-shadow: var(--shadow); border-color: var(--border); }
+.hub-tile.restricted:hover::before { opacity: 0; }
+
+.hub-tile-lock {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 16px;
+  height: 16px;
+  color: var(--text-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hub-tile, .hub-tile-icon { transition: none; }
+}

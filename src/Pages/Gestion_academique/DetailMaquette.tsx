@@ -224,17 +224,22 @@ const DetailMaquette: React.FC = () => {
   const generateUECode = (libelle: string, semestreId: number) => {
     const libelleCode = libelle.substring(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '');
     const semestre = allSemestres.find(s => s.id === semestreId);
-    const semestreCode = semestre ? `S${semestre.libelle}` : 'S0';
-    const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    return `UE-${libelleCode}-${semestreCode}-${randomNum}`;
+    // /api/semestres renvoie { id, nom } — pas "libelle". Un ancien code utilisait
+    // semestre.libelle (toujours undefined), générant des codes invalides du type
+    // "UE-XXXX-Sundefined-XXX" (minuscules interdites par la règle de validation du champ).
+    const semestreCode = semestre?.nom ? `S${semestre.nom.replace(/[^A-Z0-9]/gi, '').toUpperCase()}` : 'S0';
+    // Suffixe basé sur l'horodatage (au lieu de 3 chiffres aléatoires, trop peu pour
+    // éviter les collisions une fois plusieurs dizaines d'UE créées sur une même maquette).
+    const uniqueSuffix = Date.now().toString(36).toUpperCase();
+    return `UE-${libelleCode}-${semestreCode}-${uniqueSuffix}`;
   };
 
   const generateECUECode = (nom: string, ueId: number) => {
     const matiereCode = nom.substring(0, 4).toUpperCase().replace(/[^A-Z0-9]/g, '');
     const ue = availableUes.find(u => u.id === ueId);
     const ueCode = ue?.code_ue ? ue.code_ue.substring(0, 8) : 'UNKNOWN';
-    const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    return `ECUE-${matiereCode}-${ueCode}-${randomNum}`;
+    const uniqueSuffix = Date.now().toString(36).toUpperCase();
+    return `ECUE-${matiereCode}-${ueCode}-${uniqueSuffix}`;
   };
 
   // ─── Construction des données ──────────────────────────────────────────────
@@ -369,8 +374,8 @@ const DetailMaquette: React.FC = () => {
       } else {
         message.error(data.message || 'Erreur lors de la création');
       }
-    } catch {
-      message.error("Erreur lors de la création de l'UE");
+    } catch (err: any) {
+      message.error(err?.message || "Erreur lors de la création de l'UE");
     }
   };
 

@@ -23,7 +23,9 @@ import {
   Dropdown,
   MenuProps,
   Upload,
+  DatePicker,
 } from 'antd';
+import dayjs, { Dayjs } from 'dayjs';
 import {
   Eye,
   Download,
@@ -49,6 +51,7 @@ import { FilePdfOutlined } from '@ant-design/icons';
 const { Title, Text } = Typography;
 const { Option } = Select;
 const { TextArea } = AntInput;
+const { RangePicker } = DatePicker;
 
 // ==================== INTERFACES ====================
 
@@ -78,6 +81,14 @@ interface Filters {
   filiere: string;
   statut: string;
   search: string;
+  dateDebut: string | null;
+  dateFin: string | null;
+}
+
+interface AnneeAcademique {
+  id: number;
+  annee: string;
+  etat: string | null;
 }
 
 interface ApiResponse {
@@ -110,16 +121,30 @@ const GesMemoire: React.FC = () => {
     niveau: '',
     filiere: '',
     statut: '',
-    search: ''
+    search: '',
+    dateDebut: null,
+    dateFin: null
   });
-  
+
   // États pour la pagination
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(20);
-  
+
   // États pour les listes de filtres
   const [filieres, setFilieres] = useState<string[]>([]);
-  const niveaux: string[] = ['LICENCE 3', 'MASTER 2'];
+  const [niveaux, setNiveaux] = useState<string[]>([]);
+
+  // Année académique (par défaut : année en cours du site, sélecteur pour les précédentes)
+  const [departementId] = useState<number | null>(() => {
+    try {
+      const userStr = localStorage.getItem('user');
+      return userStr ? JSON.parse(userStr)?.departement_id ?? null : null;
+    } catch {
+      return null;
+    }
+  });
+  const [annees, setAnnees] = useState<AnneeAcademique[]>([]);
+  const [selectedAnneeId, setSelectedAnneeId] = useState<number | null>(null);
   const statuts: { value: string; label: string }[] = [
     { value: 'en_attente', label: 'En attente' },
     { value: 'encours', label: 'En cours' },
@@ -145,11 +170,12 @@ const GesMemoire: React.FC = () => {
     }
   };
 
-  // Récupérer les mémoires
+  // Récupérer les mémoires (filtrées sur l'année académique sélectionnée)
   const fetchMemoires = async (): Promise<void> => {
+    if (!selectedAnneeId) return;
     setLoading(true);
     try {
-      const response = await fetch(`${API_URL}/api/memoire`, {
+      const response = await fetch(`${API_URL}/api/memoire?anneeacademique_id=${selectedAnneeId}`, {
         headers: getHeaders()
       });
       
@@ -163,6 +189,11 @@ const GesMemoire: React.FC = () => {
       // Extraire les filières uniques
       const uniqueFilieres = [...new Set(memoiresData.map(m => m.nom_filiere).filter(Boolean))] as string[];
       setFilieres(uniqueFilieres);
+
+      // Extraire les niveaux uniques (dépôts réels), triés alphabétiquement
+      const uniqueNiveaux = [...new Set(memoiresData.map(m => m.nom_niveau).filter(Boolean))] as string[];
+      uniqueNiveaux.sort((a, b) => a.localeCompare(b));
+      setNiveaux(uniqueNiveaux);
     } catch (error) {
       console.error('Erreur:', error);
       showToast('Erreur lors du chargement des mémoires', 'error');
@@ -186,7 +217,17 @@ const GesMemoire: React.FC = () => {
     if (filters.statut) {
       filtered = filtered.filter(m => m.statut === filters.statut);
     }
-    
+
+    if (filters.dateDebut) {
+      const debut = dayjs(filters.dateDebut).startOf('day');
+      filtered = filtered.filter(m => m.date_depot && !dayjs(m.date_depot).isBefore(debut));
+    }
+
+    if (filters.dateFin) {
+      const fin = dayjs(filters.dateFin).endOf('day');
+      filtered = filtered.filter(m => m.date_depot && !dayjs(m.date_depot).isAfter(fin));
+    }
+
     if (filters.search) {
       const searchTerm = filters.search.toLowerCase();
       filtered = filtered.filter(m => 
@@ -211,7 +252,9 @@ const GesMemoire: React.FC = () => {
       niveau: '',
       filiere: '',
       statut: '',
-      search: ''
+      search: '',
+      dateDebut: null,
+      dateFin: null
     });
   };
 
@@ -749,10 +792,24 @@ const GesMemoire: React.FC = () => {
     return filteredMemoires.slice(start, end);
   }, [filteredMemoires, currentPage, pageSize]);
 
-  // Charger les données au montage
+  // Récupérer les années académiques du site et sélectionner l'année en cours par défaut
+  useEffect(() => {
+    if (!departementId) return;
+    fetch(`${API_URL}/api/annees?site_id=${departementId}`, { headers: getHeaders() })
+      .then(res => res.json())
+      .then((data: AnneeAcademique[]) => {
+        const liste = data || [];
+        setAnnees(liste);
+        const anneeCourante = liste.find(a => a.etat === 'en cour');
+        setSelectedAnneeId((anneeCourante || liste[0])?.id ?? null);
+      })
+      .catch(err => console.error('Erreur lors du chargement des années académiques:', err));
+  }, [departementId]);
+
+  // Charger les mémoires dès qu'une année académique est sélectionnée (ou changée)
   useEffect(() => {
     fetchMemoires();
-  }, []);
+  }, [selectedAnneeId]);
 
   return (
     <div style={{ padding: 24, background: '#f0f2f5', minHeight: '100vh' }}>
@@ -785,7 +842,7 @@ const GesMemoire: React.FC = () => {
       {/* Filtres */}
       <Card style={{ marginBottom: 16, borderRadius: 8 }}>
         <Row gutter={[16, 16]}>
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={12} md={5}>
             <Input
               placeholder="Rechercher par nom, prénom ou matricule"
               prefix={<Search size={16} />}
@@ -794,7 +851,21 @@ const GesMemoire: React.FC = () => {
               allowClear
             />
           </Col>
-          
+
+          <Col xs={12} sm={6} md={3}>
+            <Select
+              placeholder="Année académique"
+              value={selectedAnneeId ?? undefined}
+              onChange={(value) => setSelectedAnneeId(value)}
+              style={{ width: '100%' }}
+              loading={annees.length === 0}
+            >
+              {annees.map(a => (
+                <Option key={a.id} value={a.id}>{a.annee} ({a.etat})</Option>
+              ))}
+            </Select>
+          </Col>
+
           <Col xs={12} sm={6} md={3}>
             <Select
               placeholder="Niveau"
@@ -809,7 +880,7 @@ const GesMemoire: React.FC = () => {
             </Select>
           </Col>
           
-          <Col xs={12} sm={6} md={4}>
+          <Col xs={12} sm={6} md={3}>
             <Select
               placeholder="Filière"
               value={filters.filiere || undefined}
@@ -827,7 +898,7 @@ const GesMemoire: React.FC = () => {
             </Select>
           </Col>
           
-          <Col xs={12} sm={6} md={4}>
+          <Col xs={12} sm={6} md={3}>
             <Select
               placeholder="Statut"
               value={filters.statut || undefined}
@@ -840,7 +911,27 @@ const GesMemoire: React.FC = () => {
               ))}
             </Select>
           </Col>
-          
+
+          <Col xs={24} sm={12} md={4}>
+            <RangePicker
+              placeholder={['Date début', 'Date fin']}
+              format="DD/MM/YYYY"
+              style={{ width: '100%' }}
+              value={[
+                filters.dateDebut ? dayjs(filters.dateDebut) : null,
+                filters.dateFin ? dayjs(filters.dateFin) : null
+              ] as [Dayjs | null, Dayjs | null]}
+              onChange={(dates) => {
+                setFilters({
+                  ...filters,
+                  dateDebut: dates && dates[0] ? dates[0].format('YYYY-MM-DD') : null,
+                  dateFin: dates && dates[1] ? dates[1].format('YYYY-MM-DD') : null
+                });
+              }}
+              allowClear
+            />
+          </Col>
+
           <Col xs={12} sm={6} md={3}>
             <Button icon={<Filter size={16} />} onClick={resetFilters} style={{ width: '100%' }}>
               Réinitialiser

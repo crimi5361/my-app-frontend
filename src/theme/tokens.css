@@ -1,0 +1,59 @@
+/* Jetons de design IIPEA — direction validée (Hub + fondations UI/UX) */
+
+:root {
+  --ink: #101a33;
+  --ink-deep: #080d1a;
+  --gold: #c69a4b;
+  --paper: #f4f5f9;
+  --mist: #e4e7f1;
+  --ink-soft: #5b6478;
+
+  --bg: var(--paper);
+  --bg-wash: radial-gradient(1100px 560px at 50% -8%, rgba(219, 132, 158, 0.12), transparent 60%),
+              linear-gradient(180deg, #ffffff 0%, #fdf1f4 42%, var(--paper) 100%);
+  --surface: #ffffff;
+  --surface-2: #fbfbfd;
+  --border: var(--mist);
+  --text: var(--ink);
+  --text-soft: var(--ink-soft);
+  --accent: var(--gold);
+  --accent-ink: #6b4f1a;
+  --shadow: 0 1px 2px rgba(16, 26, 51, 0.04), 0 12px 32px -12px rgba(16, 26, 51, 0.14);
+  --shadow-lift: 0 4px 10px rgba(16, 26, 51, 0.07), 0 24px 48px -16px rgba(16, 26, 51, 0.24);
+
+  --success: #1e8e5a;
+  --warning: #b7791f;
+  --danger: #c0392b;
+
+  /* Couleurs par module (Hub) — clair */
+  --mod-scolarite: #3454a0;
+  --mod-caisse: #2f9166;
+  --mod-comptabilite: #7b5fbe;
+  --mod-fondateur: var(--gold);
+  --mod-administration: #4c7a93;
+
+  color-scheme: light;
+}
+
+.dark {
+  --bg: var(--ink-deep);
+  --bg-wash: radial-gradient(1100px 560px at 50% -8%, rgba(219, 181, 107, 0.08), transparent 60%), var(--ink-deep);
+  --surface: #101a33;
+  --surface-2: #0c1526;
+  --border: #223055;
+  --text: #eef0f8;
+  --text-soft: #97a0bd;
+  --accent: #dbb56b;
+  --accent-ink: #2a2010;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 16px 40px -16px rgba(0, 0, 0, 0.6);
+  --shadow-lift: 0 6px 16px rgba(0, 0, 0, 0.35), 0 32px 60px -18px rgba(0, 0, 0, 0.7);
+
+  /* Couleurs par module — sombre : teinte neutre unique */
+  --mod-scolarite: #cfd6ea;
+  --mod-caisse: #cfd6ea;
+  --mod-comptabilite: #cfd6ea;
+  --mod-fondateur: var(--accent);
+  --mod-administration: #cfd6ea;
+
+  color-scheme: dark;
+}

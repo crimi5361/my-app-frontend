@@ -6,13 +6,15 @@ import Dashboard from "../../Pages/Dashboard/Dashboard";
 // Scolarité
 import Statuts from "../../Pages/Scolarite/Statuts";
 import Paiements from "../../Pages/Scolarite/Paiements";
-import Inscription_attentes from "../../Pages/Scolarite/Inscription_attentes";
 import Statistique from "../../Pages/Gestion_academique/Statistique";
 import Effectifs from "../../Pages/Gestion_academique/Effectifs";
 import Annes_accademique from "../../Pages/Gestion_academique/Annes_accademique";
 import Salles from "../../Pages/Gestion_academique/Salles";
 import Niviaux from "../../Pages/Gestion_academique/Niviaux";
 import Filieres from "../../Pages/Gestion_academique/Filieres";
+import Ecoles from "../../Pages/Gestion_academique/Ecoles";
+import Departements from "../../Pages/Gestion_academique/Departements";
+import Sites from "../../Pages/Gestion_academique/Sites";
 import Classes from "../../Pages/Gestion_academique/Classes";
 
 import Cartes from "../../Pages/Etudiant/Cartes";
@@ -49,6 +51,12 @@ import GesMemoire from "../../Pages/Gestion_academique/GesMemoire";
 
 // Caisse - Importer les pages
 import CaisseDashboard from "../../Pages/CAISSE/CaisseDashboard";
+import Encaisser from "../../Pages/CAISSE/Encaisser";
+import RechercheEtudiantCaisse from "../../Pages/CAISSE/RechercheEtudiantCaisse";
+import PaiementsJour from "../../Pages/CAISSE/PaiementsJour";
+import FermerCaisse from "../../Pages/CAISSE/FermerCaisse";
+import InscriptionsEnAttente from "../../Pages/CAISSE/InscriptionsEnAttente";
+import SituationEtudiant from "../../Pages/CAISSE/SituationEtudiant";
 import StatsResultat from "../../Pages/Gestion_academique/StatsResultat";
 
 const AppRoutes = () => {
@@ -62,13 +70,13 @@ const AppRoutes = () => {
       } />
       
       <Route path="/dashboard/ListePec" element={
-        <ProtectedRoute requiredPermission="admin">
+        <ProtectedRoute requiredPermission={["admin", "fondateur"]}>
           <ListePEC />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/dashboard/PEC_traiter" element={
-        <ProtectedRoute requiredPermission="admin">
+        <ProtectedRoute requiredPermission={["admin", "fondateur"]}>
           <PriseEnchargeTraiter />
         </ProtectedRoute>
       } />
@@ -86,15 +94,9 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
       
-      <Route path="/scolarite/inscription_attentes" element={
-        <ProtectedRoute requiredPermission={["admin", "comptabilite", "scolarite"]}>
-          <Inscription_attentes />
-        </ProtectedRoute>
-      } />
-
       {/* Gestion académique - seulement admin */}
       <Route path="/Gestion_academique/Statistique" element={
-        <ProtectedRoute requiredPermission={["admin", "Gestion_academique"]}>
+        <ProtectedRoute requiredPermission={["admin", "Gestion_academique", "fondateur"]}>
           <Statistique />
         </ProtectedRoute>
       } />
@@ -117,12 +119,30 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
       
+      <Route path="/Gestion_academique/Ecoles" element={
+        <ProtectedRoute requiredPermission="admin">
+          <Ecoles />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/Gestion_academique/Departements" element={
+        <ProtectedRoute requiredPermission="admin">
+          <Departements />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/Gestion_academique/Sites" element={
+        <ProtectedRoute requiredPermission="admin">
+          <Sites />
+        </ProtectedRoute>
+      } />
+
       <Route path="/Gestion_academique/Filieres" element={
         <ProtectedRoute requiredPermission={["admin", "Gestion_academique"]}>
           <Filieres />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/Gestion_academique/Niviaux" element={
         <ProtectedRoute requiredPermission={["admin", "Gestion_academique"]}>
           <Niviaux />
@@ -166,7 +186,7 @@ const AppRoutes = () => {
       } />
 
       <Route path="/Gestion_academique/statistique_Resulat" element={
-        <ProtectedRoute requiredPermission={["admin", "Gestion_academique"]}>
+        <ProtectedRoute requiredPermission={["admin", "Gestion_academique", "fondateur"]}>
           <StatsResultat />
         </ProtectedRoute>
       } />
@@ -257,7 +277,7 @@ const AppRoutes = () => {
       } />
       
       <Route path="/Etudiant/Details_Etudiant/:id" element={
-        <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
+        <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant", "EtudiantArchivage"]}>
           <DetailEtudiant />
         </ProtectedRoute>
       } />
@@ -269,7 +289,7 @@ const AppRoutes = () => {
       } />
       
       <Route path="/Etudiant/Recu_Payement/:id" element={
-        <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
+        <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant", "comptabilite", "caissier"]}>
           <RecuEtudiant />
         </ProtectedRoute>
       } />
@@ -287,7 +307,7 @@ const AppRoutes = () => {
       } />
 
       <Route path="/Etudiant/DashScolarite" element={
-        <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
+        <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant", "fondateur"]}>
           <DashScolarite />
         </ProtectedRoute>
       } />
@@ -298,63 +318,43 @@ const AppRoutes = () => {
           <CaisseDashboard />
         </ProtectedRoute>
       } />
-      
-      {/* <Route path="/caisse/encaisser" element={
-        <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
-          <Encaisser />
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/caisse/recherche" element={
-        <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
-          <RechercheEtudiant />
-        </ProtectedRoute>
-      } />
-      
-      <Route path="/caisse/paiements-jour" element={
-        <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
-          <PaiementsJour />
-        </ProtectedRoute>
-      } /> */}
-      
-      {/* <Route path="/caisse/reçus" element={
-        <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
-          <MesRecus />
-        </ProtectedRoute>
-      } /> */}
-      
 
-      {/* CAISSE - Nouveau module */}
-      <Route path="/caisse/dashboard" element={
-        <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
-          <CaisseDashboard />
-        </ProtectedRoute>
-      } />
-      
-      {/* <Route path="/caisse/encaisser" element={
+      <Route path="/caisse/encaisser" element={
         <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
           <Encaisser />
         </ProtectedRoute>
       } />
-      
+
       <Route path="/caisse/recherche" element={
         <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
-          <RechercheEtudiant />
+          <RechercheEtudiantCaisse />
         </ProtectedRoute>
       } />
-      
+
+      <Route path="/caisse/situation-etudiant" element={
+        <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
+          <SituationEtudiant />
+        </ProtectedRoute>
+      } />
+
       <Route path="/caisse/paiements-jour" element={
         <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
           <PaiementsJour />
         </ProtectedRoute>
-      } /> */}
-      
-      {/* <Route path="/caisse/reçus" element={
+      } />
+
+      <Route path="/caisse/inscriptions-en-attente" element={
         <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
-          <MesRecus />
+          <InscriptionsEnAttente />
         </ProtectedRoute>
-      } /> */}
-      
+      } />
+
+      <Route path="/caisse/fermer" element={
+        <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
+          <FermerCaisse />
+        </ProtectedRoute>
+      } />
+
 
       {/* Paramètres - seulement admin */}
       <Route path="/Parametres/gestion_utilisateur" element={

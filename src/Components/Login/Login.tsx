@@ -50,7 +50,7 @@ const Login: React.FC = () => {
         if (user.userType === "etudiant") {
           navigate("/acceuil/espace_etudiant");
         } else {
-          navigate("/dashboard");
+          navigate("/hub");
         }
       } else {
         const errorData = await response.json();

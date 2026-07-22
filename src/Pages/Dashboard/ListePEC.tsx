@@ -137,7 +137,7 @@ const ListePEC = () => {
     const fetch_ = async () => {
       setLoadingYears(true);
       try {
-        const data = await apiFetch(`/api/annees?departement_id=${departement_id}`);
+        const data = await apiFetch(`/api/annees?site_id=${departement_id}`);
         if (Array.isArray(data)) {
           setAcademicYears(data);
           const encours = data.find((y: AcademicYear) => y.etat === 'en cour' || y.etat === 'en cours');

@@ -251,7 +251,8 @@ const NouvelleNote = () => {
    * Supprime : le niveau (Licence/Master/Doctorat/BTS + chiffre),
    *            "Groupe N", les sigles connus, les espaces superflus.
    */
-  const extractFiliere = (name: string): string => {
+  const extractFiliere = (name: string | null | undefined): string => {
+    if (!name) return '';
     return name
       .replace(/(licence|master|doctorat)\s*\d+/gi, '')   // Licence 1, Master 2...
       .replace(/\bbts\s*\d+/gi, '')                        // BTS 1, BTS 2, BTS1...
@@ -277,7 +278,8 @@ const NouvelleNote = () => {
    * Retourne une chaîne normalisée ex: "bts 1", "licence 2", "master 1".
    * Retourne '' si aucun niveau reconnu.
    */
-  const extractNiveau = (name: string): string => {
+  const extractNiveau = (name: string | null | undefined): string => {
+    if (!name) return '';
     // Licence 1 / Master 2 / Doctorat 3
     const matchLMD = name.match(/\b(licence|master|doctorat)\s*(\d+)/i);
     if (matchLMD) {
