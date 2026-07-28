@@ -165,16 +165,39 @@ const EffectuerPaiement = () => {
     const fetchData = async () => {
       try {
         const token = localStorage.getItem('token');
-        
+
+        // ✅ PERF : ces 4 appels sont indépendants (aucun ne dépend du résultat d'un autre) —
+        // lancés en parallèle au lieu d'être enchaînés séquentiellement pour ne payer qu'une
+        // seule fois la latence réseau au lieu de 4. Traitement des réponses inchangé.
+        const [etudiantResponse, paiementsResponse, kitResponse, pecResponse] = await Promise.all([
+          fetch(`${API_URL}/api/etudiants/etudiant/${id}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }),
+          fetch(`${API_URL}/api/paiements/etudiant/${id}/count`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            }
+          }),
+          fetch(`${API_URL}/api/kit/etudiant/${id}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            }
+          }),
+          fetch(`${API_URL}/api/prise-en-charge/etudiant/${id}/active`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            }
+          }),
+        ]);
+
         // Fetch student data
-        const etudiantResponse = await fetch(`${API_URL}/api/etudiants/etudiant/${id}`, {
-          method: 'GET',
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
         const etudiantData = await etudiantResponse.json();
         if (!etudiantResponse.ok || !etudiantData.success) {
           throw new Error(etudiantData.message || 'Erreur de chargement étudiant');
@@ -182,26 +205,12 @@ const EffectuerPaiement = () => {
         setEtudiant(etudiantData.data);
 
         // Vérifier si c'est le premier paiement
-        const paiementsResponse = await fetch(`${API_URL}/api/paiements/etudiant/${id}/count`, {
-          method: 'GET',
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-          }
-        });
-
         if (paiementsResponse.ok) {
           const paiementsData = await paiementsResponse.json();
           setIsPremierPaiement(paiementsData.count === 0);
         }
 
         // Fetch kit data
-        const kitResponse = await fetch(`${API_URL}/api/kit/etudiant/${id}`, {
-          method: 'GET',
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-          }
-        });
-
         if (kitResponse.ok) {
           const kitData = await kitResponse.json();
           if (kitData.success) {
@@ -210,13 +219,6 @@ const EffectuerPaiement = () => {
         }
 
         // Fetch active PEC
-        const pecResponse = await fetch(`${API_URL}/api/prise-en-charge/etudiant/${id}/active`, {
-          method: 'GET',
-          headers: { 
-            'Authorization': `Bearer ${token}`,
-          }
-        });
-
         if (pecResponse.ok) {
           const pecData = await pecResponse.json();
           if (pecData.success && pecData.data) {

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Card, Table, Input, Select, Space, Tag, Button, message, Avatar } from 'antd';
-import { SearchOutlined, PrinterOutlined, DollarOutlined } from '@ant-design/icons';
+import { SearchOutlined, PrinterOutlined } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import { apiFetch, ApiError } from '../../lib/api';
 
@@ -28,7 +27,6 @@ interface AnneeAcademique {
 }
 
 const InscriptionsEnAttente = () => {
-  const navigate = useNavigate();
   const [dossiers, setDossiers] = useState<Dossier[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -147,17 +145,7 @@ const InscriptionsEnAttente = () => {
             {
               title: 'Actions',
               render: (_, r) => (
-                <Space>
-                  <Button size="small" icon={<PrinterOutlined />} onClick={() => ouvrirFiche(r)}>Fiche</Button>
-                  {r.code_paiement && (
-                    <Button
-                      size="small" type="primary" icon={<DollarOutlined />}
-                      onClick={() => navigate(`/caisse/encaisser?code=${encodeURIComponent(r.code_paiement!)}`)}
-                    >
-                      Encaisser
-                    </Button>
-                  )}
-                </Space>
+                <Button size="small" icon={<PrinterOutlined />} onClick={() => ouvrirFiche(r)}>Fiche</Button>
               ),
             },
           ]}

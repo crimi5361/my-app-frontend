@@ -75,6 +75,7 @@ export interface InitialValues {
   lieu_naissance: string;
   pays_naissance: string;
   telephone: string;
+  email_personnel: string;
   contact_parent: string;
   contact_parent_2: string;
   nom_parent_1: string;
@@ -87,7 +88,6 @@ export interface InitialValues {
   numero_piece_identite: string;
   annee_bac: string;
   serie_bac: string;
-  session_bac: string;
   mention_bac: string;
   etablissement_origine: string;
   annee_academique_id: string;
@@ -120,17 +120,26 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [generatedMatricule, setGeneratedMatricule] = useState('');
   const [admissionData, setAdmissionData] = useState<any>(null);
-  const [showIpMinistere, setShowIpMinistere] = useState(false);
   const [curcusMode, setCurcusMode] = useState<CurcusMode>('none');
   const [nombreVersements, setNombreVersements] = useState<number>(1);
   const [ficheImprimee, setFicheImprimee] = useState(false);
 
   const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
 
-  // Niveaux qui nécessitent l'identifiant permanent (ip_ministere)
-  const NIVEAUX_IP_MINISTERE = ['BTS 1', 'LICENCE 1 PRO', 'LICENCE 1'];
+  // L'identifiant permanent (ip_ministere) ne concerne que les étudiants affectés par le ministère.
+  const showIpMinistere = initialValues.statut_scolaire === 'Affecté';
 
   const parcoursLabel = (id: number | undefined) => parcours.find(p => p.id === id)?.type_parcours ?? '';
+
+  // Règle métier : pour les scolarités entre 150 000 et 210 000 FCFA, 2 versements maximum.
+  const maxVersementsAutorises = montant >= 150000 && montant <= 210000 ? 2 : 4;
+  const optionsVersements = [1, 2, 3, 4].filter(n => n <= maxVersementsAutorises);
+
+  useEffect(() => {
+    if (nombreVersements > maxVersementsAutorises) {
+      setNombreVersements(maxVersementsAutorises);
+    }
+  }, [maxVersementsAutorises]);
 
   const echeancier = calculerApercuEcheancier(montant, nombreVersements);
 
@@ -150,22 +159,11 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
   };
 
   const handleNiveauInfo = async (niveau: NiveauInfo | null) => {
-    form.setFieldsValue({ ip_ministere: undefined });
-
     if (!niveau) {
       setMontant(0);
       setStatutApplique(null);
-      setShowIpMinistere(false);
       return;
     }
-
-    const niveauLibelle = niveau.libelle.toUpperCase();
-
-    const currentYear = new Date().getFullYear();
-    const anneeBac = parseInt(initialValues.annee_bac);
-    const isBacCurrentYear = anneeBac === currentYear;
-    const isNiveauEligible = NIVEAUX_IP_MINISTERE.includes(niveauLibelle);
-    setShowIpMinistere(isBacCurrentYear && isNiveauEligible);
 
     try {
       const statut = initialValues.statut_scolaire === 'Affecté' ? 'Affecté' : 'Non affecté';
@@ -268,8 +266,8 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
           etablissement_origine: initialValues.etablissement_origine.toUpperCase(),
           statut_scolaire: initialValues.statut_scolaire,
           mention_bac: initialValues.mention_bac,
-          session_bac: initialValues.session_bac,
-          ip_ministere: values.ip_ministere || null // = identifiant permanent
+          // Identifiant permanent : uniquement pour les étudiants affectés, jamais envoyé sinon
+          ip_ministere: showIpMinistere ? (values.ip_ministere || null) : undefined
         },
         inscription: {
           filiere_id: academicSelection.filiere_id,
@@ -400,6 +398,7 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
                 <Descriptions.Item label="N° acte de naissance">{initialValues.numero_acte_naissance}</Descriptions.Item>
                 <Descriptions.Item label="N° pièce d'identité">{initialValues.numero_piece_identite}</Descriptions.Item>
                 <Descriptions.Item label="Téléphone">{initialValues.telephone}</Descriptions.Item>
+                <Descriptions.Item label="E-mail personnel">{initialValues.email_personnel}</Descriptions.Item>
                 <Descriptions.Item label="Contact Parent 1 (Père)">{initialValues.contact_parent}</Descriptions.Item>
                 <Descriptions.Item label="Contact Parent 2 (Mère)">{initialValues.contact_parent_2 || 'Non renseigné'}</Descriptions.Item>
                 <Descriptions.Item label="Nom Parent 1 (Père)">{initialValues.nom_parent_1}</Descriptions.Item>
@@ -411,7 +410,6 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
                 <Descriptions.Item label="Nationalité">{initialValues.nationalite}</Descriptions.Item>
                 <Descriptions.Item label="Année BAC">{initialValues.annee_bac}</Descriptions.Item>
                 <Descriptions.Item label="Série BAC">{initialValues.serie_bac}</Descriptions.Item>
-                <Descriptions.Item label="Session BAC">{initialValues.session_bac}</Descriptions.Item>
                 <Descriptions.Item label="Mention">{initialValues.mention_bac}</Descriptions.Item>
                 <Descriptions.Item label="Établissement d'origine">{initialValues.etablissement_origine}</Descriptions.Item>
               </Descriptions>
@@ -428,6 +426,8 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
               onNiveauInfo={handleNiveauInfo}
               onFormationInfo={handleFormationInfo}
               showFiliereNiveau
+              premiereAnneeUniquement
+              statutAffecte={initialValues.statut_scolaire === 'Affecté'}
             />
 
             <Row gutter={16}>
@@ -460,15 +460,15 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
                   <Form.Item
                     name="ip_ministere"
                     label="Identifiant permanent"
-                    rules={[{
-                      required: true,
-                      message: "L'identifiant permanent est obligatoire"
-                    }]}
-                    help="Identifiant national fourni par le ministère lors de votre affectation"
+                    rules={[
+                      { required: true, message: "L'identifiant permanent est obligatoire" },
+                      { pattern: /^[A-Za-z]{2,6}[0-9]{8,12}$/, message: 'Format attendu : ex. BRTE0909020001' }
+                    ]}
+                    help="Identifiant national fourni par le ministère lors de votre affectation — ex : BRTE0909020001"
                   >
                     <Input
-                      placeholder="Ex: ABOY1906070001"
-                      style={{ fontWeight: 'bold' }}
+                      placeholder="Ex: BRTE0909020001"
+                      style={{ fontWeight: 'bold', textTransform: 'uppercase' }}
                     />
                   </Form.Item>
                 </Col>
@@ -499,10 +499,9 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
               <Col span={8}>
                 <Form.Item label="Nombre de versements">
                   <Select value={nombreVersements} onChange={setNombreVersements}>
-                    <Option value={1}>1 fois (comptant)</Option>
-                    <Option value={2}>2 fois</Option>
-                    <Option value={3}>3 fois</Option>
-                    <Option value={4}>4 fois</Option>
+                    {optionsVersements.map(n => (
+                      <Option key={n} value={n}>{n === 1 ? '1 fois (comptant)' : `${n} fois`}</Option>
+                    ))}
                   </Select>
                 </Form.Item>
               </Col>
@@ -510,6 +509,7 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
                 <Text type="secondary">
                   Le premier versement lors de l'inscription est toujours de {PREMIER_VERSEMENT_FIXE.toLocaleString('fr-FR')} FCFA
                   {nombreVersements > 1 ? ', le solde est réparti sur les versements suivants (à titre indicatif).' : '.'}
+                  {maxVersementsAutorises === 2 && ' Pour ce montant de scolarité, 2 versements maximum sont autorisés.'}
                 </Text>
               </Col>
             </Row>
@@ -560,7 +560,7 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
                 htmlType="submit"
                 size="large"
                 loading={submitting}
-                disabled={submitting}
+                disabled={submitting || !engagementAccepte}
               >
                 Finaliser l'admission
               </Button>

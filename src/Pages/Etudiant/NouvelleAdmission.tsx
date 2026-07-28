@@ -19,6 +19,7 @@ interface Pays { id: number; code_iso: string; nom: string; nationalite: string;
 interface Ville { id: number; nom: string; }
 interface SerieBac { id: number; nom: string; }
 interface AnneeBac { id: number; nom: string; }
+interface EtablissementOrigine { id: number; nom_etablissement: string; }
 interface UserInfo {
   id: number; nom: string; email: string; role: string;
   code: string; userType: string; departementName: string; departement_id: number;
@@ -45,6 +46,7 @@ const NouvelleAdmission = () => {
   const [villes, setVilles] = useState<Ville[]>([]);
   const [seriesBac, setSeriesBac] = useState<SerieBac[]>([]);
   const [anneesBac, setAnneesBac] = useState<AnneeBac[]>([]);
+  const [etablissements, setEtablissements] = useState<EtablissementOrigine[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
@@ -53,11 +55,11 @@ const NouvelleAdmission = () => {
   const [formData, setFormData] = useState<InitialValues>({
     nom: '', prenoms: '', sexe: '', matricule: '', statut_scolaire: '',
     date_naissance: undefined, lieu_naissance: '', pays_naissance: '',
-    telephone: '', contact_parent: '', contact_parent_2: '',
+    telephone: '', email_personnel: '', contact_parent: '', contact_parent_2: '',
     nom_parent_1: '', nom_parent_2: '', adresse_parent_1: '', adresse_parent_2: '',
     numero_table: '', lieu_residence: '',
     numero_acte_naissance: '', numero_piece_identite: '',
-    annee_bac: '', serie_bac: '', session_bac: '', mention_bac: '', etablissement_origine: '',
+    annee_bac: '', serie_bac: '', mention_bac: '', etablissement_origine: '',
     annee_academique_id: '', nationalite: '', photo_url: ''
   });
 
@@ -111,7 +113,7 @@ const NouvelleAdmission = () => {
   // ── Données de référence ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!currentUser?.departement_id) return;
-    Promise.all([fetchPays(), fetchVilles(), fetchSeriesBac(), fetchAnneesBac()])
+    Promise.all([fetchPays(), fetchVilles(), fetchSeriesBac(), fetchAnneesBac(), fetchEtablissements()])
       .catch(e => console.error('Erreur chargement données:', e));
   }, [currentUser]);
 
@@ -163,6 +165,16 @@ const NouvelleAdmission = () => {
     }
   };
 
+  const fetchEtablissements = async () => {
+    try {
+      const data = await apiFetch('/api/etablissements-origine');
+      setEtablissements(data);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return;
+      message.error('Erreur lors du chargement des établissements d\'origine'); console.error(e);
+    }
+  };
+
   const onFirstStepFinish = async (values: any) => {
     try {
       setSubmitting(true);
@@ -186,11 +198,11 @@ const NouvelleAdmission = () => {
         setFormData({
           nom: '', prenoms: '', sexe: '', matricule: '', statut_scolaire: '',
           date_naissance: undefined, lieu_naissance: '', pays_naissance: '',
-          telephone: '', contact_parent: '', contact_parent_2: '',
+          telephone: '', email_personnel: '', contact_parent: '', contact_parent_2: '',
           nom_parent_1: '', nom_parent_2: '', adresse_parent_1: '', adresse_parent_2: '',
           numero_table: '', lieu_residence: '',
           numero_acte_naissance: '', numero_piece_identite: '',
-          annee_bac: '', serie_bac: '', session_bac: '', mention_bac: '', etablissement_origine: '',
+          annee_bac: '', serie_bac: '', mention_bac: '', etablissement_origine: '',
           annee_academique_id: currentYearId.toString(), nationalite: '', photo_url: ''
         });
       }
@@ -331,6 +343,14 @@ const NouvelleAdmission = () => {
 
               <Row gutter={24}>
                 <Col span={8}>
+                  {/* E-mail personnel de l'étudiant — distinct de l'e-mail IIPEA généré automatiquement */}
+                  <Form.Item name="email_personnel" label="E-mail personnel"
+                    rules={[{ required: true, message: "Veuillez saisir l'e-mail personnel" },
+                            { type: 'email', message: 'E-mail invalide' }]}>
+                    <Input placeholder="Ex: prenom.nom@gmail.com" />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
                   <Form.Item name="contact_parent" label="Contact parent/tuteur 1"
                     rules={[{ required: true, message: 'Veuillez saisir le contact du parent' },
                             { pattern: /^[0-9]{10,15}$/, message: 'Numéro invalide (10-15 chiffres)' }]}>
@@ -343,15 +363,15 @@ const NouvelleAdmission = () => {
                     <Input placeholder="Ex: 2250102030405" />
                   </Form.Item>
                 </Col>
+              </Row>
+
+              <Row gutter={24}>
                 <Col span={8}>
                   <Form.Item name="nom_parent_1" label="Nom parent/tuteur 1 (Père)"
                     rules={[{ required: true, message: 'Veuillez saisir le nom du parent' }, { max: 100, message: 'Max 100 caractères' }]}>
                     <Input placeholder="Nom complet du parent/tuteur" />
                   </Form.Item>
                 </Col>
-              </Row>
-
-              <Row gutter={24}>
                 <Col span={8}>
                   <Form.Item name="adresse_parent_1" label="Adresse parent/tuteur 1 (Père)"
                     rules={[{ max: 200, message: 'Max 200 caractères' }]}>
@@ -364,6 +384,9 @@ const NouvelleAdmission = () => {
                     <Input placeholder="Nom complet du parent/tuteur secondaire" />
                   </Form.Item>
                 </Col>
+              </Row>
+
+              <Row gutter={24}>
                 <Col span={8}>
                   <Form.Item name="adresse_parent_2" label="Adresse parent/tuteur 2 (Mère)"
                     rules={[{ max: 200, message: 'Max 200 caractères' }]}>
@@ -405,15 +428,6 @@ const NouvelleAdmission = () => {
 
               <Row gutter={24}>
                 <Col span={8}>
-                  <Form.Item name="session_bac" label="Session du BAC"
-                    rules={[{ required: true, message: 'Veuillez sélectionner la session du BAC' }]}>
-                    <Select placeholder="Sélectionnez la session">
-                      <Option value="Juin">Juin</Option>
-                      <Option value="Septembre">Septembre</Option>
-                    </Select>
-                  </Form.Item>
-                </Col>
-                <Col span={8}>
                   <Form.Item name="mention_bac" label="Mention"
                     rules={[{ required: true, message: 'Veuillez sélectionner la mention' }]}>
                     <Select placeholder="Sélectionnez la mention">
@@ -429,8 +443,13 @@ const NouvelleAdmission = () => {
               <Row gutter={24}>
                 <Col span={8}>
                   <Form.Item name="etablissement_origine" label="Établissement d'origine"
-                    rules={[{ required: true, message: "Veuillez saisir l'établissement d'origine" }, { max: 150, message: 'Max 150 caractères' }]}>
-                    <Input placeholder="Nom complet de l'établissement" />
+                    rules={[{ required: true, message: "Veuillez sélectionner l'établissement d'origine" }]}>
+                    <Select placeholder="Sélectionnez l'établissement" showSearch optionFilterProp="children"
+                      loading={etablissements.length === 0} filterOption={filterOption}>
+                      {etablissements.map(e => (
+                        <Option key={`etab-${e.id}`} value={e.nom_etablissement}>{e.nom_etablissement}</Option>
+                      ))}
+                    </Select>
                   </Form.Item>
                 </Col>
                 <Col span={8}>

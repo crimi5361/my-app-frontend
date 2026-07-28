@@ -15,20 +15,22 @@ import Filieres from "../../Pages/Gestion_academique/Filieres";
 import Ecoles from "../../Pages/Gestion_academique/Ecoles";
 import Departements from "../../Pages/Gestion_academique/Departements";
 import Sites from "../../Pages/Gestion_academique/Sites";
+import EtablissementsOrigine from "../../Pages/Gestion_academique/EtablissementsOrigine";
 import Classes from "../../Pages/Gestion_academique/Classes";
 
 import Cartes from "../../Pages/Etudiant/Cartes";
 import Dossiers from "../../Pages/Etudiant/Dossiers";
 import EffectifsEtudiant from "../../Pages/Etudiant/EffectifsEtudiant";
+import InscriptionsEnAttente from "../../Pages/Etudiant/InscriptionsEnAttente";
 import ListesMinistere from "../../Pages/Etudiant/ListesMinistere";
 import NouvelleAdmission from "../../Pages/Etudiant/NouvelleAdmission";
 import Reinscription from "../../Pages/Etudiant/Reinscription";
+import Verification from "../../Pages/Etudiant/Verification";
 import Maquettes from "../../Pages/Gestion_academique/Maquettes";
 import Migrations from "../../Pages/Gestion_academique/Migrations";
 import Resultats from "../../Pages/Gestion_academique/Professeur";
 
 import Parametres from "../../Pages/Parametres/Parametres";
-import Verification from "../../Pages/Etudiant/Verification";
 import ProtectedRoute from "../ProtectedRoute";
 import Permission_user from "../../Pages/Parametres/Permission_user";
 import Etudiant from "../../Pages/Etudiant/Etudiant";
@@ -55,7 +57,6 @@ import Encaisser from "../../Pages/CAISSE/Encaisser";
 import RechercheEtudiantCaisse from "../../Pages/CAISSE/RechercheEtudiantCaisse";
 import PaiementsJour from "../../Pages/CAISSE/PaiementsJour";
 import FermerCaisse from "../../Pages/CAISSE/FermerCaisse";
-import InscriptionsEnAttente from "../../Pages/CAISSE/InscriptionsEnAttente";
 import SituationEtudiant from "../../Pages/CAISSE/SituationEtudiant";
 import StatsResultat from "../../Pages/Gestion_academique/StatsResultat";
 
@@ -122,6 +123,12 @@ const AppRoutes = () => {
       <Route path="/Gestion_academique/Ecoles" element={
         <ProtectedRoute requiredPermission="admin">
           <Ecoles />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/Gestion_academique/EtablissementsOrigine" element={
+        <ProtectedRoute requiredPermission="admin">
+          <EtablissementsOrigine />
         </ProtectedRoute>
       } />
 
@@ -239,6 +246,12 @@ const AppRoutes = () => {
           <Reinscription />
         </ProtectedRoute>
       } />
+
+      <Route path="/Etudiant/Verification" element={
+        <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
+          <Verification />
+        </ProtectedRoute>
+      } />
       
       <Route path="/Etudiant/Dossiers" element={
         <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
@@ -257,19 +270,19 @@ const AppRoutes = () => {
           <Cartes />
         </ProtectedRoute>
       } />
-      
+
+      <Route path="/Etudiant/Inscriptions_En_Attente" element={
+        <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
+          <InscriptionsEnAttente />
+        </ProtectedRoute>
+      } />
+
       <Route path="/Etudiant/Listes_Ministere" element={
         <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
           <ListesMinistere />
         </ProtectedRoute>
       } />
-      
-      <Route path="/Etudiant/Verification" element={
-        <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
-          <Verification />
-        </ProtectedRoute>
-      } />
-      
+
       <Route path="/Etudiant/Listes_Etudiant" element={
         <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
           <Etudiant />
@@ -340,12 +353,6 @@ const AppRoutes = () => {
       <Route path="/caisse/paiements-jour" element={
         <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
           <PaiementsJour />
-        </ProtectedRoute>
-      } />
-
-      <Route path="/caisse/inscriptions-en-attente" element={
-        <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
-          <InscriptionsEnAttente />
         </ProtectedRoute>
       } />
 

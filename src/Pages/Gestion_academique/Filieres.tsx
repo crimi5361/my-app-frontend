@@ -3,21 +3,25 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Button, Drawer, Form, Input, Select, Tag,
-  Space, List, Card, Divider, notification, InputRef,
+  Space, List, Card, Divider, notification, InputRef, Popconfirm,
 } from 'antd';
 import {
   PlusOutlined, SaveOutlined, DeleteOutlined,
-  EditOutlined, SearchOutlined,
+  EditOutlined, SearchOutlined, ApartmentOutlined,
 } from '@ant-design/icons';
 import DataTable from 'react-data-table-component';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import AcademicCascadeSelect, { type AcademicSelection } from '../../Components/AcademicCascadeSelect/AcademicCascadeSelect';
+import FiliereParcoursDrawer, { type NiveauParcours } from '../../Components/FiliereParcoursDrawer/FiliereParcoursDrawer';
 
 const { Option } = Select;
 
 interface Niveau {
+  id?: number;
   libelle: string;
   prix_formation: string;
+  ordre?: number | null;
+  niveau_suivant_id?: number | null;
 }
 
 interface FiliereData {
@@ -28,6 +32,8 @@ interface FiliereData {
   typefiliere_libelle: string;
   typefiliere_description: string;
   departement_id: number | null;
+  filiere_mere_id: number | null;
+  filiere_mere_nom?: string | null;
   niveaux: Niveau[];
 }
 
@@ -59,11 +65,13 @@ const Filieres = () => {
   const [filteredData, setFilteredData] = useState<any[]>([]);
   const [academicSelection, setAcademicSelection] = useState<AcademicSelection>({});
   const [departementsIndex, setDepartementsIndex] = useState<{ id: number; ecole_id: number }[]>([]);
+  const [parcoursFiliere, setParcoursFiliere] = useState<FiliereData | null>(null);
 
   const nomValue = Form.useWatch('nom', form);
   const sigleValue = Form.useWatch('sigle', form);
   const typeFiliereValue = Form.useWatch('typeFiliere', form);
-  const canSubmit = !!nomValue && !!sigleValue && !!typeFiliereValue && !!academicSelection.departement_id && niveaux.length > 0;
+  const canSubmit = !!nomValue && !!sigleValue && !!typeFiliereValue && !!academicSelection.departement_id
+    && (!!editingFiliere || niveaux.length > 0);
 
   const API_URL = import.meta.env.VITE_API_URL_SERVER || '';
   const searchInput = React.useRef<InputRef>(null);
@@ -111,6 +119,14 @@ const Filieres = () => {
     fetchAll();
   }, [API_URL]);
 
+  // Garde parcoursFiliere synchronisé après un rechargement (fetchFilieres) déclenché depuis le
+  // Drawer parcours — sinon la liste de niveaux affichée resterait figée sur l'ancien snapshot.
+  useEffect(() => {
+    if (!parcoursFiliere) return;
+    const jourFiliere = filieres.find(f => f.id === parcoursFiliere.id);
+    if (jourFiliere && jourFiliere !== parcoursFiliere) setParcoursFiliere(jourFiliere);
+  }, [filieres]);
+
   // ── Formatage tableau ───────────────────────────────────────────────────────
   const formattedData = useMemo(() =>
     filieres.map(item => ({
@@ -121,6 +137,8 @@ const Filieres = () => {
       type_filiere_libelle: item.typefiliere_libelle,
       type_filiere_description: item.typefiliere_description,
       departement_id: item.departement_id,
+      filiere_mere_id: item.filiere_mere_id,
+      filiere_mere_nom: item.filiere_mere_nom,
       niveaux: item.niveaux || [],
     })),
   [filieres]);
@@ -158,8 +176,8 @@ const Filieres = () => {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields(['nom', 'sigle', 'typeFiliere']);
-      
-      if (niveaux.length === 0) {
+
+      if (!editingFiliere && niveaux.length === 0) {
         notification.warning({ message: 'Niveaux requis', description: 'Ajoutez au moins un niveau de formation.' });
         return;
       }
@@ -171,13 +189,22 @@ const Filieres = () => {
         ? `${API_URL}/api/filieres/${editingFiliere!.id}`
         : `${API_URL}/api/filieres`;
 
-      const body = {
-        nom: values.nom,
-        sigle: values.sigle,
-        type_filiere_id: values.typeFiliere,
-        departement_id: academicSelection.departement_id,
-        niveaux,
-      };
+      const body = isEdit
+        ? {
+            nom: values.nom,
+            sigle: values.sigle,
+            type_filiere_id: values.typeFiliere,
+            departement_id: academicSelection.departement_id,
+            filiere_mere_id: values.filiereMereId || null,
+          }
+        : {
+            nom: values.nom,
+            sigle: values.sigle,
+            type_filiere_id: values.typeFiliere,
+            departement_id: academicSelection.departement_id,
+            filiere_mere_id: values.filiereMereId || null,
+            niveaux,
+          };
 
       const response = await fetch(url, {
         method: isEdit ? 'PUT' : 'POST',
@@ -226,17 +253,43 @@ const Filieres = () => {
       typefiliere_libelle: row.type_filiere_libelle,
       typefiliere_description: row.type_filiere_description,
       departement_id: row.departement_id,
+      filiere_mere_id: row.filiere_mere_id ?? null,
       niveaux: row.niveaux || [],
     });
     form.setFieldsValue({
       nom: row.filiere_nom,
       sigle: row.filiere_sigle,
       typeFiliere: String(row.typefiliere_id),
+      filiereMereId: row.filiere_mere_id ?? undefined,
     });
     setNiveaux(row.niveaux || []);
     const dep = departementsIndex.find(d => d.id === row.departement_id);
     setAcademicSelection({ ecole_id: dep?.ecole_id, departement_id: row.departement_id ?? undefined });
     setDrawerVisible(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      const res = await fetch(`${API_URL}/api/filieres/${id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        notification.warning({ message: 'Suppression impossible', description: data.message || 'Cette filière est encore utilisée.' });
+        return;
+      }
+      notification.success({ message: 'Filière supprimée' });
+      await fetchFilieres();
+    } catch (error) {
+      console.error('Erreur handleDelete:', error);
+      notification.error({ message: 'Erreur', description: 'Impossible de supprimer cette filière.' });
+    }
+  };
+
+  const openParcours = (row: any) => {
+    const filiere = filieres.find(f => f.id === row.id);
+    if (filiere) setParcoursFiliere(filiere);
   };
 
   const showDrawer = () => {
@@ -287,11 +340,18 @@ const Filieres = () => {
       name: 'Actions',
       cell: (row: any) => (
         <Space>
+          <Button icon={<ApartmentOutlined />} size="small" onClick={() => openParcours(row)} title="Parcours (niveaux, orientations, duplication)" />
           <Button icon={<EditOutlined />} size="small" style={{ color: '#1890ff' }} onClick={() => handleEdit(row)} />
-          <Button icon={<DeleteOutlined />} size="small" danger disabled />
+          <Popconfirm
+            title="Supprimer cette filière ?"
+            description="Bloqué automatiquement si des niveaux y sont encore rattachés."
+            onConfirm={() => handleDelete(row.id)}
+          >
+            <Button icon={<DeleteOutlined />} size="small" danger />
+          </Popconfirm>
         </Space>
       ),
-      width: '120px',
+      width: '160px',
     },
   ];
 
@@ -383,6 +443,16 @@ const Filieres = () => {
             </Select>
           </Form.Item>
 
+          <Form.Item name="filiereMereId" label="Filière-mère (si cette filière est une option)">
+            <Select
+              placeholder="Aucune — filière normale"
+              allowClear
+              options={filieres
+                .filter(f => f.id !== editingFiliere?.id)
+                .map(f => ({ value: f.id, label: f.nom }))}
+            />
+          </Form.Item>
+
           <Divider orientation="left">École et Département de rattachement</Divider>
           <AcademicCascadeSelect value={academicSelection} onChange={setAcademicSelection} />
 
@@ -394,17 +464,24 @@ const Filieres = () => {
             </span>
           </Divider>
 
-          <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'flex-end' }}>
-            <Form.Item name="niveauLibelle" label="Libellé du niveau" style={{ flex: 1, marginBottom: 0 }}>
-              <Input placeholder="Ex: Licence 1" />
-            </Form.Item>
-            <Form.Item name="niveauPrix" label="Prix (FCFA)" style={{ flex: 1, marginBottom: 0 }}>
-              <Input type="number" placeholder="Ex: 50000" min={0} />
-            </Form.Item>
-            <Button type="dashed" icon={<PlusOutlined />} onClick={handleAddNiveau} style={{ marginBottom: 0 }}>
-              Ajouter
-            </Button>
-          </div>
+          {editingFiliere ? (
+            <div style={{ fontSize: 13, color: '#888', marginBottom: 12 }}>
+              La gestion des niveaux (ajout, modification, suppression, ordre, progression) se fait
+              désormais depuis le bouton "Parcours" de la liste des filières.
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'flex-end' }}>
+              <Form.Item name="niveauLibelle" label="Libellé du niveau" style={{ flex: 1, marginBottom: 0 }}>
+                <Input placeholder="Ex: Licence 1" />
+              </Form.Item>
+              <Form.Item name="niveauPrix" label="Prix (FCFA)" style={{ flex: 1, marginBottom: 0 }}>
+                <Input type="number" placeholder="Ex: 50000" min={0} />
+              </Form.Item>
+              <Button type="dashed" icon={<PlusOutlined />} onClick={handleAddNiveau} style={{ marginBottom: 0 }}>
+                Ajouter
+              </Button>
+            </div>
+          )}
 
           {niveaux.length > 0 && (
             <List
@@ -413,7 +490,7 @@ const Filieres = () => {
               dataSource={niveaux}
               renderItem={(item, index) => (
                 <List.Item
-                  actions={[
+                  actions={editingFiliere ? [] : [
                     <Button
                       icon={<DeleteOutlined />}
                       size="small"
@@ -431,7 +508,7 @@ const Filieres = () => {
             />
           )}
 
-          {niveaux.length === 0 && (
+          {!editingFiliere && niveaux.length === 0 && (
             <div style={{ 
               textAlign: 'center', padding: '12px', 
               border: '1px dashed #ffccc7', borderRadius: 6,
@@ -442,6 +519,18 @@ const Filieres = () => {
           )}
         </Form>
       </Drawer>
+
+      <FiliereParcoursDrawer
+        open={!!parcoursFiliere}
+        onClose={() => setParcoursFiliere(null)}
+        filiereId={parcoursFiliere?.id ?? null}
+        filiereNom={parcoursFiliere?.nom ?? ''}
+        niveaux={(parcoursFiliere?.niveaux ?? []) as NiveauParcours[]}
+        toutesLesFilieres={filieres.map(f => ({ id: f.id, nom: f.nom, filiere_mere_id: f.filiere_mere_id }))}
+        onChanged={async () => {
+          await fetchFilieres();
+        }}
+      />
     </div>
   );
 };

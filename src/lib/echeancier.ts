@@ -1,9 +1,13 @@
 // Aperçu (avant tout paiement) de l'échéancier — même règle que le moteur backend
 // (services/echeancier.service.js) : le premier versement suit une règle fixe (150 000 F, ou le
 // montant total si inférieur), le reste du solde se répartit également sur les versements
-// suivants. Purement indicatif : le calcul définitif (avec recalcul après paiement réel) est
-// fait côté serveur.
+// suivants, espacés de 2 mois chacun et reportés au prochain jour ouvrable le cas échéant.
+// Purement indicatif : le calcul définitif (avec recalcul après paiement réel) est fait côté
+// serveur.
+import { prochainJourOuvrable } from './joursFeries';
+
 export const PREMIER_VERSEMENT_FIXE = 150000;
+const ESPACEMENT_MOIS_ENTRE_VERSEMENTS = 2;
 
 export interface LigneEcheancier {
   numero: number;
@@ -27,8 +31,9 @@ export const calculerApercuEcheancier = (montant: number | null, nombreVersement
     const montantVersement = isDernier ? montant - cumul : montantSuivant;
     cumul += montantVersement;
     const date = new Date();
-    date.setMonth(date.getMonth() + i);
-    lignes.push({ numero: i + 1, montant: montantVersement, date: date.toLocaleDateString('fr-FR') });
+    date.setMonth(date.getMonth() + i * ESPACEMENT_MOIS_ENTRE_VERSEMENTS);
+    const dateAjustee = prochainJourOuvrable(date);
+    lignes.push({ numero: i + 1, montant: montantVersement, date: dateAjustee.toLocaleDateString('fr-FR') });
   }
   return lignes;
 };

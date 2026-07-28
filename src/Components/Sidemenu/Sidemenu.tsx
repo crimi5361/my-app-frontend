@@ -8,7 +8,6 @@ import {
   FileTextOutlined,
   SolutionOutlined,
   AppstoreAddOutlined,
-  ContactsOutlined,
   UserSwitchOutlined,
   CreditCardOutlined,
   IdcardOutlined,
@@ -18,6 +17,7 @@ import {
   GlobalOutlined,
   ClusterOutlined,
   EnvironmentOutlined,
+  SafetyCertificateOutlined,
 } from "@ant-design/icons";
 
 import { useLocation, useNavigate } from "react-router-dom";
@@ -138,7 +138,6 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
         { key: "/caisse/encaisser", label: "Encaisser", icon: <CreditCardOutlined />, permission: ["admin", "comptabilite", "caissier"] },
         { key: "/caisse/recherche", label: "Rechercher étudiant", icon: <SolutionOutlined />, permission: ["admin", "comptabilite", "caissier"] },
         { key: "/caisse/situation-etudiant", label: "Situation étudiant", icon: <IdcardOutlined />, permission: ["admin", "comptabilite", "caissier"] },
-        { key: "/caisse/inscriptions-en-attente", label: "Inscriptions en attente", icon: <SolutionOutlined />, permission: ["admin", "comptabilite", "caissier"] },
         { key: "/caisse/paiements-jour", label: "Paiements du jour", icon: <HistoryOutlined />, permission: ["admin", "comptabilite", "caissier"] },
         { key: "/caisse/fermer", label: "Fermer la caisse", icon: <CloseCircleOutlined />, permission: ["admin", "comptabilite", "caissier"] },
       ],
@@ -156,6 +155,7 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
         { key: "/Gestion_academique/Ecoles", label: "Écoles", icon: <GlobalOutlined />, permission: "admin" },
         { key: "/Gestion_academique/Departements", label: "Départements", icon: <ClusterOutlined />, permission: "admin" },
         { key: "/Gestion_academique/Sites", label: "Sites", icon: <EnvironmentOutlined />, permission: "admin" },
+        { key: "/Gestion_academique/EtablissementsOrigine", label: "Établissements d'origine", icon: <ReadOutlined />, permission: "admin" },
         { key: "/Gestion_academique/Filieres", label: "Filières", icon: <AppstoreAddOutlined />, permission: ["admin", "Gestion_academique"] },
         { key: "/Gestion_academique/Niviaux", label: "Niveaux", icon: <AppstoreAddOutlined />, permission: ["admin", "Gestion_academique"] },
         { key: "/Gestion_academique/Classes", label: "Classes", icon: <AppstoreAddOutlined />, permission: ["admin", "Gestion_academique"] },
@@ -172,11 +172,12 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
       children: [
         { key: "/Etudiant/Nouvelle_Admission", label: "Nouvelle Admission", icon: <UserSwitchOutlined />, permission: ["admin", "scolarite", "Etudiant"] },
         { key: "/Etudiant/Reinscription", label: "Ré-inscription", icon: <SolutionOutlined />, permission: ["admin", "scolarite", "Etudiant"] },
+        { key: "/Etudiant/Verification", label: "Vérification", icon: <SafetyCertificateOutlined />, permission: ["admin", "scolarite", "Etudiant"] },
         { key: "/Etudiant/Dossiers", label: "Dossier", icon: <FileTextOutlined />, permission: ["admin", "scolarite", "Etudiant"] },
         { key: "/Etudiant/Effectifs", label: "Effectifs", icon: <TeamOutlined />, permission: ["admin", "scolarite", "Etudiant"] },
         { key: "/Etudiant/Cartes", label: "Cartes", icon: <IdcardOutlined />, permission: ["admin", "scolarite", "Etudiant"] },
+        { key: "/Etudiant/Inscriptions_En_Attente", label: "Inscriptions en attente de paiement", icon: <SolutionOutlined />, permission: ["admin", "scolarite", "Etudiant"] },
         { key: "/Etudiant/Listes_Ministere", label: "Listes Ministère", icon: <ReadOutlined />, permission: ["admin", "scolarite", "Etudiant"] },
-        { key: "/Etudiant/Verification", label: "Vérification", icon: <ContactsOutlined />, permission: ["admin", "scolarite", "Etudiant"] },
         { key: "/Etudiant/Listes_Etudiant", label: "Listes Étudiants", icon: <UserSwitchOutlined />, permission: ["admin", "scolarite", "Etudiant"] },
       ],
     },

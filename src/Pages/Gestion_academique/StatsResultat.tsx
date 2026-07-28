@@ -112,6 +112,9 @@ interface EtudiantResultat {
     niveau: string;
     photo_url?: string | null;
     decision: string;
+    type_filiere?: string | null;
+    credits_valides?: number;
+    credits_total?: number;
 }
 
 interface StatsResponse {
@@ -404,13 +407,14 @@ const StatsResultat: React.FC = () => {
             'Filière': e.filiere || '-',
             'Niveau': e.niveau || '-',
             'Moyenne /20': formatMoyenne(e.moyenne),
+            'Crédits validés': e.credits_total ? `${e.credits_valides ?? 0}/${e.credits_total}` : '-',
             'Décision': e.decision || '-',
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(donneesExport);
         worksheet['!cols'] = [
             { wch: 5 }, { wch: 16 }, { wch: 20 }, { wch: 20 },
-            { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 12 },
+            { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 12 },
         ];
 
         const workbook = XLSX.utils.book_new();
@@ -578,6 +582,26 @@ const StatsResultat: React.FC = () => {
                 return (
                     <Text strong style={{ color: moy >= 14 ? '#52c41a' : moy >= 10 ? '#faad14' : '#ff4d4f' }}>
                         {formatMoyenne(moy)}/20
+                    </Text>
+                );
+            }
+        },
+        {
+            title: 'Crédits validés',
+            key: 'credits_valides',
+            align: 'center',
+            width: 130,
+            // Filières professionnelles : la notion de crédits ne s'applique pas → un tiret.
+            // Filières universitaires : X/Y crédits validés (0 possible si aucune note).
+            render: (_, record) => {
+                const aDesCredits = !!record.credits_total && record.credits_total > 0;
+                if (!aDesCredits) {
+                    return <Text type="secondary">—</Text>;
+                }
+                const valide = (record.credits_valides ?? 0) >= record.credits_total!;
+                return (
+                    <Text strong style={{ color: valide ? '#52c41a' : undefined }}>
+                        {record.credits_valides ?? 0}/{record.credits_total}
                     </Text>
                 );
             }

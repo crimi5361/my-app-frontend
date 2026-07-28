@@ -48,14 +48,37 @@ interface Props {
   onNiveauInfo?: (niveau: Niveau | null) => void;
   /** Appelé avec le type de filière (Universitaire/Professionnelles) et le libellé du niveau à chaque changement */
   onFormationInfo?: (info: { typeFiliereLibelle: string | null; niveauLibelle: string | null }) => void;
+  /**
+   * N'affiche que les niveaux de 1ère année de chaque cycle (BTS 1, LICENCE 1, LICENCE 1 PRO,
+   * MASTER 1, MASTER 1 PRO) — à utiliser uniquement pour la Nouvelle inscription, qui ne concerne
+   * jamais un niveau supérieur. Ne pas activer pour la Réinscription ni la gestion académique.
+   */
+  premiereAnneeUniquement?: boolean;
+  /**
+   * Étudiant affecté par le Ministère : restreint encore le niveau, en plus de
+   * premiereAnneeUniquement — LICENCE 1 uniquement pour une filière universitaire, BTS 1
+   * uniquement pour une filière professionnelle (aucune Licence Pro/Master/Master Pro, même
+   * en 1ère année). Sans effet si premiereAnneeUniquement n'est pas activé.
+   */
+  statutAffecte?: boolean;
 }
+
+const NIVEAU_PREMIERE_ANNEE_REGEX = /^(BTS|LICENCE|MASTER) 1( PRO)?$/i;
+const NIVEAU_LICENCE_1_REGEX = /^LICENCE 1$/i;
+const NIVEAU_BTS_1_REGEX = /^BTS 1$/i;
+// ✅ Exception métier : un étudiant titulaire d'un BTS obtenu dans un autre établissement peut
+// s'inscrire directement en LICENCE 3 PRO (nouvelle inscription, pas une réinscription) — proposée
+// en plus des premières années, uniquement pour les filières professionnelles. Le choix du
+// parcours (Jour/Soir) et toute la suite (classe/groupe/maquette) sont déjà gérés dès lors que ce
+// niveau est sélectionné (voir ResumeFinalisation.tsx::handleFormationInfo).
+const NIVEAU_LICENCE_3_PRO_REGEX = /^LICENCE 3 PRO$/i;
 
 /**
  * Sélecteur en cascade École → Département → Filière → Niveau.
  * Filière/Niveau sont dérivés de /api/filieres/table/Filiere (déjà scopé site + année
  * en cours côté backend) et filtrés côté client par département académique sélectionné.
  */
-const AcademicCascadeSelect = ({ value, onChange, showFiliereNiveau = false, disabled = false, onNiveauInfo, onFormationInfo }: Props) => {
+const AcademicCascadeSelect = ({ value, onChange, showFiliereNiveau = false, disabled = false, onNiveauInfo, onFormationInfo, premiereAnneeUniquement = false, statutAffecte = false }: Props) => {
   const [ecoles, setEcoles] = useState<Ecole[]>([]);
   const [departements, setDepartements] = useState<Departement[]>([]);
   const [filieres, setFilieres] = useState<FiliereWithNiveaux[]>([]);
@@ -100,9 +123,37 @@ const AcademicCascadeSelect = ({ value, onChange, showFiliereNiveau = false, dis
     ? filieres.filter(f => f.departement_id === departementId)
     : [];
 
+  const filiereSelectionnee = filiereId ? filieresDuDepartement.find(f => f.id === filiereId) : undefined;
+
   const niveauxDeLaFiliere = filiereId
-    ? filieresDuDepartement.find(f => f.id === filiereId)?.niveaux ?? []
+    ? (filiereSelectionnee?.niveaux ?? []).filter(n => {
+        if (!premiereAnneeUniquement) return true;
+        if (statutAffecte) {
+          // Étudiant affecté : un seul niveau autorisé, selon le type de filière. L'exception
+          // LICENCE 3 PRO (BTS obtenu ailleurs) ne concerne que les étudiants Non affecté —
+          // aucune filière Affecté n'y a droit ici.
+          const estUniversitaire = filiereSelectionnee?.typefiliere_libelle === 'Universitaire';
+          return estUniversitaire ? NIVEAU_LICENCE_1_REGEX.test(n.libelle) : NIVEAU_BTS_1_REGEX.test(n.libelle);
+        }
+        if (NIVEAU_PREMIERE_ANNEE_REGEX.test(n.libelle)) return true;
+        if (filiereSelectionnee?.typefiliere_libelle === 'Professionnelles' && NIVEAU_LICENCE_3_PRO_REGEX.test(n.libelle)) {
+          return true;
+        }
+        return false;
+      })
     : [];
+
+  // Étudiant affecté : si le niveau déjà sélectionné n'est plus dans la liste autorisée
+  // (changement de filière ou bascule Non affecté → Affecté après sélection), on le réinitialise
+  // automatiquement pour empêcher toute combinaison invalide.
+  useEffect(() => {
+    if (!premiereAnneeUniquement || !niveauId) return;
+    if (!niveauxDeLaFiliere.some(n => n.id === niveauId)) {
+      onChange?.({ ecole_id: ecoleId, departement_id: departementId, filiere_id: filiereId, niveau_id: undefined });
+      onNiveauInfo?.(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statutAffecte, filiereId]);
 
   const emit = (next: Partial<AcademicSelection>) => {
     onChange?.({ ecole_id: ecoleId, departement_id: departementId, filiere_id: filiereId, niveau_id: niveauId, ...next });
@@ -138,7 +189,10 @@ const AcademicCascadeSelect = ({ value, onChange, showFiliereNiveau = false, dis
         <Form.Item label="École" required>
           <Select
             placeholder="Sélectionner une école"
-            value={ecoleId}
+            // ✅ Ne jamais lier la value tant que la liste correspondante n'a pas chargé — sinon
+            // rc-select affiche l'id numérique brut le temps du fetch asynchrone (pré-remplissage
+            // depuis un dossier existant, ex. page Vérification), au lieu du libellé.
+            value={ecoles.length > 0 ? ecoleId : undefined}
             onChange={handleEcoleChange}
             loading={loadingEcoles}
             disabled={disabled}
@@ -152,7 +206,7 @@ const AcademicCascadeSelect = ({ value, onChange, showFiliereNiveau = false, dis
         <Form.Item label="Département" required>
           <Select
             placeholder="Sélectionner un département"
-            value={departementId}
+            value={departements.length > 0 ? departementId : undefined}
             onChange={handleDepartementChange}
             loading={loadingDepartements}
             disabled={disabled || !ecoleId}
@@ -168,7 +222,7 @@ const AcademicCascadeSelect = ({ value, onChange, showFiliereNiveau = false, dis
             <Form.Item label="Filière" required>
               <Select
                 placeholder="Sélectionner une filière"
-                value={filiereId}
+                value={filieresDuDepartement.length > 0 ? filiereId : undefined}
                 onChange={handleFiliereChange}
                 loading={loadingFilieres}
                 disabled={disabled || !departementId}
@@ -182,7 +236,7 @@ const AcademicCascadeSelect = ({ value, onChange, showFiliereNiveau = false, dis
             <Form.Item label="Niveau" required>
               <Select
                 placeholder="Sélectionner un niveau"
-                value={niveauId}
+                value={niveauxDeLaFiliere.length > 0 ? niveauId : undefined}
                 onChange={handleNiveauChange}
                 disabled={disabled || !filiereId}
                 allowClear

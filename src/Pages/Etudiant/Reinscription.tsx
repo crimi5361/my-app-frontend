@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Input, Button, List, Avatar, Card, Descriptions, Tag, Alert, Row, Col,
-  Divider, Form, message, Spin, Empty, Typography, Space, Radio, Select, Result, Table
+  Divider, Form, message, Spin, Empty, Typography, Space, Radio, Select, Result, Table, Checkbox
 } from 'antd';
 import { SearchOutlined, CheckCircleOutlined, WarningOutlined, CloseCircleOutlined, PrinterOutlined } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
@@ -13,6 +13,7 @@ import { calculerApercuEcheancier } from '../../lib/echeancier';
 const { Option } = Select;
 import AcademicCascadeSelect, { type AcademicSelection } from '../../Components/AcademicCascadeSelect/AcademicCascadeSelect';
 import WebcamCapture from '../../Components/WebcamCapture/WebcamCapture';
+import { getReferenceData, type ReferenceData } from '../../lib/referenceData';
 
 const { Text, Title } = Typography;
 
@@ -50,11 +51,27 @@ interface DossierEtudiant {
   numero_acte_naissance: string;
   numero_piece_identite: string;
   mention_bac: string;
-  session_bac: string;
+  annee_bac: string;
   statut_scolaire: string;
   niveau_id: number;
   id_filiere: number;
   site_id: number;
+}
+
+interface OrientationDisponible {
+  filiere_id: number;
+  nom: string;
+  sigle: string;
+  niveau_id: number;
+  tarif: TarifInfo | null;
+}
+
+interface DocumentReinscriptionInfo {
+  code: string;
+  libelle: string;
+  obligatoire: boolean;
+  fourni: boolean;
+  declare_par_etudiant: boolean;
 }
 
 interface Dossier {
@@ -66,11 +83,15 @@ interface Dossier {
     ecue_a_reprendre: { ue_libelle: string; matiere_nom: string; moyenne: number }[];
   } | null;
   situation_academique_erreur: string | null;
-  niveau_propose: { id: number; libelle: string; filiere_id: number; tarif: TarifInfo | null } | null;
+  niveau_propose: { id: number | null; libelle: string; filiere_id: number | null; tarif: TarifInfo | null } | null;
   niveau_retenu_propose: number;
+  orientations_disponibles: OrientationDisponible[];
   tarif_niveau_actuel: TarifInfo | null;
   annee_cible: { id: number; annee: string } | null;
   reinscription_existante: any;
+  parcours_requis: boolean;
+  parcours_options: { id: number; type_parcours: string }[];
+  documents: DocumentReinscriptionInfo[];
 }
 
 interface DemandeResultat {
@@ -85,10 +106,10 @@ interface DemandeResultat {
 const IDENTITE_FIELDS = [
   'telephone', 'email', 'lieu_residence', 'contact_parent', 'contact_parent_2',
   'adresse_parent_1', 'adresse_parent_2', 'numero_acte_naissance', 'numero_piece_identite',
-  'mention_bac', 'session_bac'
+  'mention_bac', 'annee_bac'
 ];
 
-type ProgressionMode = 'redoublement' | 'progression' | 'cycle';
+type ProgressionMode = 'redoublement' | 'progression' | 'orientation' | 'cycle';
 
 const decisionColor = (decision?: string) => {
   if (decision === 'ADMIS') return 'green';
@@ -108,12 +129,21 @@ const Reinscription = () => {
   const [submitting, setSubmitting] = useState(false);
 
   const [progressionMode, setProgressionMode] = useState<ProgressionMode>('redoublement');
+  const [orientationFiliereId, setOrientationFiliereId] = useState<number | null>(null);
+  const [curcusId, setCurcusId] = useState<number | null>(null);
   const [cascadeSelection, setCascadeSelection] = useState<AcademicSelection>({});
+  const [cycleFormationInfo, setCycleFormationInfo] = useState<{ typeFiliereLibelle: string | null; niveauLibelle: string | null }>({ typeFiliereLibelle: null, niveauLibelle: null });
   const [montant, setMontant] = useState<number | null>(null);
   const [statutApplique, setStatutApplique] = useState<string | null>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [nombreVersementsApercu, setNombreVersementsApercu] = useState<number>(1);
   const [demandeResult, setDemandeResult] = useState<DemandeResultat | null>(null);
+  const [referentiel, setReferentiel] = useState<ReferenceData | null>(null);
+  const [documentsFourni, setDocumentsFourni] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    getReferenceData().then(res => setReferentiel(res.data)).catch(() => setReferentiel(null));
+  }, []);
 
   const handleSearch = async () => {
     if (query.trim().length < 2) {
@@ -147,17 +177,30 @@ const Reinscription = () => {
       numero_acte_naissance: dossier.etudiant.numero_acte_naissance,
       numero_piece_identite: dossier.etudiant.numero_piece_identite,
       mention_bac: dossier.etudiant.mention_bac,
-      session_bac: dossier.etudiant.session_bac,
+      annee_bac: dossier.etudiant.annee_bac,
     });
     setProgressionMode(
-      dossier.niveau_propose && dossier.niveau_retenu_propose === dossier.niveau_propose.id
-        ? 'progression'
-        : 'redoublement'
+      dossier.orientations_disponibles?.length > 0
+        ? 'orientation'
+        : dossier.niveau_propose && dossier.niveau_retenu_propose === dossier.niveau_propose.id
+          ? 'progression'
+          : 'redoublement'
     );
+    setOrientationFiliereId(null);
+    setCurcusId(null);
     setCascadeSelection({});
+    setCycleFormationInfo({ typeFiliereLibelle: null, niveauLibelle: null });
     setPhotoFile(null);
     setNombreVersementsApercu(1);
+    setDocumentsFourni(Object.fromEntries((dossier.documents || []).map(d => [d.code, d.fourni])));
   }, [dossier]);
+
+  // Un changement de mode ou de niveau ciblé (via le cascade "Changer de filière / cycle")
+  // invalide le parcours déjà sélectionné — jamais reporter un choix Jour/Soir fait pour un
+  // autre niveau/filière.
+  useEffect(() => {
+    setCurcusId(null);
+  }, [progressionMode, cascadeSelection.niveau_id, orientationFiliereId]);
 
   // Montant/statut affichés selon le mode de progression retenu
   useEffect(() => {
@@ -171,6 +214,14 @@ const Reinscription = () => {
     if (progressionMode === 'progression') {
       setMontant(dossier.niveau_propose?.tarif?.montant ?? null);
       setStatutApplique(dossier.niveau_propose?.tarif?.statut_applique ?? null);
+      return;
+    }
+    if (progressionMode === 'orientation') {
+      // Orientation de filière (ex: OPTION PRIVE/PUBLIC) : pas un changement de cycle, le tarif
+      // déjà calculé par le dossier (statut d'orientation actuel conservé) est réutilisé tel quel.
+      const orientation = dossier.orientations_disponibles?.find(o => o.filiere_id === orientationFiliereId);
+      setMontant(orientation?.tarif?.montant ?? null);
+      setStatutApplique(orientation?.tarif?.statut_applique ?? null);
       return;
     }
 
@@ -194,7 +245,7 @@ const Reinscription = () => {
         setMontant(null);
         setStatutApplique(null);
       });
-  }, [dossier, progressionMode, cascadeSelection.niveau_id, cascadeSelection.filiere_id]);
+  }, [dossier, progressionMode, orientationFiliereId, cascadeSelection.niveau_id, cascadeSelection.filiere_id]);
 
   const loadDossier = async (etudiantId: number) => {
     setResults([]);
@@ -211,15 +262,37 @@ const Reinscription = () => {
     }
   };
 
+  const orientationSelectionnee = dossier?.orientations_disponibles?.find(o => o.filiere_id === orientationFiliereId) ?? null;
+
   const niveauRetenuId = (() => {
     if (!dossier) return undefined;
     if (progressionMode === 'redoublement') return dossier.etudiant.niveau_id;
     if (progressionMode === 'progression') return dossier.niveau_propose?.id;
+    if (progressionMode === 'orientation') return orientationSelectionnee?.niveau_id;
     return cascadeSelection.niveau_id;
   })();
 
   const changementDeCycle = !!dossier && progressionMode === 'cycle'
     && !!cascadeSelection.filiere_id && cascadeSelection.filiere_id !== dossier.etudiant.id_filiere;
+
+  // ✅ Parcours JOUR/SOIR : le critère est le NIVEAU CIBLÉ, jamais le niveau d'origine (BTS 2 ou
+  // LICENCE 2 PRO) ni le chemin emprunté (progression, orientation, ou changement de cycle) —
+  // même règle que requiertChoixParcours côté serveur (services/parcoursProfessionnel.service.js),
+  // dupliquée ici en JS pur faute de code partagé entre front et back.
+  const requiertChoixParcoursClient = (typeFiliereLibelle: string | null, niveauLibelle: string | null) => {
+    const lib = (niveauLibelle || '').trim().toUpperCase();
+    const contientPro = lib.includes('PRO');
+    const estL1OuL2 = /^LICENCE\s*[12]\b/.test(lib);
+    return typeFiliereLibelle === 'Professionnelles' && contientPro && !estL1OuL2;
+  };
+
+  // Pour "progression"/"orientation", le dossier a déjà calculé ce besoin côté serveur
+  // (dossier.parcours_requis, basé sur le niveau suggéré). Pour "cycle", le niveau ciblé est
+  // choisi librement via le cascade — on applique donc la même règle au niveau/filière
+  // effectivement sélectionnés (capturés via onFormationInfo).
+  const parcoursRequisAffiche =
+    (progressionMode === 'progression' || progressionMode === 'orientation') && !!dossier?.parcours_requis
+    || (progressionMode === 'cycle' && requiertChoixParcoursClient(cycleFormationInfo.typeFiliereLibelle, cycleFormationInfo.niveauLibelle));
 
   const handleFinaliser = async (values: any) => {
     if (!dossier) return;
@@ -235,6 +308,14 @@ const Reinscription = () => {
       message.error('Veuillez sélectionner la nouvelle filière');
       return;
     }
+    if (progressionMode === 'orientation' && !orientationSelectionnee) {
+      message.error('Veuillez choisir votre orientation de Licence 3');
+      return;
+    }
+    if (parcoursRequisAffiche && !curcusId) {
+      message.error('Veuillez choisir le parcours (Jour/Soir)');
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -242,6 +323,12 @@ const Reinscription = () => {
       formData.append('niveau_retenu_id', String(niveauRetenuId));
       if (changementDeCycle && cascadeSelection.filiere_id) {
         formData.append('id_filiere', String(cascadeSelection.filiere_id));
+      }
+      if (progressionMode === 'orientation' && orientationSelectionnee) {
+        formData.append('id_filiere', String(orientationSelectionnee.filiere_id));
+      }
+      if (curcusId) {
+        formData.append('curcus_id', String(curcusId));
       }
       IDENTITE_FIELDS.forEach(field => {
         if (values[field] !== undefined && values[field] !== null) {
@@ -255,6 +342,9 @@ const Reinscription = () => {
       if (photoFile) {
         formData.append('photo', photoFile);
       }
+      Object.entries(documentsFourni).forEach(([code, valeur]) => {
+        formData.append(`fourni[${code}]`, String(valeur));
+      });
 
       const result = await apiFetch(`/api/reinscription/etudiant/${dossier.etudiant.id}/finaliser`, {
         method: 'POST',
@@ -496,9 +586,14 @@ const Reinscription = () => {
                 <Radio.Button value="redoublement">
                   Redoublement — {dossier.hierarchie.niveau}
                 </Radio.Button>
-                {dossier.niveau_propose && (
+                {dossier.niveau_propose && dossier.orientations_disponibles?.length === 0 && (
                   <Radio.Button value="progression">
                     Progression — {dossier.niveau_propose.libelle}
+                  </Radio.Button>
+                )}
+                {dossier.orientations_disponibles?.length > 0 && (
+                  <Radio.Button value="orientation">
+                    Orientation — {dossier.niveau_propose?.libelle}
                   </Radio.Button>
                 )}
                 <Radio.Button value="cycle">
@@ -506,11 +601,39 @@ const Reinscription = () => {
                 </Radio.Button>
               </Radio.Group>
 
+              {progressionMode === 'orientation' && (
+                <>
+                  <Form.Item
+                    label="Choisissez votre orientation de Licence 3"
+                    required
+                    style={{ maxWidth: 500 }}
+                  >
+                    <Select
+                      placeholder="Sélectionnez une orientation"
+                      value={orientationFiliereId ?? undefined}
+                      onChange={setOrientationFiliereId}
+                    >
+                      {dossier.orientations_disponibles.map(o => (
+                        <Option key={o.filiere_id} value={o.filiere_id}>{o.nom}</Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                  <Alert
+                    style={{ marginBottom: 16 }}
+                    type="info"
+                    showIcon
+                    message="Orientation de filière requise"
+                    description="Cette filière se scinde en plusieurs orientations à ce niveau. Le statut d'orientation de l'étudiant et le tarif de réinscription normal sont conservés (ce n'est pas un changement de cycle)."
+                  />
+                </>
+              )}
+
               {progressionMode === 'cycle' && (
                 <>
                   <AcademicCascadeSelect
                     value={cascadeSelection}
                     onChange={setCascadeSelection}
+                    onFormationInfo={setCycleFormationInfo}
                     showFiliereNiveau
                   />
                   {changementDeCycle && (
@@ -522,6 +645,33 @@ const Reinscription = () => {
                       description="Le statut d'orientation de l'étudiant sera automatiquement basculé sur « Non affecté » et le tarif « Non affecté » du nouveau niveau sera appliqué."
                     />
                   )}
+                </>
+              )}
+
+              {parcoursRequisAffiche && (
+                <>
+                  <Form.Item
+                    label="Choisissez votre parcours"
+                    required
+                    style={{ maxWidth: 500 }}
+                  >
+                    <Select
+                      placeholder="Cours du jour ou cours du soir"
+                      value={curcusId ?? undefined}
+                      onChange={setCurcusId}
+                    >
+                      {dossier.parcours_options.map(p => (
+                        <Option key={p.id} value={p.id}>{p.type_parcours}</Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                  <Alert
+                    style={{ marginBottom: 16 }}
+                    type="info"
+                    showIcon
+                    message="Choix du parcours obligatoire"
+                    description="Ce niveau professionnel se décline en plusieurs parcours (Jour/Soir), qui correspondent à des classes et groupes distincts."
+                  />
                 </>
               )}
 
@@ -600,10 +750,9 @@ const Reinscription = () => {
               </Row>
               <Row gutter={16}>
                 <Col span={8}>
-                  <Form.Item name="session_bac" label="Session BAC">
-                    <Select placeholder="Sélectionnez la session" allowClear>
-                      <Option value="Juin">Juin</Option>
-                      <Option value="Septembre">Septembre</Option>
+                  <Form.Item name="annee_bac" label="Année d'obtention du BAC">
+                    <Select showSearch allowClear placeholder="Sélectionnez l'année">
+                      {referentiel?.anneesBac.map(a => <Option key={a.id} value={a.nom}>{a.nom}</Option>)}
                     </Select>
                   </Form.Item>
                 </Col>
@@ -633,6 +782,26 @@ const Reinscription = () => {
                   <Form.Item name="adresse_parent_2" label="Adresse parent 2"><Input /></Form.Item>
                 </Col>
               </Row>
+
+              {dossier.documents && dossier.documents.length > 0 && (
+                <>
+                  <Divider orientation="left">Pièces justificatives</Divider>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>
+                    Cocher chaque pièce présentée par l'étudiant et vérifiée par l'agent. Aucun scan n'est requis à cette étape.
+                  </Text>
+                  <Space direction="vertical" style={{ width: '100%', marginBottom: 16 }}>
+                    {dossier.documents.map(doc => (
+                      <Checkbox
+                        key={doc.code}
+                        checked={!!documentsFourni[doc.code]}
+                        onChange={e => setDocumentsFourni(prev => ({ ...prev, [doc.code]: e.target.checked }))}
+                      >
+                        {doc.libelle} {doc.obligatoire && <Text type="danger">*</Text>} — Document présenté et vérifié
+                      </Checkbox>
+                    ))}
+                  </Space>
+                </>
+              )}
 
               {bloquePourImpaye && (
                 <Alert
