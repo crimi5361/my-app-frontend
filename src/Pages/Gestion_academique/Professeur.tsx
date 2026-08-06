@@ -2,13 +2,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import {
-  Table, Button, Modal, Form, Input, Tag, Card,
+  Button, Modal, Form, Input, Card,
   Space, Typography, Popconfirm, message, Badge, Statistic,
   Input as AntInput, Divider, Avatar, Alert, Spin, Tooltip,
   Dropdown, Menu, Row, Col, Descriptions, Drawer,
   Collapse, Statistic as AntStatistic
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag from '../../Components/ui/StatusTag';
 import {
   PlusOutlined, EditOutlined, UserOutlined,
   TeamOutlined, CheckCircleOutlined,
@@ -239,22 +241,22 @@ const Professeur = () => {
       key: 'professeur',
       render: (_, record) => (
         <Space align="center">
-          <Avatar 
+          <Avatar
             size="large"
             icon={<UserOutlined />}
-            style={{ 
-              backgroundColor: record.statut === 'Actif' 
-                ? (record.nombre_enseignements > 0 ? '#52c41a' : '#faad14')
-                : '#d9d9d9',
-              color: record.statut === 'Actif' ? 'white' : '#8c8c8c'
+            style={{
+              backgroundColor: record.statut === 'Actif'
+                ? (record.nombre_enseignements > 0 ? 'var(--success)' : 'var(--warning)')
+                : 'var(--mist)',
+              color: record.statut === 'Actif' ? 'white' : 'var(--text-soft)'
             }}
           />
           <div>
-            <Text 
-              strong 
+            <Text
+              strong
               className="text-base font-semibold cursor-pointer hover:text-blue-600"
               onClick={() => handleShowDetails(record)}
-              style={{ color: record.statut === 'Actif' ? '#262626' : '#8c8c8c' }}
+              style={{ color: record.statut === 'Actif' ? 'var(--text)' : 'var(--text-soft)' }}
             >
               {record.prenom} {record.nom}
             </Text>
@@ -280,8 +282,8 @@ const Professeur = () => {
       render: (_, record) => (
         <Badge
           count={record.nombre_enseignements}
-          style={{ 
-            backgroundColor: record.nombre_enseignements > 0 ? '#52c41a' : '#faad14'
+          style={{
+            backgroundColor: record.nombre_enseignements > 0 ? 'var(--success)' : 'var(--warning)'
           }}
         />
       ),
@@ -292,13 +294,11 @@ const Professeur = () => {
       key: 'statut',
       width: 110,
       render: (_, record) => (
-        <Tag 
-          color={record.statut === 'Actif' ? 'success' : 'error'}
+        <StatusTag
+          tone={record.statut === 'Actif' ? 'success' : 'danger'}
           icon={record.statut === 'Actif' ? <CheckOutlined /> : <CloseOutlined />}
-          className="px-2 py-0.5 rounded text-xs"
-        >
-          {record.statut}
-        </Tag>
+          label={record.statut}
+        />
       ),
       filters: [
         { text: 'Actifs', value: 'Actif' },
@@ -452,9 +452,9 @@ const Professeur = () => {
               <TeamOutlined className="mr-3 text-blue-600" />
               Gestion des Professeurs
               {showInactifs && (
-                <Tag color="orange" className="ml-3">
-                  <EyeInvisibleOutlined /> Inactifs visibles
-                </Tag>
+                <span className="ml-3">
+                  <StatusTag tone="warning" icon={<EyeInvisibleOutlined />} label="Inactifs visibles" />
+                </span>
               )}
             </Title>
             <Text type="secondary" className="text-gray-600">
@@ -514,7 +514,7 @@ const Professeur = () => {
                 title="Total"
                 value={stats.total}
                 prefix={<TeamOutlined className="text-blue-600" />}
-                valueStyle={{ color: '#1890ff', fontSize: '24px' }}
+                valueStyle={{ color: 'var(--mod-scolarite)', fontSize: '24px' }}
               />
             </Card>
           </Col>
@@ -524,7 +524,7 @@ const Professeur = () => {
                 title="Actifs"
                 value={stats.actifs}
                 prefix={<CheckOutlined className="text-green-600" />}
-                valueStyle={{ color: '#52c41a', fontSize: '24px' }}
+                valueStyle={{ color: 'var(--success)', fontSize: '24px' }}
               />
             </Card>
           </Col>
@@ -534,7 +534,7 @@ const Professeur = () => {
                 title="Inactifs"
                 value={stats.inactifs}
                 prefix={<CloseOutlined className="text-red-600" />}
-                valueStyle={{ color: '#ff4d4f', fontSize: '24px' }}
+                valueStyle={{ color: 'var(--danger)', fontSize: '24px' }}
               />
             </Card>
           </Col>
@@ -544,7 +544,7 @@ const Professeur = () => {
                 title="Assignés"
                 value={stats.assignes}
                 prefix={<CheckCircleOutlined className="text-teal-600" />}
-                valueStyle={{ color: '#13c2c2', fontSize: '24px' }}
+                valueStyle={{ color: 'var(--mod-administration)', fontSize: '24px' }}
               />
             </Card>
           </Col>
@@ -600,24 +600,21 @@ const Professeur = () => {
             )}
           </div>
         ) : (
-          <Table<Professeur>
+          <DataTable<Professeur>
             columns={columns}
             dataSource={filteredProfesseurs}
             rowKey="id"
             loading={loading}
             pagination={{
               pageSize: 10,
-              showSizeChanger: true,
               showQuickJumper: true,
-              showTotal: (total, range) => 
+              showTotal: (total, range) =>
                 `${range[0]}-${range[1]} sur ${total} professeurs`,
-              className: "px-6 py-4"
             }}
-            className="professeurs-table"
-            rowClassName={(record) => 
-              record.statut === 'Inactif' 
+            rowClassName={(record) =>
+              record.statut === 'Inactif'
                 ? "bg-gray-50 hover:bg-gray-100 text-gray-400"
-                : record.nombre_enseignements > 0 
+                : record.nombre_enseignements > 0
                   ? "bg-green-50 hover:bg-green-100"
                   : "bg-orange-50 hover:bg-orange-100"
             }
@@ -731,11 +728,11 @@ const Professeur = () => {
             {/* En-tête avec infos du professeur */}
             <div className="mb-6 p-4 bg-blue-50 rounded-lg">
               <div className="flex items-center gap-4 mb-4">
-                <Avatar 
+                <Avatar
                   size={64}
                   icon={<UserOutlined />}
-                  style={{ 
-                    backgroundColor: selectedProfesseur.statut === 'Actif' ? '#52c41a' : '#d9d9d9'
+                  style={{
+                    backgroundColor: selectedProfesseur.statut === 'Actif' ? 'var(--success)' : 'var(--mist)'
                   }}
                 />
                 <div>
@@ -743,12 +740,11 @@ const Professeur = () => {
                     {selectedProfesseur.prenom} {selectedProfesseur.nom}
                   </Title>
                   <Space>
-                    <Tag color={selectedProfesseur.statut === 'Actif' ? 'success' : 'error'}>
-                      {selectedProfesseur.statut}
-                    </Tag>
-                    <Tag color={selectedProfesseur.nombre_enseignements > 0 ? 'green' : 'orange'}>
-                      {selectedProfesseur.nombre_enseignements} enseignement(s)
-                    </Tag>
+                    <StatusTag tone={selectedProfesseur.statut === 'Actif' ? 'success' : 'danger'} label={selectedProfesseur.statut} />
+                    <StatusTag
+                      tone={selectedProfesseur.nombre_enseignements > 0 ? 'success' : 'warning'}
+                      label={`${selectedProfesseur.nombre_enseignements} enseignement(s)`}
+                    />
                   </Space>
                 </div>
               </div>
@@ -776,7 +772,7 @@ const Professeur = () => {
                       title="Coût total"
                       value={formatNumber(totalCout)}
                       prefix={<DollarOutlined />}
-                      valueStyle={{ color: '#3f8600' }}
+                      valueStyle={{ color: 'var(--success)' }}
                       suffix="FCFA"
                     />
                   </Card>
@@ -787,7 +783,7 @@ const Professeur = () => {
                       title="Heures totales"
                       value={stats.totalHeures}
                       prefix={<ScheduleOutlined />}
-                      valueStyle={{ color: '#1890ff' }}
+                      valueStyle={{ color: 'var(--mod-scolarite)' }}
                       suffix="h"
                     />
                   </Card>
@@ -828,9 +824,9 @@ const Professeur = () => {
                           <div className="flex justify-between items-center">
                             <span>
                               <strong>{matiere.matiere_nom}</strong>
-                              <Tag color="blue" className="ml-2">
-                                Coef: {matiere.coefficient}
-                              </Tag>
+                              <span className="ml-2">
+                                <StatusTag tone="info" label={`Coef: ${matiere.coefficient}`} />
+                              </span>
                             </span>
                             <span className="text-green-600 font-bold">
                               {formatNumber(matiere.cout_total)} FCFA

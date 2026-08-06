@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Form, InputNumber, Button, message, Spin, Result, Descriptions, Table, Space, Empty } from 'antd';
+import { Card, Form, InputNumber, Button, message, Spin, Result, Descriptions, Space } from 'antd';
 import { PrinterOutlined } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import DataTable from '../../Components/ui/DataTable';
 import { apiFetch, ApiError } from '../../lib/api';
 
 const API_URL = import.meta.env.VITE_API_URL_SERVER || '';
@@ -96,13 +97,12 @@ const FermerCaisse = () => {
               <Descriptions.Item label="Solde de clôture (compté)">{Number(rapport.session.montant_fermeture ?? 0).toLocaleString('fr-FR')} FCFA</Descriptions.Item>
             </Descriptions>
 
-            <Table
+            <DataTable
               style={{ maxWidth: 500, margin: '0 auto 24px auto' }}
               dataSource={rapport.repartition_methode}
               rowKey="methode"
               pagination={false}
-              size="small"
-              locale={{ emptyText: <Empty description="Aucun paiement" /> }}
+              emptyTitle="Aucun paiement"
               columns={[
                 { title: 'Méthode', dataIndex: 'methode' },
                 { title: 'Nombre', dataIndex: 'nb' },

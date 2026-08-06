@@ -1,8 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from "react";
-import { Table, Button, Modal, Form, Input, Select, message, Tag } from "antd";
+import { useEffect, useMemo, useState } from "react";
+import { Button, Modal, Form, Input, Select, message } from "antd";
 import { PlusOutlined, EditOutlined } from "@ant-design/icons";
 import PageHeader from "../../Components/PageHeader/PageHeader";
+import PageContainer from "../../Components/ui/PageContainer";
+import DataTable from "../../Components/ui/DataTable";
+import StatusTag from "../../Components/ui/StatusTag";
 import { apiFetch, ApiError } from "../../lib/api";
 
 const { Option } = Select;
@@ -18,9 +21,15 @@ interface Ecole {
 const Ecoles = () => {
   const [ecoles, setEcoles] = useState<Ecole[]>([]);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState<Ecole | null>(null);
   const [form] = Form.useForm();
+
+  const filteredEcoles = useMemo(
+    () => ecoles.filter(e => e.nom.toLowerCase().includes(search.toLowerCase()) || e.code.toLowerCase().includes(search.toLowerCase())),
+    [ecoles, search]
+  );
 
   const fetchEcoles = async () => {
     setLoading(true);
@@ -70,11 +79,11 @@ const Ecoles = () => {
 
   const columns = [
     { title: "Nom", dataIndex: "nom", key: "nom" },
-    { title: "Code", dataIndex: "code", key: "code", render: (c: string) => <Tag color="blue">{c}</Tag> },
+    { title: "Code", dataIndex: "code", key: "code", render: (c: string) => <StatusTag tone="info" label={c} /> },
     { title: "Description", dataIndex: "description", key: "description" },
     {
       title: "Statut", dataIndex: "statut", key: "statut",
-      render: (s: string) => <Tag color={s === "actif" ? "green" : "red"}>{s}</Tag>,
+      render: (s: string) => <StatusTag tone={s === "actif" ? "success" : "danger"} label={s} />,
     },
     {
       title: "Action", key: "action",
@@ -85,14 +94,25 @@ const Ecoles = () => {
   ];
 
   return (
-    <div className="p-6">
+    <div>
       <PageHeader />
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          Nouvelle École
-        </Button>
-      </div>
-      <Table columns={columns} dataSource={ecoles} rowKey="id" loading={loading} bordered />
+      <PageContainer title="Écoles">
+        <DataTable<Ecole>
+          columns={columns}
+          dataSource={filteredEcoles}
+          rowKey="id"
+          loading={loading}
+          searchValue={search}
+          searchPlaceholder="Rechercher une école"
+          onSearchChange={setSearch}
+          toolbarExtra={
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              Nouvelle École
+            </Button>
+          }
+          emptyTitle="Aucune école"
+        />
+      </PageContainer>
 
       <Modal
         title={editing ? "Modifier l'école" : "Nouvelle école"}

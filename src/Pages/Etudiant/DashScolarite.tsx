@@ -8,9 +8,8 @@ import {
   Statistic, 
   DatePicker, 
   Table, 
-  Spin, 
-  Alert, 
-  Tag,
+  Spin,
+  Alert,
   Typography,
   Empty
 } from 'antd';
@@ -28,6 +27,7 @@ import {
 import type { Dayjs } from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import StatusTag from '../../Components/ui/StatusTag';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -158,29 +158,21 @@ const DashScolarite: React.FC = () => {
       dataIndex: 'total_inscrits',
       key: 'total_inscrits',
       align: 'center',
-      render: (text: number) => <Tag color="blue" style={{ fontSize: '14px', padding: '5px 10px' }}>{text}</Tag>,
+      render: (text: number) => <StatusTag tone="info" label={String(text)} />,
     },
     {
       title: 'En Attente',
       dataIndex: 'en_attente',
       key: 'en_attente',
       align: 'center',
-      render: (text: number) => (
-        <Tag color="orange" style={{ fontSize: '14px', padding: '5px 10px' }}>
-          <ClockCircleOutlined /> {text}
-        </Tag>
-      ),
+      render: (text: number) => <StatusTag tone="warning" icon={<ClockCircleOutlined />} label={String(text)} />,
     },
     {
       title: 'Confirmés',
       dataIndex: 'confirmes',
       key: 'confirmes',
       align: 'center',
-      render: (text: number) => (
-        <Tag color="green" style={{ fontSize: '14px', padding: '5px 10px' }}>
-          <CheckCircleOutlined /> {text}
-        </Tag>
-      ),
+      render: (text: number) => <StatusTag tone="success" icon={<CheckCircleOutlined />} label={String(text)} />,
     },
   ];
 
@@ -201,11 +193,7 @@ const DashScolarite: React.FC = () => {
       dataIndex: 'nombre_paiements',
       key: 'nombre_paiements',
       align: 'center',
-      render: (text: number) => (
-        <Tag color="purple" style={{ fontSize: '14px', padding: '5px 10px' }}>
-          <TransactionOutlined /> {text}
-        </Tag>
-      ),
+      render: (text: number) => <StatusTag tone="info" icon={<TransactionOutlined />} label={String(text)} />,
     },
   ];
 
@@ -215,13 +203,14 @@ const DashScolarite: React.FC = () => {
       dataIndex: 'statut_scolaire',
       key: 'statut_scolaire',
       render: (text: string) => (
-        <Tag color={
-          text === 'Affecté' ? 'green' : 
-          text === 'Non affecté' ? 'red' : 
-          text === 'en attente' ? 'orange' : 'default'
-        }>
-          {text}
-        </Tag>
+        <StatusTag
+          tone={
+            text === 'Affecté' ? 'success' :
+            text === 'Non affecté' ? 'danger' :
+            text === 'en attente' ? 'warning' : 'neutral'
+          }
+          label={text}
+        />
       ),
     },
     {
@@ -293,8 +282,8 @@ const DashScolarite: React.FC = () => {
             <Statistic
               title="Total Étudiants Inscrits"
               value={stats.totalEtudiants || 0}
-              prefix={<UserOutlined style={{ color: '#1890ff' }} />}
-              valueStyle={{ color: '#1890ff' }}
+              prefix={<UserOutlined style={{ color: 'var(--mod-scolarite)' }} />}
+              valueStyle={{ color: 'var(--mod-scolarite)' }}
             />
           </Card>
         </Col>
@@ -303,8 +292,8 @@ const DashScolarite: React.FC = () => {
             <Statistic
               title="Inscriptions Aujourd'hui"
               value={stats.inscriptionsAujourdhui || 0}
-              prefix={<TeamOutlined style={{ color: '#52c41a' }} />}
-              valueStyle={{ color: '#52c41a' }}
+              prefix={<TeamOutlined style={{ color: 'var(--success)' }} />}
+              valueStyle={{ color: 'var(--success)' }}
             />
           </Card>
         </Col>
@@ -313,8 +302,8 @@ const DashScolarite: React.FC = () => {
             <Statistic
               title="En Attente de Validation"
               value={stats.enAttente || 0}
-              prefix={<ClockCircleOutlined style={{ color: '#faad14' }} />}
-              valueStyle={{ color: '#faad14' }}
+              prefix={<ClockCircleOutlined style={{ color: 'var(--warning)' }} />}
+              valueStyle={{ color: 'var(--warning)' }}
             />
           </Card>
         </Col>
@@ -323,8 +312,8 @@ const DashScolarite: React.FC = () => {
             <Statistic
               title="Total Paiements"
               value={stats.nombreTotalPaiements || 0}
-              prefix={<DollarOutlined style={{ color: '#722ed1' }} />}
-              valueStyle={{ color: '#722ed1' }}
+              prefix={<DollarOutlined style={{ color: 'var(--mod-comptabilite)' }} />}
+              valueStyle={{ color: 'var(--mod-comptabilite)' }}
             />
           </Card>
         </Col>
@@ -415,19 +404,19 @@ const DashScolarite: React.FC = () => {
             size="small"
           >
             <Table.Column title="Date" dataIndex="date" key="date" />
-            <Table.Column 
-              title="Nombre d'Inscriptions" 
-              dataIndex="nombre_inscriptions" 
+            <Table.Column
+              title="Nombre d'Inscriptions"
+              dataIndex="nombre_inscriptions"
               key="nombre_inscriptions"
               align="center"
-              render={(text: number) => <Tag color="blue">{text}</Tag>}
+              render={(text: number) => <StatusTag tone="info" label={String(text)} />}
             />
-            <Table.Column 
-              title="Confirmés" 
-              dataIndex="confirmes" 
+            <Table.Column
+              title="Confirmés"
+              dataIndex="confirmes"
               key="confirmes"
               align="center"
-              render={(text: number) => <Tag color="green">{text}</Tag>}
+              render={(text: number) => <StatusTag tone="success" label={String(text)} />}
             />
           </Table>
         ) : (

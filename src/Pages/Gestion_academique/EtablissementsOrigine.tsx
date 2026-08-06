@@ -1,8 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from "react";
-import { Table, Button, Modal, Form, Input, Select, message, Tag, Popconfirm, Space } from "antd";
+import { useEffect, useMemo, useState } from "react";
+import { Button, Modal, Form, Input, Select, message, Popconfirm, Space } from "antd";
 import { PlusOutlined, EditOutlined, DeleteOutlined } from "@ant-design/icons";
 import PageHeader from "../../Components/PageHeader/PageHeader";
+import PageContainer from "../../Components/ui/PageContainer";
+import DataTable from "../../Components/ui/DataTable";
+import StatusTag from "../../Components/ui/StatusTag";
 import { apiFetch, ApiError } from "../../lib/api";
 
 const { Option } = Select;
@@ -18,9 +21,15 @@ interface EtablissementOrigine {
 const EtablissementsOrigine = () => {
   const [etablissements, setEtablissements] = useState<EtablissementOrigine[]>([]);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState<EtablissementOrigine | null>(null);
   const [form] = Form.useForm();
+
+  const filteredEtablissements = useMemo(
+    () => etablissements.filter(e => e.nom_etablissement.toLowerCase().includes(search.toLowerCase())),
+    [etablissements, search]
+  );
 
   const fetchEtablissements = async () => {
     setLoading(true);
@@ -84,7 +93,7 @@ const EtablissementsOrigine = () => {
     { title: "Situation géographique", dataIndex: "situation_geographique", key: "situation_geographique", render: (v: string | null) => v || "—" },
     {
       title: "Statut", dataIndex: "statut", key: "statut",
-      render: (s: string) => <Tag color={s === "PUBLIC" ? "blue" : "orange"}>{s}</Tag>,
+      render: (s: string) => <StatusTag tone={s === "PUBLIC" ? "info" : "warning"} label={s} />,
     },
     { title: "DREN", dataIndex: "dren", key: "dren", render: (v: string | null) => v || "—" },
     {
@@ -106,21 +115,26 @@ const EtablissementsOrigine = () => {
   ];
 
   return (
-    <div className="p-6">
+    <div>
       <PageHeader />
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          Nouvel Établissement
-        </Button>
-      </div>
-      <Table
-        columns={columns}
-        dataSource={etablissements}
-        rowKey="id"
-        loading={loading}
-        bordered
-        pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (total) => `${total} établissements` }}
-      />
+      <PageContainer title="Établissements d'origine">
+        <DataTable<EtablissementOrigine>
+          columns={columns}
+          dataSource={filteredEtablissements}
+          rowKey="id"
+          loading={loading}
+          searchValue={search}
+          searchPlaceholder="Rechercher un établissement"
+          onSearchChange={setSearch}
+          toolbarExtra={
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              Nouvel Établissement
+            </Button>
+          }
+          pagination={{ pageSize: 20 }}
+          emptyTitle="Aucun établissement"
+        />
+      </PageContainer>
 
       <Modal
         title={editing ? "Modifier l'établissement" : "Nouvel établissement"}

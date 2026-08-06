@@ -1,16 +1,15 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Table, 
-  Typography, 
-  Row, 
-  Col, 
+import {
+  Card,
+  Table,
+  Typography,
+  Row,
+  Col,
   Statistic,
   Select,
   Spin,
   message,
-  Tag,
   Alert,
   Button,
   Space,
@@ -25,6 +24,9 @@ import {
   FilePdfOutlined,
 } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag from '../../Components/ui/StatusTag';
+import type { StatusTone } from '../../Components/ui/StatusTag';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -84,17 +86,17 @@ const getUserInfo = (): UserInfo | null => {
   }
 };
 
-const getCycleColor = (cycle: string) => {
-  if (!cycle) return 'gray';
-  const colors: { [key: string]: string } = {
-    'licence':   'blue',
-    'master':    'green',
-    'doctorat':  'purple',
-    'ingénieur': 'orange',
-    'bts':       'cyan',
-    'default':   'gray',
+const getCycleTone = (cycle: string): StatusTone => {
+  if (!cycle) return 'neutral';
+  const tones: Record<string, StatusTone> = {
+    'licence':   'info',
+    'master':    'success',
+    'doctorat':  'info',
+    'ingénieur': 'warning',
+    'bts':       'info',
+    'default':   'neutral',
   };
-  return colors[cycle.toLowerCase()] || colors.default;
+  return tones[cycle.toLowerCase()] || tones.default;
 };
 
 /* ─────────────────────────────────── COMPONENT ──────────────────────────────── */
@@ -437,7 +439,7 @@ const Effectifs = () => {
       dataIndex: 'cycle',
       key: 'cycle',
       render: (cycle: string) => (
-        <Tag color={getCycleColor(cycle)}>{cycle?.toUpperCase()}</Tag>
+        <StatusTag tone={getCycleTone(cycle)} label={cycle?.toUpperCase() || ''} />
       ),
       sorter: (a: EffectifData, b: EffectifData) => (a.cycle || '').localeCompare(b.cycle || ''),
     },
@@ -446,7 +448,7 @@ const Effectifs = () => {
       dataIndex: 'nombre_inscrits',
       key: 'nombre_inscrits',
       render: (nombre: number) => (
-        <Text strong style={{ color: nombre > 0 ? '#1890ff' : '#999' }}>{nombre}</Text>
+        <Text strong style={{ color: nombre > 0 ? 'var(--mod-scolarite)' : 'var(--text-soft)' }}>{nombre}</Text>
       ),
       sorter: (a: EffectifData, b: EffectifData) => a.nombre_inscrits - b.nombre_inscrits,
       align: 'center' as const,
@@ -469,7 +471,7 @@ const Effectifs = () => {
       key: 'excel',
       label: (
         <span>
-          <FileExcelOutlined style={{ color: '#16A34A', marginRight: 8 }} />
+          <FileExcelOutlined style={{ color: 'var(--success)', marginRight: 8 }} />
           Exporter en Excel
         </span>
       ),
@@ -479,7 +481,7 @@ const Effectifs = () => {
       key: 'pdf',
       label: (
         <span>
-          <FilePdfOutlined style={{ color: '#DC2626', marginRight: 8 }} />
+          <FilePdfOutlined style={{ color: 'var(--danger)', marginRight: 8 }} />
           Exporter en PDF
         </span>
       ),
@@ -544,7 +546,7 @@ const Effectifs = () => {
                 loading={exportingExcel || exportingPdf}
                 disabled={!canExport}
                 style={{
-                  background: canExport ? 'linear-gradient(135deg, #2A7A6E, #1A5C52)' : undefined,
+                  background: canExport ? 'linear-gradient(135deg, var(--ink), var(--ink-deep))' : undefined,
                   border: 'none',
                   borderRadius: 8,
                   fontWeight: 600,
@@ -590,9 +592,10 @@ const Effectifs = () => {
               </Select>
               {selectedAnneeInfo && (
                 <div style={{ marginTop: 8 }}>
-                  <Tag color={['en cours','en cour','active'].includes(selectedAnneeInfo.etat?.toLowerCase()) ? 'green' : 'blue'}>
-                    {selectedAnneeInfo.annee} ({selectedAnneeInfo.etat})
-                  </Tag>
+                  <StatusTag
+                    tone={['en cours','en cour','active'].includes(selectedAnneeInfo.etat?.toLowerCase()) ? 'success' : 'info'}
+                    label={`${selectedAnneeInfo.annee} (${selectedAnneeInfo.etat})`}
+                  />
                 </div>
               )}
             </Col>
@@ -601,19 +604,19 @@ const Effectifs = () => {
               <Row gutter={16}>
                 <Col xs={12} md={6}>
                   <Statistic title="Total Inscrits" value={totalInscrits}
-                    prefix={<TeamOutlined />} valueStyle={{ color: '#1890ff' }} />
+                    prefix={<TeamOutlined />} valueStyle={{ color: 'var(--mod-scolarite)' }} />
                 </Col>
                 <Col xs={12} md={6}>
                   <Statistic title="Filières" value={nbFilieres}
-                    prefix={<BarChartOutlined />} valueStyle={{ color: '#52c41a' }} />
+                    prefix={<BarChartOutlined />} valueStyle={{ color: 'var(--success)' }} />
                 </Col>
                 <Col xs={12} md={6}>
                   <Statistic title="Niveaux" value={nbNiveaux}
-                    prefix={<UserOutlined />} valueStyle={{ color: '#faad14' }} />
+                    prefix={<UserOutlined />} valueStyle={{ color: 'var(--warning)' }} />
                 </Col>
                 <Col xs={12} md={6}>
                   <Statistic title="Moyenne/Filière" value={moyFiliere}
-                    valueStyle={{ color: '#722ed1' }} />
+                    valueStyle={{ color: 'var(--mod-comptabilite)' }} />
                 </Col>
               </Row>
             </Col>
@@ -638,22 +641,20 @@ const Effectifs = () => {
               type="info" showIcon
             />
           ) : (
-            <Table
+            <DataTable<EffectifData>
               columns={columns}
               dataSource={effectifs}
               rowKey={r => `${r.filiere}-${r.niveau}-${r.cycle}`}
               pagination={false}
-              bordered
-              size="middle"
               scroll={{ x: 800 }}
               summary={() => (
                 <Table.Summary fixed>
-                  <Table.Summary.Row style={{ fontWeight: 'bold', backgroundColor: '#fafafa' }}>
+                  <Table.Summary.Row style={{ fontWeight: 'bold', backgroundColor: 'var(--paper)' }}>
                     <Table.Summary.Cell index={0} colSpan={3}>
                       <Text strong>TOTAL GÉNÉRAL</Text>
                     </Table.Summary.Cell>
                     <Table.Summary.Cell index={1} align="center">
-                      <Text strong style={{ color: '#1890ff' }}>{totalInscrits}</Text>
+                      <Text strong style={{ color: 'var(--mod-scolarite)' }}>{totalInscrits}</Text>
                     </Table.Summary.Cell>
                     <Table.Summary.Cell index={2} align="center">
                       <Text strong>100%</Text>

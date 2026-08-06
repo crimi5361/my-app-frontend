@@ -1,10 +1,13 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useEffect, useState } from "react";
-import { Table, Button, Modal, Form, Input, message, Popconfirm, Tag, Alert } from "antd";
+import { useEffect, useMemo, useState } from "react";
+import { Button, Modal, Form, Input, message, Popconfirm, Alert } from "antd";
 import { PlusOutlined, CheckCircleOutlined, CloseCircleOutlined } from "@ant-design/icons";
 import PageHeader from "../../Components/PageHeader/PageHeader";
+import PageContainer from "../../Components/ui/PageContainer";
+import DataTable from "../../Components/ui/DataTable";
+import StatusTag from "../../Components/ui/StatusTag";
 import { apiFetch, ApiError } from "../../lib/api";
 import type { AnneeAcademique } from "../../type/AnneeAcademique";
 
@@ -27,8 +30,14 @@ const getUserInfo = () => {
 const Annes_accademique = () => {
   const [annees, setAnnees] = useState<AnneeAcademique[]>([]);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [form] = Form.useForm();
+
+  const filteredAnnees = useMemo(
+    () => annees.filter(a => a.annee.toLowerCase().includes(search.toLowerCase())),
+    [annees, search]
+  );
 
   const currentUser = getUserInfo();
   const siteId = currentUser?.departement_id;
@@ -97,6 +106,18 @@ const Annes_accademique = () => {
     }
   };
 
+  // ── Ouvrir (jamais ouverte pour ce site — etat encore null, distinct de Réouvrir) ─────
+  const handleOpenYear = async (id: number) => {
+    try {
+      await apiFetch(`/api/annees/${id}/site/${siteId}/ouvrir`, { method: "POST" });
+      message.success("Année académique ouverte pour votre site");
+      fetchAnnees();
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 401) return;
+      message.error(e instanceof Error ? e.message : "Erreur");
+    }
+  };
+
   // ── Réouvrir ─────────────────────────────────────────────────────────
   const handleReopenYear = async (id: number) => {
     try {
@@ -121,11 +142,11 @@ const Annes_accademique = () => {
       key: "etat",
       render: (etat: string | null) =>
         etat === "en cour" ? (
-          <Tag color="green">En cours</Tag>
+          <StatusTag tone="success" label="En cours" />
         ) : etat ? (
-          <Tag color="red">Terminée</Tag>
+          <StatusTag tone="danger" label="Terminée" />
         ) : (
-          <Tag>Non ouverte pour ce site</Tag>
+          <StatusTag tone="neutral" label="Non ouverte pour ce site" />
         ),
     },
     {
@@ -136,7 +157,7 @@ const Annes_accademique = () => {
           return (
             <Popconfirm
               title="Ouvrir cette année pour votre site ?"
-              onConfirm={() => handleReopenYear(record.id)}
+              onConfirm={() => handleOpenYear(record.id)}
             >
               <Button type="primary" icon={<CheckCircleOutlined />}>Ouvrir</Button>
             </Popconfirm>
@@ -167,48 +188,54 @@ const Annes_accademique = () => {
   // ── Guard : pas de site ────────────────────────────────────────
   if (!siteId) {
     return (
-      <div className="p-6">
+      <div>
         <PageHeader />
-        <Alert
-          message="Site non assigné"
-          description="Votre compte n'est associé à aucun site. Veuillez contacter l'administrateur."
-          type="warning"
-          showIcon
-        />
+        <PageContainer title="Années académiques">
+          <Alert
+            message="Site non assigné"
+            description="Votre compte n'est associé à aucun site. Veuillez contacter l'administrateur."
+            type="warning"
+            showIcon
+          />
+        </PageContainer>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
+    <div>
       <PageHeader />
 
-      <Alert
-        message={`Années académiques — ${siteName || "Site " + siteId}`}
-        description="Une année académique est désormais commune à tout l'IIPEA ; seul son état d'ouverture (en cours / terminée) est propre à votre site."
-        type="info"
-        showIcon
-        style={{ marginBottom: 16 }}
-        closable
-      />
+      <PageContainer title="Années académiques">
+        <Alert
+          message={`Années académiques — ${siteName || "Site " + siteId}`}
+          description="Une année académique est désormais commune à tout l'IIPEA ; seul son état d'ouverture (en cours / terminée) est propre à votre site."
+          type="info"
+          showIcon
+          style={{ marginBottom: 16 }}
+          closable
+        />
 
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => setIsModalOpen(true)}
-        >
-          Nouvelle Année
-        </Button>
-      </div>
-
-      <Table
-        columns={columns}
-        dataSource={annees}
-        rowKey="id"
-        loading={loading}
-        bordered
-      />
+        <DataTable<AnneeAcademique>
+          columns={columns}
+          dataSource={filteredAnnees}
+          rowKey="id"
+          loading={loading}
+          searchValue={search}
+          searchPlaceholder="Rechercher une année"
+          onSearchChange={setSearch}
+          toolbarExtra={
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setIsModalOpen(true)}
+            >
+              Nouvelle Année
+            </Button>
+          }
+          emptyTitle="Aucune année académique"
+        />
+      </PageContainer>
 
       <Modal
         title={`Ouvrir une Année Académique — ${siteName || ""}`}

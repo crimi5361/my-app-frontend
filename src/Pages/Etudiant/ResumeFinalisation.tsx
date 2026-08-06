@@ -18,12 +18,12 @@ import {
   Space,
   Upload,
   Modal,
-  Table
 } from 'antd';
+import DataTable from '../../Components/ui/DataTable';
 import { UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { apiFetch, ApiError } from '../../lib/api';
-import AcademicCascadeSelect, { type AcademicSelection } from '../../Components/AcademicCascadeSelect/AcademicCascadeSelect';
+import FormationCascadeSelect, { type FormationSelection } from '../../Components/FormationCascadeSelect/FormationCascadeSelect';
 import WebcamCapture from '../../Components/WebcamCapture/WebcamCapture';
 import { calculerApercuEcheancier, PREMIER_VERSEMENT_FIXE } from '../../lib/echeancier';
 
@@ -59,10 +59,10 @@ const PIECES_REQUISES: { code: string; libelle: string; obligatoire: boolean }[]
   { code: 'DIPLOME_BAC', libelle: 'Diplôme du BAC', obligatoire: true },
   { code: 'EXTRAIT_NAISSANCE', libelle: 'Extrait de naissance', obligatoire: true },
   { code: 'PIECE_IDENTITE', libelle: "Pièce d'identité", obligatoire: true },
-  { code: 'PHOTO', libelle: 'Photos', obligatoire: true },
+  { code: 'PHOTO', libelle: 'Photos', obligatoire: false },
   { code: 'CMU', libelle: 'CMU', obligatoire: false },
   { code: 'FICHE_ORIENTATION', libelle: "Fiche d'orientation", obligatoire: false },
-  { code: 'PIECE_IDENTITE_PARENT', libelle: "Pièce d'identité du parent", obligatoire: true },
+  { code: 'PIECE_IDENTITE_PARENT', libelle: "Pièce d'identité du parent", obligatoire: false },
 ];
 
 export interface InitialValues {
@@ -107,7 +107,7 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
   onSuccess
 }) => {
   const [form] = Form.useForm();
-  const [academicSelection, setAcademicSelection] = useState<AcademicSelection>({});
+  const [academicSelection, setAcademicSelection] = useState<FormationSelection>({});
   const [parcours, setParcours] = useState<Parcours[]>([]);
   const [montant, setMontant] = useState<number>(0);
   const [statutApplique, setStatutApplique] = useState<string | null>(null);
@@ -213,8 +213,8 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
   };
 
   const onFinish = async (values: any) => {
-    if (!academicSelection.ecole_id || !academicSelection.departement_id || !academicSelection.filiere_id || !academicSelection.niveau_id) {
-      message.error('Veuillez sélectionner école, département, filière et niveau');
+    if (!academicSelection.filiere_id || !academicSelection.niveau_id) {
+      message.error('Veuillez sélectionner filière et niveau');
       return;
     }
     if (!values.parcours) {
@@ -355,7 +355,7 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
                   size={170}
                   src={URL.createObjectURL(photoFile)}
                   style={{
-                    border: '2px solid #1890ff',
+                    border: '2px solid var(--mod-scolarite)',
                     boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
                     marginBottom: 8
                   }}
@@ -420,12 +420,11 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
 
           <Title level={4} style={{ marginBottom: 16 }}>FORMATION DEMANDÉE</Title>
           <Form form={form} layout="vertical" onFinish={onFinish}>
-            <AcademicCascadeSelect
+            <FormationCascadeSelect
               value={academicSelection}
               onChange={setAcademicSelection}
               onNiveauInfo={handleNiveauInfo}
               onFormationInfo={handleFormationInfo}
-              showFiliereNiveau
               premiereAnneeUniquement
               statutAffecte={initialValues.statut_scolaire === 'Affecté'}
             />
@@ -481,7 +480,7 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
                   <Input
                     value={montant.toLocaleString('fr-FR') + ' FCFA'}
                     disabled
-                    style={{ fontWeight: 'bold', color: '#1890ff' }}
+                    style={{ fontWeight: 'bold', color: 'var(--mod-scolarite)' }}
                   />
                 </Form.Item>
               </Col>
@@ -514,11 +513,11 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
               </Col>
             </Row>
             {echeancier.length > 0 && (
-              <Table
-                size="small"
-                pagination={false}
+              <DataTable
                 style={{ marginBottom: 16 }}
                 dataSource={echeancier.map(l => ({ ...l, key: l.numero }))}
+                rowKey="key"
+                pagination={false}
                 columns={[
                   { title: 'Versement', dataIndex: 'numero' },
                   { title: 'Montant', dataIndex: 'montant', render: (v: number) => `${v.toLocaleString('fr-FR')} FCFA` },
@@ -596,20 +595,20 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
             src={photoFile ? URL.createObjectURL(photoFile) : undefined}
             style={{
               marginBottom: 20,
-              border: '3px solid #52c41a',
+              border: '3px solid var(--success)',
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)'
             }}
           />
-          <Title level={3} style={{ marginBottom: 10, color: '#52c41a' }}>
+          <Title level={3} style={{ marginBottom: 10, color: 'var(--success)' }}>
             {initialValues.nom} {initialValues.prenoms}
           </Title>
 
           <div style={{
-            background: '#f6ffed',
+            background: 'var(--paper)',
             padding: '15px',
             borderRadius: '8px',
             margin: '15px 0',
-            borderLeft: '4px solid #52c41a'
+            borderLeft: '4px solid var(--success)'
           }}>
             <Text strong style={{ fontSize: 18, display: 'block' }}>
               Demande d'admission enregistrée — en attente de paiement
@@ -621,7 +620,7 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
           <div style={{ textAlign: 'left', margin: '0 auto', maxWidth: '400px' }}>
             <div style={{ marginBottom: '12px' }}>
               <Text strong style={{ display: 'inline-block', width: '150px', fontSize: '20px' }}>Matricule IIPEA:</Text>
-              <Text style={{ color: '#1890ff', fontWeight: 'bold', fontSize: '20px' }}>
+              <Text style={{ color: 'var(--mod-scolarite)', fontWeight: 'bold', fontSize: '20px' }}>
                 {generatedMatricule}
               </Text>
             </div>
@@ -631,12 +630,12 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
             <div style={{
               margin: '20px auto',
               padding: '16px',
-              border: '2px dashed #1890ff',
+              border: '2px dashed var(--mod-scolarite)',
               borderRadius: '8px',
               maxWidth: '400px'
             }}>
               <Text>Code de paiement à présenter à la caisse</Text>
-              <div style={{ fontSize: 24, fontWeight: 'bold', letterSpacing: 2, color: '#1890ff', margin: '8px 0' }}>
+              <div style={{ fontSize: 24, fontWeight: 'bold', letterSpacing: 2, color: 'var(--mod-scolarite)', margin: '8px 0' }}>
                 {admissionData.code_paiement}
               </div>
               <Button
@@ -662,8 +661,8 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
           <div style={{
             marginTop: '25px',
             padding: '12px',
-            background: '#f0f9ff',
-            border: '1px solid #91d5ff',
+            background: 'var(--paper)',
+            border: '1px solid var(--mist)',
             borderRadius: '4px'
           }}>
             <Text type="secondary" style={{ fontSize: 14 }}>

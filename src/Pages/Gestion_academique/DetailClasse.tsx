@@ -2,12 +2,11 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  Card, 
-  Table, 
-  Typography, 
+import {
+  Card,
+  Table,
+  Typography,
   Button,
-  Tag,
   Progress,
   Spin,
   message,
@@ -26,6 +25,8 @@ import {
   PlusOutlined
 } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag from '../../Components/ui/StatusTag';
 import { apiFetch } from '../../lib/api';
 
 const { Title, Text } = Typography;
@@ -83,6 +84,7 @@ interface ClasseDetail {
   nom: string;
   description: string;
   annee_academique: string;
+  annee_academique_id: number;
   annee_etat: string;
   filiere: string;
   niveau: string;
@@ -187,8 +189,11 @@ const DetailClasse = () => {
     
     setLoadingMaquettes(true);
     try {
-      // Récupérer toutes les maquettes
-      const data = await apiFetch('/api/maquettes');
+      // Ne récupérer QUE les maquettes de l'année académique de cette classe — sans ce filtre,
+      // le matching par texte (filière+niveau) ci-dessous pouvait faire remonter par erreur la
+      // maquette d'une autre année portant le même nom (ex: classe 2026-2027 affichant la
+      // maquette 2025-2026). Le backend supporte déjà ce filtre (voir Maquettes.tsx).
+      const data = await apiFetch(`/api/maquettes?annee_id=${classe.annee_academique_id}`);
 
       if (Array.isArray(data)) {
 
@@ -270,9 +275,9 @@ const DetailClasse = () => {
   };
 
   const getProgressColor = (taux: number) => {
-    if (taux >= 90) return 'red';
-    if (taux >= 70) return 'orange';
-    return 'green';
+    if (taux >= 90) return 'var(--danger)';
+    if (taux >= 70) return 'var(--warning)';
+    return 'var(--success)';
   };
 
   // Calculer le coût CM
@@ -308,7 +313,7 @@ const DetailClasse = () => {
       dataIndex: 'ue_libelle', 
       key: 'ue_libelle',
       render: (text: string, record: any) => ({
-        children: text ? <Text strong style={{ color: '#1d3557' }}>{text}</Text> : null,
+        children: text ? <Text strong style={{ color: 'var(--ink)' }}>{text}</Text> : null,
         props: { rowSpan: record.ue_rowspan || 0 },
       }),
       width: '15%',
@@ -340,14 +345,12 @@ const DetailClasse = () => {
       key: 'cout_cm',
       align: 'center' as const,
       render: (_: any, record: Matiere) => (
-        <Tag color="blue" style={{ margin: 0 }}>
-          {calculateCoutCM(record.volume_horaire_cm, record.taux_horaire_cm)?.toLocaleString('fr-FR')} F
-        </Tag>
+        <StatusTag tone="info" label={`${calculateCoutCM(record.volume_horaire_cm, record.taux_horaire_cm)?.toLocaleString('fr-FR')} F`} />
       ),
       width: '10%',
     },
-    { 
-      title: 'VOLUME HORAIRE TD', 
+    {
+      title: 'VOLUME HORAIRE TD',
       dataIndex: 'volume_horaire_td', 
       key: 'volume_horaire_td',
       align: 'center' as const,
@@ -366,18 +369,16 @@ const DetailClasse = () => {
       key: 'cout_td',
       align: 'center' as const,
       render: (_: any, record: Matiere) => (
-        <Tag color="green" style={{ margin: 0 }}>
-          {calculateCoutTD(record.volume_horaire_td, record.taux_horaire_td)?.toLocaleString('fr-FR')} F
-        </Tag>
+        <StatusTag tone="success" label={`${calculateCoutTD(record.volume_horaire_td, record.taux_horaire_td)?.toLocaleString('fr-FR')} F`} />
       ),
       width: '10%',
     },
-    { 
-      title: 'COEFFICIENT', 
-      dataIndex: 'coefficient', 
+    {
+      title: 'COEFFICIENT',
+      dataIndex: 'coefficient',
       key: 'coefficient',
       align: 'center' as const,
-      render: (value: any) => <Tag color="orange" style={{ margin: 0 }}>{typeof value === 'string' ? parseFloat(value) : value}</Tag>,
+      render: (value: any) => <StatusTag tone="warning" label={String(typeof value === 'string' ? parseFloat(value) : value)} />,
       width: '8%',
     }
   ];
@@ -393,7 +394,7 @@ const DetailClasse = () => {
       title: 'Capacité',
       dataIndex: 'capacite_max',
       key: 'capacite_max',
-      render: (capacite: number) => <Tag color="blue">{capacite} places</Tag>,
+      render: (capacite: number) => <StatusTag tone="info" label={`${capacite} places`} />,
       align: 'center' as const,
     },
     {
@@ -426,9 +427,9 @@ const DetailClasse = () => {
             icon={<PlusOutlined />}
             onClick={() => handleNouvelleNote(record.id)}
             size="small"
-            style={{ 
-              backgroundColor: '#52c41a', 
-              borderColor: '#52c41a',
+            style={{
+              backgroundColor: 'var(--success)',
+              borderColor: 'var(--success)',
               color: 'white'
             }}
           >
@@ -483,13 +484,13 @@ const DetailClasse = () => {
               {classe.description}
             </Descriptions.Item>
             <Descriptions.Item label="Filière">
-              <Tag color="blue">{classe.filiere}</Tag>
+              <StatusTag tone="info" label={classe.filiere} />
             </Descriptions.Item>
             <Descriptions.Item label="Niveau">
-              <Tag color="green">{classe.niveau}</Tag>
+              <StatusTag tone="success" label={classe.niveau} />
             </Descriptions.Item>
             <Descriptions.Item label="Année Académique">
-              <Tag color="orange">{classe.annee_academique}</Tag>
+              <StatusTag tone="warning" label={classe.annee_academique} />
             </Descriptions.Item>
             <Descriptions.Item label="Effectif Total">
               <Text strong>{classe.effectif_total} étudiants</Text>
@@ -510,13 +511,11 @@ const DetailClasse = () => {
               } 
               key="groupes"
             >
-              <Table
+              <DataTable<Groupe>
                 columns={groupeColumns}
                 dataSource={classe.groupes}
                 rowKey="id"
                 pagination={false}
-                bordered
-                size="middle"
               />
             </TabPane>
 
@@ -538,34 +537,34 @@ const DetailClasse = () => {
               ) : maquettes.length > 0 ? (
                 <div>
                   {/* Informations de la maquette */}
-                  <Card 
-                    className="mb-6" 
-                    style={{ background: 'linear-gradient(to right, #f5f7fa, #c3cfe2)' }}
+                  <Card
+                    className="mb-6"
+                    style={{ background: 'linear-gradient(to right, var(--paper), var(--mist))' }}
                   >
                     <Title level={4} className="text-center mb-4">
                       Maquette associée: {maquetteDetail?.filiere_nom} - {maquetteDetail?.niveau_libelle}
                     </Title>
-                    
+
                     <Row gutter={[16, 16]}>
                       <Col xs={24} sm={8}>
                         <div className="text-center">
                           <Text strong>Filière:</Text>
                           <br />
-                          <Tag color="blue">{maquetteDetail?.filiere_nom}</Tag>
+                          <StatusTag tone="info" label={maquetteDetail?.filiere_nom || ''} />
                         </div>
                       </Col>
                       <Col xs={24} sm={8}>
                         <div className="text-center">
                           <Text strong>Niveau:</Text>
                           <br />
-                          <Tag color="green">{maquetteDetail?.niveau_libelle}</Tag>
+                          <StatusTag tone="success" label={maquetteDetail?.niveau_libelle || ''} />
                         </div>
                       </Col>
                       <Col xs={24} sm={8}>
                         <div className="text-center">
                           <Text strong>Année:</Text>
                           <br />
-                          <Tag color="orange">{maquetteDetail?.annee_academique}</Tag>
+                          <StatusTag tone="warning" label={maquetteDetail?.annee_academique || ''} />
                         </div>
                       </Col>
                     </Row>
@@ -584,18 +583,17 @@ const DetailClasse = () => {
                         title={
                           <div className="flex items-center justify-between">
                             <span className="text-lg font-bold">SEMESTRE {semestre.libelle}</span>
-                            <Tag color="blue">{semestre.ues?.length || 0} UE(s)</Tag>
+                            <StatusTag tone="info" label={`${semestre.ues?.length || 0} UE(s)`} />
                           </div>
                         } 
                         className="mb-6"
                       >
                         {semestre.ues && semestre.ues.length > 0 ? (
-                          <Table 
-                            columns={maquetteTableColumns} 
+                          <DataTable
+                            columns={maquetteTableColumns}
                             dataSource={getGroupedDataByUE(semestre)}
+                            rowKey="key"
                             pagination={false}
-                            size="middle"
-                            bordered
                             summary={() => {
                               const allMatieres = semestre.ues.flatMap(ue => ue.matieres || []);
                               const totalCM = allMatieres.reduce((total: number, m: any) => total + (m.volume_horaire_cm || 0), 0);
@@ -611,7 +609,7 @@ const DetailClasse = () => {
 
                               return (
                                 <Table.Summary>
-                                  <Table.Summary.Row className="bg-blue-50 font-semibold">
+                                  <Table.Summary.Row style={{ background: 'var(--paper)', fontWeight: 600 }}>
                                     <Table.Summary.Cell index={0} colSpan={2}>
                                       <Text strong>TOTAL SEMESTRE {semestre.libelle}</Text>
                                     </Table.Summary.Cell>
@@ -620,17 +618,17 @@ const DetailClasse = () => {
                                     </Table.Summary.Cell>
                                     <Table.Summary.Cell index={2} align="center">-</Table.Summary.Cell>
                                     <Table.Summary.Cell index={3} align="center">
-                                      <Tag color="blue">{totalCoutCM.toLocaleString('fr-FR')} F</Tag>
+                                      <StatusTag tone="info" label={`${totalCoutCM.toLocaleString('fr-FR')} F`} />
                                     </Table.Summary.Cell>
                                     <Table.Summary.Cell index={4} align="center">
                                       <Text strong>{totalTD}h</Text>
                                     </Table.Summary.Cell>
                                     <Table.Summary.Cell index={5} align="center">-</Table.Summary.Cell>
                                     <Table.Summary.Cell index={6} align="center">
-                                      <Tag color="green">{totalCoutTD.toLocaleString('fr-FR')} F</Tag>
+                                      <StatusTag tone="success" label={`${totalCoutTD.toLocaleString('fr-FR')} F`} />
                                     </Table.Summary.Cell>
                                     <Table.Summary.Cell index={7} align="center">
-                                      <Tag color="orange">{totalCoeff}</Tag>
+                                      <StatusTag tone="warning" label={String(totalCoeff)} />
                                     </Table.Summary.Cell>
                                   </Table.Summary.Row>
                                 </Table.Summary>
@@ -647,17 +645,13 @@ const DetailClasse = () => {
                   )}
                 </div>
               ) : (
-                <Empty 
+                <Empty
                   description={
                     <div>
-                      <Text>Aucune maquette trouvée pour cette classe</Text>
-                      <br />
-                      <Text type="secondary">
-                        Le nom de la maquette doit correspondre au nom de la classe: {classe.nom}
-                      </Text>
+                      <Text>Aucune maquette pédagogique n'a encore été créée pour cette année académique{classe.annee_academique ? ` (${classe.annee_academique})` : ''}.</Text>
                       <br />
                       <Text type="secondary" style={{ fontSize: '12px' }}>
-                        (Vérifiez la console pour plus de détails sur la correspondance)
+                        Aucune maquette d'une autre année n'est proposée à la place.
                       </Text>
                     </div>
                   }

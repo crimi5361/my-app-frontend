@@ -380,7 +380,7 @@ const Cartes = () => {
             href={r.photo_path}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ color: '#1D9E75', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}
+            style={{ color: 'var(--success)', fontSize: 12, display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'center' }}
           >
             <EyeOutlined /> Voir
           </a>
@@ -397,7 +397,7 @@ const Cartes = () => {
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12 }}>
           <span style={{
             width: 6, height: 6, borderRadius: '50%', flexShrink: 0,
-            background: s === 'actif' ? '#1D9E75' : '#bbb',
+            background: s === 'actif' ? 'var(--success)' : '#bbb',
           }} />
           {s === 'actif' ? 'Actif' : (s || 'Actif')}
         </span>
@@ -431,7 +431,7 @@ const Cartes = () => {
           border-color: rgba(0,0,0,0.3) !important;
         }
         .iipea-select.ant-select-focused .ant-select-selector {
-          border-color: #1D9E75 !important;
+          border-color: var(--success) !important;
           box-shadow: 0 0 0 2px rgba(29,158,117,0.12) !important;
         }
         .iipea-select .ant-select-selection-placeholder {
@@ -471,8 +471,8 @@ const Cartes = () => {
           border-top: 0.5px solid rgba(0,0,0,0.06) !important;
         }
         .iipea-table .ant-pagination-item-active {
-          background: #1D9E75 !important;
-          border-color: #1D9E75 !important;
+          background: var(--success) !important;
+          border-color: var(--success) !important;
         }
         .iipea-table .ant-pagination-item-active a {
           color: #fff !important;
@@ -510,8 +510,8 @@ const Cartes = () => {
           gap: 6px !important;
         }
         .btn-green {
-          background: #1D9E75 !important;
-          border-color: #1D9E75 !important;
+          background: var(--success) !important;
+          border-color: var(--success) !important;
           color: #fff !important;
         }
         .btn-green:hover {

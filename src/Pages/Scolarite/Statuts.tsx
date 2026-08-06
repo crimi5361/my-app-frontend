@@ -1,19 +1,17 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useCallback } from 'react';
-import { 
-  Table, 
-  Input, 
-  Button, 
-  Space, 
-  Card, 
-  Tag, 
+import {
+  Input,
+  Button,
+  Space,
+  Card,
   Typography,
   message,
-  Spin,
-  Badge,
   Select,
   Alert
 } from 'antd';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag, { type StatusTone } from '../../Components/ui/StatusTag';
 import { 
   SearchOutlined, 
   DownloadOutlined,
@@ -327,7 +325,7 @@ useEffect(() => {
       dataIndex: 'matricule_iipea',
       key: 'matricule_iipea',
       width: 150,
-      render: (text) => text ? <Tag color="purple">{text}</Tag> : '-',
+      render: (text) => text ? <StatusTag tone="info" label={text} /> : '-',
     },
     {
       title: 'Sexe',
@@ -337,12 +335,8 @@ useEffect(() => {
       render: (sexe) => {
         const normalizedSexe = String(sexe || '').trim().toUpperCase();
         const isMale = normalizedSexe === 'M' || normalizedSexe === 'MASCULIN';
-        
-        return (
-          <Tag color={isMale ? 'blue' : 'pink'}>
-            {isMale ? 'Masculin' : 'Féminin'}
-          </Tag>
-        );
+
+        return <StatusTag tone={isMale ? 'info' : 'neutral'} label={isMale ? 'Masculin' : 'Féminin'} />;
       },
     },
     {
@@ -361,7 +355,7 @@ useEffect(() => {
       dataIndex: 'niveau',
       key: 'niveau',
       width: 120,
-      render: (text) => <Tag color="geekblue">{text}</Tag>,
+      render: (text) => <StatusTag tone="info" label={text} />,
     },
     {
       title: 'Groupe',
@@ -406,7 +400,7 @@ useEffect(() => {
       dataIndex: 'nationalite',
       key: 'nationalite',
       width: 120,
-      render: (text) => <Tag>{text}</Tag>,
+      render: (text) => <StatusTag tone="neutral" label={text} />,
     },
     {
       title: 'Statut',
@@ -414,12 +408,12 @@ useEffect(() => {
       key: 'standing',
       width: 120,
       render: (standing) => {
-        let color = 'default';
-        if (standing?.toLowerCase() === 'actif') color = 'green';
-        if (standing?.toLowerCase() === 'suspendu') color = 'orange';
-        if (standing?.toLowerCase() === 'abandon') color = 'red';
-        
-        return <Badge color={color} text={standing} />;
+        let tone: StatusTone = 'neutral';
+        if (standing?.toLowerCase() === 'actif') tone = 'success';
+        if (standing?.toLowerCase() === 'suspendu') tone = 'warning';
+        if (standing?.toLowerCase() === 'abandon') tone = 'danger';
+
+        return <StatusTag tone={tone} label={standing} />;
       },
     },
     {
@@ -428,12 +422,12 @@ useEffect(() => {
       key: 'statut_scolaire',
       width: 150,
       render: (statut) => {
-        let color = 'default';
-        if (statut?.toLowerCase() === 'régulier' || statut?.toLowerCase() === 'regular') color = 'green';
-        if (statut?.toLowerCase() === 'irrégulier' || statut?.toLowerCase() === 'irregular') color = 'orange';
-        if (statut?.toLowerCase() === 'exclu') color = 'red';
-        
-        return <Badge color={color} text={statut} />;
+        let tone: StatusTone = 'neutral';
+        if (statut?.toLowerCase() === 'régulier' || statut?.toLowerCase() === 'regular') tone = 'success';
+        if (statut?.toLowerCase() === 'irrégulier' || statut?.toLowerCase() === 'irregular') tone = 'warning';
+        if (statut?.toLowerCase() === 'exclu') tone = 'danger';
+
+        return <StatusTag tone={tone} label={statut} />;
       },
     },
     {
@@ -454,9 +448,7 @@ useEffect(() => {
       key: 'extrait_naissance',
       width: 150,
       render: (text) => (
-        <Tag color={text === 'oui' ? 'green' : 'red'}>
-          {text === 'oui' ? 'Déposé' : 'Manquant'}
-        </Tag>
+        <StatusTag tone={text === 'oui' ? 'success' : 'danger'} label={text === 'oui' ? 'Déposé' : 'Manquant'} />
       ),
     },
     {
@@ -465,9 +457,7 @@ useEffect(() => {
       key: 'justificatif_identite',
       width: 150,
       render: (text) => (
-        <Tag color={text === 'oui' ? 'green' : 'red'}>
-          {text === 'oui' ? 'Déposé' : 'Manquant'}
-        </Tag>
+        <StatusTag tone={text === 'oui' ? 'success' : 'danger'} label={text === 'oui' ? 'Déposé' : 'Manquant'} />
       ),
     },
     {
@@ -476,9 +466,7 @@ useEffect(() => {
       key: 'dernier_diplome',
       width: 150,
       render: (text) => (
-        <Tag color={text === 'oui' ? 'green' : 'red'}>
-          {text === 'oui' ? 'Déposé' : 'Manquant'}
-        </Tag>
+        <StatusTag tone={text === 'oui' ? 'success' : 'danger'} label={text === 'oui' ? 'Déposé' : 'Manquant'} />
       ),
     },
     {
@@ -487,9 +475,7 @@ useEffect(() => {
       key: 'fiche_orientation',
       width: 150,
       render: (text) => (
-        <Tag color={text === 'oui' ? 'green' : 'red'}>
-          {text === 'oui' ? 'Déposé' : 'Manquant'}
-        </Tag>
+        <StatusTag tone={text === 'oui' ? 'success' : 'danger'} label={text === 'oui' ? 'Déposé' : 'Manquant'} />
       ),
     },
     {
@@ -520,11 +506,8 @@ useEffect(() => {
       width: 100,
       render: (pourcentage) => {
         const pourcentageNum = typeof pourcentage === 'string' ? parseFloat(pourcentage) : (pourcentage || 0);
-        return (
-          <Tag color={pourcentageNum >= 100 ? 'green' : pourcentageNum >= 50 ? 'orange' : 'red'}>
-            {pourcentageNum.toFixed(1)}%
-          </Tag>
-        );
+        const tone: StatusTone = pourcentageNum >= 100 ? 'success' : pourcentageNum >= 50 ? 'warning' : 'danger';
+        return <StatusTag tone={tone} label={`${pourcentageNum.toFixed(1)}%`} />;
       },
       sorter: (a, b) => {
         const valA = typeof a.pourcentage_paye === 'string' ? parseFloat(a.pourcentage_paye) : (a.pourcentage_paye || 0);
@@ -731,7 +714,6 @@ useEffect(() => {
       
       <Card
         title="Liste des Étudiants"
-        bordered={true}
         extra={
           <Space wrap>
             <Select
@@ -797,31 +779,23 @@ useEffect(() => {
               </div>
             )}
             
-            <Table
+            <DataTable
               columns={columns}
               dataSource={data}
               rowKey="id"
-              loading={{
-                spinning: loading,
-                indicator: <Spin size="large" />
-              }}
+              loading={loading}
               pagination={{
                 current: pagination.current,
                 pageSize: pagination.pageSize,
                 total: pagination.total,
-                showSizeChanger: true,
                 pageSizeOptions: ['10', '50', '100', '500', '1000'],
-                showTotal: (total, range) => 
+                showTotal: (total, range) =>
                   `${range[0]}-${range[1]} sur ${total} étudiants`,
               }}
               onChange={handleTableChange}
               scroll={{ x: 3500, y: 600 }}
-              size="middle"
-              bordered={true}
               sticky={{ offsetHeader: 0 }}
-              locale={{
-                emptyText: loading ? 'Chargement...' : 'Aucun étudiant trouvé'
-              }}
+              emptyTitle={loading ? 'Chargement...' : 'Aucun étudiant trouvé'}
             />
           </>
         )}

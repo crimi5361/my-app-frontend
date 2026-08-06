@@ -1,24 +1,22 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Card, 
-  Table, 
-  Typography, 
-  Row, 
-  Col, 
+import {
+  Card,
+  Typography,
+  Row,
+  Col,
   Statistic,
   Select,
   Button,
-  Tag,
   Spin,
   message,
   Badge,
   Input,
   Alert
 } from 'antd';
-import { 
-  TeamOutlined, 
+import {
+  TeamOutlined,
   EyeOutlined,
   CalendarOutlined,
   ApartmentOutlined,
@@ -27,6 +25,8 @@ import {
   FileExcelOutlined
 } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag from '../../Components/ui/StatusTag';
 import * as XLSX from 'xlsx';
 
 const { Title, Text } = Typography;
@@ -321,9 +321,9 @@ const Classes = () => {
           <br />
           <Text type="secondary">{record.description}</Text>
           <br />
-          <div>
-            {record.filiere && <Tag color="blue">{record.filiere}</Tag>}
-            {record.niveau && <Tag color="green">{record.niveau}</Tag>}
+          <div style={{ display: 'flex', gap: 4 }}>
+            {record.filiere && <StatusTag tone="info" label={record.filiere} />}
+            {record.niveau && <StatusTag tone="success" label={record.niveau} />}
           </div>
         </div>
       ),
@@ -331,12 +331,16 @@ const Classes = () => {
     {
       title: 'Année Académique',
       key: 'annee',
-      render: (record: Classe) => (
-        <Tag icon={<CalendarOutlined />} color={record.annee_etat === 'active' || record.annee_etat === 'en cours' || record.annee_etat === 'en cour' ? 'green' : 'blue'}>
-          {record.annee_academique} 
-          {(record.annee_etat === 'active' || record.annee_etat === 'en cours' || record.annee_etat === 'en cour') && ' (En cours)'}
-        </Tag>
-      ),
+      render: (record: Classe) => {
+        const enCours = record.annee_etat === 'active' || record.annee_etat === 'en cours' || record.annee_etat === 'en cour';
+        return (
+          <StatusTag
+            tone={enCours ? 'success' : 'info'}
+            icon={<CalendarOutlined />}
+            label={`${record.annee_academique}${enCours ? ' (En cours)' : ''}`}
+          />
+        );
+      },
       align: 'center' as const,
     },
     {
@@ -347,7 +351,7 @@ const Classes = () => {
         <Statistic
           value={effectif}
           prefix={<TeamOutlined />}
-          valueStyle={{ color: '#1890ff', fontSize: '16px' }}
+          valueStyle={{ color: 'var(--mod-scolarite)', fontSize: '16px' }}
         />
       ),
       align: 'center' as const,
@@ -357,10 +361,10 @@ const Classes = () => {
       dataIndex: 'nombre_groupes',
       key: 'nombre_groupes',
       render: (nombre: number) => (
-        <Badge 
-          count={nombre} 
-          showZero 
-          style={{ backgroundColor: nombre > 0 ? '#52c41a' : '#ccc' }}
+        <Badge
+          count={nombre}
+          showZero
+          style={{ backgroundColor: nombre > 0 ? 'var(--success)' : 'var(--text-soft)' }}
         />
       ),
       align: 'center' as const,
@@ -444,9 +448,9 @@ const Classes = () => {
               icon={<FileExcelOutlined />}
               onClick={exportToExcel}
               size="large"
-              style={{ 
-                backgroundColor: '#52c41a', 
-                borderColor: '#52c41a',
+              style={{
+                backgroundColor: 'var(--success)',
+                borderColor: 'var(--success)',
                 fontWeight: 'bold'
               }}
               disabled={filteredClasses.length === 0}
@@ -482,9 +486,10 @@ const Classes = () => {
               </Select>
               {selectedAnneeInfo && (
                 <div style={{ marginTop: 8 }}>
-                  <Tag color={selectedAnneeInfo.etat === 'en cours' || selectedAnneeInfo.etat === 'en cour' || selectedAnneeInfo.etat === 'active' ? 'green' : 'blue'}>
-                    Année sélectionnée: {selectedAnneeInfo.annee}
-                  </Tag>
+                  <StatusTag
+                    tone={selectedAnneeInfo.etat === 'en cours' || selectedAnneeInfo.etat === 'en cour' || selectedAnneeInfo.etat === 'active' ? 'success' : 'info'}
+                    label={`Année sélectionnée: ${selectedAnneeInfo.annee}`}
+                  />
                 </div>
               )}
             </Col>
@@ -535,18 +540,15 @@ const Classes = () => {
               showIcon
             />
           ) : (
-            <Table
+            <DataTable<Classe>
               columns={columns}
               dataSource={filteredClasses}
               rowKey="id"
-              pagination={{ 
-                showSizeChanger: true,
-                pageSizeOptions: [10, 20, 50, 100, 200, 500],
+              pagination={{
+                pageSizeOptions: ['10', '20', '50', '100', '200', '500'],
                 showTotal: (total: number) => `Total ${total} classes`,
                 defaultPageSize: 10
               }}
-              bordered
-              size="middle"
             />
           )}
         </Card>

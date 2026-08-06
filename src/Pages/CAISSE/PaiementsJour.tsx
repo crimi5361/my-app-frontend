@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Table, Input, DatePicker, Switch, Space, Tag, Button, message } from 'antd';
+import { Card, Input, DatePicker, Switch, Space, Button, message } from 'antd';
 import { PrinterOutlined } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag, { type StatusTone } from '../../Components/ui/StatusTag';
 import { apiFetch, ApiError } from '../../lib/api';
 
 interface Paiement {
@@ -19,11 +21,11 @@ interface Paiement {
   caissier_nom: string | null;
 }
 
-const COULEURS_METHODE: Record<string, string> = {
-  'Espèces': 'green',
-  'Mobile Money': 'orange',
-  'Orange Money': 'volcano',
-  'Wave': 'blue',
+const TONS_METHODE: Record<string, StatusTone> = {
+  'Espèces': 'success',
+  'Mobile Money': 'warning',
+  'Orange Money': 'warning',
+  'Wave': 'info',
 };
 
 const PaiementsJour = () => {
@@ -87,7 +89,7 @@ const PaiementsJour = () => {
           </Space>
         </Space>
 
-        <Table
+        <DataTable
           dataSource={paiements}
           rowKey="id"
           loading={loading}
@@ -95,7 +97,7 @@ const PaiementsJour = () => {
             { title: 'Étudiant', dataIndex: 'nom', render: (_, r) => `${r.nom} ${r.prenoms}` },
             { title: 'Matricule', dataIndex: 'matricule_iipea' },
             { title: 'Montant', dataIndex: 'montant', render: (v) => `${Number(v).toLocaleString('fr-FR')} FCFA` },
-            { title: 'Méthode', dataIndex: 'methode', render: (v) => <Tag color={COULEURS_METHODE[v] || 'default'}>{v}</Tag> },
+            { title: 'Méthode', dataIndex: 'methode', render: (v) => <StatusTag tone={TONS_METHODE[v] || 'neutral'} label={v} /> },
             { title: 'Reçu', dataIndex: 'numero_recu' },
             { title: 'Caissier', dataIndex: 'caissier_nom' },
             { title: 'Date', dataIndex: 'date_paiement', render: (v) => new Date(v).toLocaleDateString('fr-FR') },

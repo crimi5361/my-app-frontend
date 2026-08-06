@@ -3,14 +3,48 @@ import { useContext, useState, useEffect, ReactNode } from "react";
 import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { ConfigProvider, theme as antdTheme } from "antd";
 
-import Header from "./Components/Header/Header";
-import PageContent from "./Components/PageContent/PageContent";
-import Sidemenu from "./Components/Sidemenu/Sidemenu";
+import Layout from "./Components/Layout/Layout";
 import Login from "./Components/Login/Login";
 import AppRoutes from "./Components/AppRoutes/AppRoutes";
 import Hub from "./Pages/Hub/Hub";
 import { UserProvider, UserContext } from "./context/UserContext";
 import { useTheme } from "./context/ThemeContext";
+import { getDashboardRouteForRole } from "./lib/access";
+
+// Jetons AntD dérivés de src/theme/tokens.css. AntD calcule ses propres
+// dégradés de couleur (hover, active...) à partir de ces valeurs et ne peut
+// pas consommer directement des `var(--xxx)` — ces hex doivent donc rester
+// synchronisés manuellement avec tokens.css à chaque évolution de la palette.
+const ANTD_TOKENS = {
+  light: {
+    colorPrimary: "#101a33", // --ink
+    colorSuccess: "#1e8e5a", // --success
+    colorWarning: "#b7791f", // --warning
+    colorError: "#c0392b", // --danger
+    colorInfo: "#101a33", // --ink
+    colorBorder: "#e4e7f1", // --mist
+    colorBorderSecondary: "#e4e7f1", // --mist
+    colorBgContainer: "#ffffff", // --surface
+    colorBgLayout: "#f4f5f9", // --paper
+    colorText: "#101a33", // --ink
+    colorTextSecondary: "#5b6478", // --ink-soft
+    colorTextTertiary: "#5b6478", // --ink-soft
+  },
+  dark: {
+    colorPrimary: "#4C7FFF", // l'encre serait invisible sur fond sombre
+    colorSuccess: "#1e8e5a",
+    colorWarning: "#b7791f",
+    colorError: "#c0392b",
+    colorInfo: "#4C7FFF",
+    colorBorder: "#223055",
+    colorBorderSecondary: "#223055",
+    colorBgContainer: "#101a33", // --surface (sombre)
+    colorBgLayout: "#080d1a", // --ink-deep
+    colorText: "#eef0f8",
+    colorTextSecondary: "#97a0bd",
+    colorTextTertiary: "#97a0bd",
+  },
+};
 
 // Applique l'algorithme clair/sombre d'antd en fonction du thème choisi par
 // l'utilisateur — pose le socle pour les prochaines phases de refonte UI.
@@ -21,11 +55,7 @@ const AntdThemeBridge = ({ children }: { children: ReactNode }) => {
       theme={{
         algorithm: theme === "dark" ? antdTheme.darkAlgorithm : antdTheme.defaultAlgorithm,
         token: {
-          // En clair, l'encre (quasi noire) contraste bien sur fond clair.
-          // En sombre, garder cette même couleur rendrait invisibles tous les
-          // éléments qui s'appuient dessus (boutons, item de menu actif...)
-          // sur un fond déjà sombre — on passe donc sur un bleu lisible.
-          colorPrimary: theme === "dark" ? "#4C7FFF" : "#101a33",
+          ...ANTD_TOKENS[theme === "dark" ? "dark" : "light"],
           fontFamily: "'Manrope', ui-sans-serif, system-ui, sans-serif",
           borderRadius: 10,
         },
@@ -57,6 +87,9 @@ function AppContent() {
   const navigate = useNavigate();
   const [isSidemenuOpen, setIsSidemenuOpen] = useState(true);
 
+  // Racine "/" (et tout autre point de retour "accueil" — logo, ancienne URL /dashboard) :
+  // toujours le Dashboard métier du rôle, jamais le Hub ni l'ancien Dashboard générique. Le
+  // Hub reste uniquement la destination du flux de connexion lui-même (Login.tsx), inchangé.
   const getDefaultRedirectPath = () => {
     const storedUser = localStorage.getItem("user");
     const currentUser = storedUser ? JSON.parse(storedUser) : null;
@@ -64,7 +97,7 @@ function AppContent() {
 
     if (!currentUserRole) return "/login";
     if (currentUserRole === "etudiant") return "/acceuil/espace_etudiant";
-    return "/hub";
+    return getDashboardRouteForRole(currentUserRole);
   };
 
   const isLoginPage = location.pathname === "/login";
@@ -123,24 +156,17 @@ function AppContent() {
         path="/*"
         element={
           isAuthenticated ? (
-            <div className="font-tinos">
-              {!isLoginPage && !isEspaceEtudiant && ( // Ne pas afficher header/sidemenu sur l'espace étudiant
-                <>
-                  <Header
-                    toggleSidemenu={toggleSidemenu}
-                    darkMode={false}
-                    userName={user?.nom || ""}
-                    userRole={user?.role || ""}
-                    departementName={user?.departementName || ""}
-                    onLogout={handleLogout}
-                  />
-                  <Sidemenu isSidemenuOpen={isSidemenuOpen} />
-                </>
-              )}
-              <PageContent isSidemenuOpen={isSidemenuOpen}>
-                <AppRoutes />
-              </PageContent>
-            </div>
+            <Layout
+              isSidemenuOpen={isSidemenuOpen}
+              toggleSidemenu={toggleSidemenu}
+              userName={user?.nom || ""}
+              userRole={user?.role || ""}
+              departementName={user?.departementName || ""}
+              onLogout={handleLogout}
+              showShell={!isLoginPage && !isEspaceEtudiant} // Ne pas afficher header/sidemenu sur l'espace étudiant
+            >
+              <AppRoutes />
+            </Layout>
           ) : (
             <Navigate to="/login" replace />
           )

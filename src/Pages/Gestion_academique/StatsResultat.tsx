@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
-    Table,
     Card,
     Statistic,
     Row,
@@ -9,7 +8,6 @@ import {
     Button,
     Space,
     Input,
-    Tag,
     Typography,
     Spin,
     Alert,
@@ -18,6 +16,8 @@ import {
     Badge,
     Tabs,
 } from 'antd';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag from '../../Components/ui/StatusTag';
 import {
     SearchOutlined,
     ReloadOutlined,
@@ -561,14 +561,14 @@ const StatsResultat: React.FC = () => {
             dataIndex: 'filiere',
             key: 'filiere',
             width: 150,
-            render: (text: string) => <Tag color="blue">{text || '-'}</Tag>
+            render: (text: string) => <StatusTag tone="info" label={text || '-'} />
         },
         {
             title: 'Niveau',
             dataIndex: 'niveau',
             key: 'niveau',
             width: 130,
-            render: (text: string) => <Tag color="purple">{text || '-'}</Tag>
+            render: (text: string) => <StatusTag tone="neutral" label={text || '-'} />
         },
         {
             title: 'Moyenne',
@@ -580,7 +580,7 @@ const StatsResultat: React.FC = () => {
             render: (value: number) => {
                 const moy = value || 0;
                 return (
-                    <Text strong style={{ color: moy >= 14 ? '#52c41a' : moy >= 10 ? '#faad14' : '#ff4d4f' }}>
+                    <Text strong style={{ color: moy >= 14 ? 'var(--success)' : moy >= 10 ? 'var(--warning)' : 'var(--danger)' }}>
                         {formatMoyenne(moy)}/20
                     </Text>
                 );
@@ -600,7 +600,7 @@ const StatsResultat: React.FC = () => {
                 }
                 const valide = (record.credits_valides ?? 0) >= record.credits_total!;
                 return (
-                    <Text strong style={{ color: valide ? '#52c41a' : undefined }}>
+                    <Text strong style={{ color: valide ? 'var(--success)' : undefined }}>
                         {record.credits_valides ?? 0}/{record.credits_total}
                     </Text>
                 );
@@ -621,9 +621,9 @@ const StatsResultat: React.FC = () => {
             render: (decision: string) => {
                 const isAdmis = decision === 'ADMIS';
                 const isDeroge = decision === 'DÉROGÉ';
-                const color = isAdmis ? 'success' : isDeroge ? 'gold' : 'error';
+                const tone = isAdmis ? 'success' : isDeroge ? 'warning' : 'danger';
                 const icon = isAdmis ? <CheckCircleOutlined /> : isDeroge ? <WarningOutlined /> : <CloseCircleOutlined />;
-                return <Tag color={color}>{icon} {decision || '-'}</Tag>;
+                return <StatusTag tone={tone} icon={icon} label={decision || '-'} />;
             }
         }
     ];
@@ -704,15 +704,15 @@ const StatsResultat: React.FC = () => {
                         <span>Statistiques des Résultats</span>
                         <Badge
                             count={selectedAnnee?.annee || 'N/A'}
-                            style={{ backgroundColor: '#1890ff' }}
+                            style={{ backgroundColor: 'var(--mod-scolarite)' }}
                         />
                         {stats.semestre && (
-                            <Tag color="orange">Semestre {stats.semestre}</Tag>
+                            <StatusTag tone="warning" label={`Semestre ${stats.semestre}`} />
                         )}
                     </Title>
                     <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                         <Badge count={stats.total_etudiants} showZero color="blue">
-                            <Tag icon={<TeamOutlined />} color="blue-inverse">Total étudiants</Tag>
+                            <StatusTag tone="info" icon={<TeamOutlined />} label="Total étudiants" />
                         </Badge>
                         <Text type="secondary" className="text-xs sm:text-sm">
                             Mis à jour le {new Date(stats.date_generation).toLocaleString('fr-FR')}
@@ -840,7 +840,7 @@ const StatsResultat: React.FC = () => {
                                 title="Total"
                                 value={stats.total_etudiants}
                                 prefix={<TeamOutlined />}
-                                valueStyle={{ color: '#1890ff' }}
+                                valueStyle={{ color: 'var(--mod-scolarite)' }}
                             />
                         </Card>
                     </Col>
@@ -850,7 +850,7 @@ const StatsResultat: React.FC = () => {
                                 title="Admis"
                                 value={stats.stats.admis}
                                 prefix={<CheckCircleOutlined />}
-                                valueStyle={{ color: '#52c41a' }}
+                                valueStyle={{ color: 'var(--success)' }}
                             />
                         </Card>
                     </Col>
@@ -860,7 +860,7 @@ const StatsResultat: React.FC = () => {
                                 title="Dérogés"
                                 value={countDeroge}
                                 prefix={<WarningOutlined />}
-                                valueStyle={{ color: '#faad14' }}
+                                valueStyle={{ color: 'var(--warning)' }}
                             />
                         </Card>
                     </Col>
@@ -870,7 +870,7 @@ const StatsResultat: React.FC = () => {
                                 title="Ajournés"
                                 value={stats.stats.ajournes}
                                 prefix={<CloseCircleOutlined />}
-                                valueStyle={{ color: '#ff4d4f' }}
+                                valueStyle={{ color: 'var(--danger)' }}
                             />
                         </Card>
                     </Col>
@@ -881,7 +881,7 @@ const StatsResultat: React.FC = () => {
                                 value={stats.stats.taux_reussite}
                                 suffix="%"
                                 prefix={<BarChartOutlined />}
-                                valueStyle={{ color: '#faad14' }}
+                                valueStyle={{ color: 'var(--warning)' }}
                             />
                         </Card>
                     </Col>
@@ -892,7 +892,7 @@ const StatsResultat: React.FC = () => {
                                 value={stats.stats.moyenne_generale}
                                 suffix="/20"
                                 prefix={<PieChartOutlined />}
-                                valueStyle={{ color: '#722ed1' }}
+                                valueStyle={{ color: 'var(--mod-comptabilite)' }}
                             />
                         </Card>
                     </Col>
@@ -975,7 +975,7 @@ const StatsResultat: React.FC = () => {
                             <Col xs={24} sm={12} md={8} key={index}>
                                 <Card className="text-center shadow-sm hover:shadow-md transition-shadow h-full">
                                     <div className="text-4xl mb-2">
-                                        {index === 0 ? <GoldOutlined style={{ color: '#faad14' }} /> :
+                                        {index === 0 ? <GoldOutlined style={{ color: 'var(--warning)' }} /> :
                                          index === 1 ? <TrophyOutlined style={{ color: '#8c8c8c' }} /> :
                                          <CrownOutlined style={{ color: '#cd7f32' }} />}
                                     </div>
@@ -988,9 +988,9 @@ const StatsResultat: React.FC = () => {
                                     <Title level={5} className="mb-0 break-words">{etudiant.nom} {etudiant.prenoms}</Title>
                                     <Text type="secondary" className="break-words">{etudiant.filiere} • {etudiant.niveau}</Text>
                                     <div className="mt-2">
-                                        <Tag color="blue" className="text-base sm:text-lg font-bold">
-                                            {formatMoyenne(etudiant.moyenne)}/20
-                                        </Tag>
+                                        <span className="text-base sm:text-lg font-bold">
+                                            <StatusTag tone="info" label={`${formatMoyenne(etudiant.moyenne)}/20`} />
+                                        </span>
                                     </div>
                                     <Text type="secondary" className="text-xs">Matricule: {etudiant.matricule}</Text>
                                 </Card>
@@ -1007,7 +1007,7 @@ const StatsResultat: React.FC = () => {
                         <div className="flex flex-wrap items-center gap-2">
                             <TeamOutlined className="text-blue-500" />
                             <span className="whitespace-nowrap">Étudiants {filtres.filiereId || filtres.niveauId ? 'du filtre sélectionné' : '(toutes filières)'}</span>
-                            <Tag color="blue">{etudiants.length}</Tag>
+                            <StatusTag tone="info" label={String(etudiants.length)} />
                         </div>
                     }
                     extra={
@@ -1062,19 +1062,16 @@ const StatsResultat: React.FC = () => {
                         />
                     </Tabs>
 
-                    <Table
+                    <DataTable<EtudiantResultat>
                         columns={columns}
                         dataSource={filteredEtudiants}
                         rowKey="id"
                         pagination={{
                             pageSize: 10,
-                            showSizeChanger: true,
-                            responsive: true,
                             showTotal: (total, range) => `${range[0]}-${range[1]} sur ${total} étudiants`
                         }}
                         scroll={{ x: tableScrollWidth }}
-                        size="middle"
-                        locale={{ emptyText: 'Aucun étudiant trouvé' }}
+                        emptyTitle="Aucun étudiant trouvé"
                     />
                 </Card>
             </div>

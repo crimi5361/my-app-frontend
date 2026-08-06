@@ -105,7 +105,7 @@ const PageHeader: React.FC = () => {
 
   return (
     <div className="p-4">
-      <div className="text-sl text-gray-500 font-semibold">
+      <div className="text-sl text-[var(--text-soft)] font-semibold">
         {folder} / {page} / {title}
       </div>
     </div>

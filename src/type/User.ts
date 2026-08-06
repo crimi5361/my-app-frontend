@@ -3,6 +3,6 @@ export interface User {
   nom: string;
   email: string;
   statut: 'active' | 'desactive';
-  role: string;     
-  departementName: string; 
+  role: string;
+  departementName: string;
 }

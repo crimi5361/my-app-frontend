@@ -88,7 +88,7 @@ const PaymentSuccessModal = ({
       width={500}
       bodyStyle={{ padding: '40px 24px', textAlign: 'center' }}
     >
-      <CheckCircleFilled style={{ fontSize: '64px', color: '#52c41a', marginBottom: '20px' }} />
+      <CheckCircleFilled style={{ fontSize: '64px', color: 'var(--success)', marginBottom: '20px' }} />
       
       {isPECOnly ? (
         <Title level={3} style={{ marginBottom: '16px' }}>Demande envoyée avec succès</Title>
@@ -159,6 +159,7 @@ const EffectuerPaiement = () => {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState('paiement');
   const [isPremierPaiement, setIsPremierPaiement] = useState(false);
+  const [kitSuspendu, setKitSuspendu] = useState(false);
   const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
 
   useEffect(() => {
@@ -166,10 +167,12 @@ const EffectuerPaiement = () => {
       try {
         const token = localStorage.getItem('token');
 
-        // ✅ PERF : ces 4 appels sont indépendants (aucun ne dépend du résultat d'un autre) —
+        // ✅ PERF : ces 5 appels sont indépendants (aucun ne dépend du résultat d'un autre) —
         // lancés en parallèle au lieu d'être enchaînés séquentiellement pour ne payer qu'une
-        // seule fois la latence réseau au lieu de 4. Traitement des réponses inchangé.
-        const [etudiantResponse, paiementsResponse, kitResponse, pecResponse] = await Promise.all([
+        // seule fois la latence réseau. Traitement des réponses inchangé.
+        // Chantier 4 (2026-08-01) : l'appel /api/kit/etat-campagne indique si le module Kit est
+        // suspendu pour l'année académique de l'étudiant, sans dupliquer la règle côté frontend.
+        const [etudiantResponse, paiementsResponse, kitResponse, pecResponse, kitCampagneResponse] = await Promise.all([
           fetch(`${API_URL}/api/etudiants/etudiant/${id}`, {
             method: 'GET',
             headers: {
@@ -190,6 +193,12 @@ const EffectuerPaiement = () => {
             }
           }),
           fetch(`${API_URL}/api/prise-en-charge/etudiant/${id}/active`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            }
+          }),
+          fetch(`${API_URL}/api/kit/etat-campagne/${id}`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -223,6 +232,14 @@ const EffectuerPaiement = () => {
           const pecData = await pecResponse.json();
           if (pecData.success && pecData.data) {
             setPriseEnCharge(pecData.data);
+          }
+        }
+
+        // Chantier 4 : état de suspension du module Kit pour cette campagne
+        if (kitCampagneResponse.ok) {
+          const kitCampagneData = await kitCampagneResponse.json();
+          if (kitCampagneData.success) {
+            setKitSuspendu(kitCampagneData.data.suspendu);
           }
         }
 
@@ -387,7 +404,7 @@ const EffectuerPaiement = () => {
               title="Scolarité totale"
               value={etudiant?.montant_scolarite || 0}
               prefix="FCFA"
-              valueStyle={{ color: '#1890ff' }}
+              valueStyle={{ color: 'var(--mod-scolarite)' }}
             />
           </Col>
           <Col span={8}>
@@ -395,10 +412,10 @@ const EffectuerPaiement = () => {
               title="Total payé"
               value={montantTotalVerse}
               prefix="FCFA"
-              valueStyle={{ color: '#52c41a' }}
+              valueStyle={{ color: 'var(--success)' }}
             />
             {hasActivePEC && (
-              <div style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
+              <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-soft)' }}>
                 (dont {priseEnCharge.montant_reduction.toLocaleString()} FCFA de réduction)
               </div>
             )}
@@ -408,12 +425,12 @@ const EffectuerPaiement = () => {
               title="Reste à payer"
               value={montantRestantAvecReduction}
               prefix="FCFA"
-              valueStyle={{ 
-                color: montantRestantAvecReduction > 0 ? '#f5222d' : '#52c41a' 
+              valueStyle={{
+                color: montantRestantAvecReduction > 0 ? 'var(--danger)' : 'var(--success)'
               }}
             />
             {hasActivePEC && (
-              <div style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
+              <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-soft)' }}>
                 (après déduction de la réduction)
               </div>
             )}
@@ -450,6 +467,16 @@ const EffectuerPaiement = () => {
           />
         )}
 
+        {isPremierPaiement && !kit && kitSuspendu && (
+          <Alert
+            message="Module Kit suspendu"
+            description="Le kit école n'est pas proposé pour cette campagne d'inscription."
+            type="warning"
+            showIcon
+            style={{ marginBottom: '16px' }}
+          />
+        )}
+
         <Tabs activeKey={activeTab} onChange={setActiveTab}>
           <TabPane tab="Effectuer un paiement" key="paiement">
             <Form
@@ -464,7 +491,7 @@ const EffectuerPaiement = () => {
                 methode: 'Espèces'
               }}
             >
-              {isPremierPaiement && !kit && (
+              {isPremierPaiement && !kit && !kitSuspendu && (
                 <Form.Item
                   name="veut_kit_ecole"
                   valuePropName="checked"
@@ -489,7 +516,7 @@ const EffectuerPaiement = () => {
               )}
 
               {form.getFieldValue('demande_pec') && (
-                <Card size="small" style={{ marginBottom: '16px', backgroundColor: '#fafafa' }}>
+                <Card size="small" style={{ marginBottom: '16px', backgroundColor: 'var(--paper)' }}>
                   <Title level={5}>Demande de prise en charge</Title>
                   
                   <Form.Item
@@ -649,7 +676,7 @@ const EffectuerPaiement = () => {
                   loading={submittingPEC}
                   icon={<PercentageOutlined />}
                   size="large"
-                  style={{ width: '100%', backgroundColor: '#722ed1' }}
+                  style={{ width: '100%', backgroundColor: 'var(--mod-comptabilite)' }}
                 >
                   Envoyer la demande de réduction
                 </Button>

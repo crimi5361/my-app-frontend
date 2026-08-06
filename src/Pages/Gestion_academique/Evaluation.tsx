@@ -2,12 +2,14 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import {
-  Table, Button, Card, Typography, Tag,
+  Button, Card, Typography,
   Row, Col, Spin, Tooltip,
   Drawer,
   Progress, Empty,
   Breadcrumb, Alert, Statistic} from 'antd';
 import type { ColumnsType } from 'antd/es/table';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag, { type StatusTone } from '../../Components/ui/StatusTag';
 import {
   BookOutlined, TeamOutlined, UserOutlined,
   DollarOutlined, ScheduleOutlined, EyeOutlined,
@@ -261,14 +263,14 @@ const Evaluation = () => {
     }
   };
 
-  const getTypeEvaluationColor = (type: string) => {
-    if (!type) return 'default';
+  const getTypeEvaluationTone = (type: string): StatusTone => {
+    if (!type) return 'neutral';
     const typeLower = type.toLowerCase();
-    if (typeLower.includes('note_1_note_2')) return 'blue';
-    if (typeLower.includes('note_1')) return 'green';
-    if (typeLower.includes('partiel')) return 'orange';
-    if (typeLower.includes('examen')) return 'red';
-    return 'default';
+    if (typeLower.includes('note_1_note_2')) return 'info';
+    if (typeLower.includes('note_1')) return 'success';
+    if (typeLower.includes('partiel')) return 'warning';
+    if (typeLower.includes('examen')) return 'danger';
+    return 'neutral';
   };
 
   const calculateTauxEvaluation = (evaluation: Evaluation) => {
@@ -293,10 +295,8 @@ const Evaluation = () => {
         <div>
           <Text strong className="block">{record.matiere_nom || 'Non spécifié'}</Text>
           <div className="flex items-center gap-2 mt-1">
-            <Tag color="blue">Coef: {record.coefficient || '0'}</Tag>
-            <Tag color={getTypeEvaluationColor(record.type_evaluation)}>
-              {(record.type_evaluation || '').replace(/_/g, ' ')}
-            </Tag>
+            <StatusTag tone="info" label={`Coef: ${record.coefficient || '0'}`} />
+            <StatusTag tone={getTypeEvaluationTone(record.type_evaluation)} label={(record.type_evaluation || '').replace(/_/g, ' ')} />
           </div>
         </div>
       ),
@@ -311,9 +311,7 @@ const Evaluation = () => {
           <Text strong className="block">
             {record.professeur_prenom || ''} {record.professeur_nom || ''}
           </Text>
-          <Tag color={record.professeur_statut === 'Actif' ? 'success' : 'default'}>
-            {record.professeur_statut || 'Inconnu'}
-          </Tag>
+          <StatusTag tone={record.professeur_statut === 'Actif' ? 'success' : 'neutral'} label={record.professeur_statut || 'Inconnu'} />
         </div>
       )
     },
@@ -323,7 +321,7 @@ const Evaluation = () => {
       width: 120,
       render: (_, record) => (
         <div>
-          <Tag color="geekblue">{record.semestre_nom || 'Non spécifié'}</Tag>
+          <StatusTag tone="info" label={record.semestre_nom || 'Non spécifié'} />
           {record.ue_nom && (
             <Text type="secondary" className="block text-xs mt-1">
               {record.ue_nom}
@@ -471,9 +469,7 @@ const Evaluation = () => {
               </Title>
               {groupeInfo ? (
                 <div className="flex items-center gap-2 mt-1">
-                  <Tag icon={<GroupOutlined />} color="blue">
-                    {groupeInfo.classe} • {groupeInfo.nom}
-                  </Tag>
+                  <StatusTag tone="info" icon={<GroupOutlined />} label={`${groupeInfo.classe} • ${groupeInfo.nom}`} />
                   <Text type="secondary">
                     <TeamOutlined className="mr-1" />
                     {groupeInfo.capacite} étudiants
@@ -590,20 +586,18 @@ const Evaluation = () => {
                 </Text>
               </div>
             </div>
-            <Table<Evaluation>
+            <DataTable<Evaluation>
               columns={columns}
               dataSource={evaluations}
               rowKey="enseignement_id"
               loading={loading}
               pagination={{
                 pageSize: 20,
-                showSizeChanger: true,
                 showQuickJumper: true,
                 showTotal: (total, range) =>
                   `${range[0]}-${range[1]} sur ${total} évaluations`,
               }}
               scroll={{ x: 1200 }}
-              size="middle"
             />
           </>
         )}
@@ -640,19 +634,11 @@ const Evaluation = () => {
                 <div className="bg-gray-50 p-6 border-b">
                   <Title level={2} className="!mb-3">{selectedEvaluation.evaluation.matiere_nom}</Title>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Tag color="blue" className="text-sm py-1">
-                      Coef: {selectedEvaluation.evaluation.coefficient}
-                    </Tag>
-                    <Tag color={getTypeEvaluationColor(selectedEvaluation.evaluation.type_evaluation)} className="text-sm py-1">
-                      {selectedEvaluation.evaluation.type_evaluation.replace(/_/g, ' ')}
-                    </Tag>
-                    <Tag color="geekblue" className="text-sm py-1">
-                      {selectedEvaluation.evaluation.semestre_nom}
-                    </Tag>
+                    <StatusTag tone="info" label={`Coef: ${selectedEvaluation.evaluation.coefficient}`} />
+                    <StatusTag tone={getTypeEvaluationTone(selectedEvaluation.evaluation.type_evaluation)} label={selectedEvaluation.evaluation.type_evaluation.replace(/_/g, ' ')} />
+                    <StatusTag tone="info" label={selectedEvaluation.evaluation.semestre_nom} />
                     {selectedEvaluation.evaluation.ue_nom && (
-                      <Tag color="purple" className="text-sm py-1">
-                        UE: {selectedEvaluation.evaluation.ue_nom}
-                      </Tag>
+                      <StatusTag tone="neutral" label={`UE: ${selectedEvaluation.evaluation.ue_nom}`} />
                     )}
                   </div>
                 </div>
@@ -668,9 +654,7 @@ const Evaluation = () => {
                           <Text strong>
                             {selectedEvaluation.evaluation.professeur_prenom} {selectedEvaluation.evaluation.professeur_nom}
                           </Text>
-                          <Tag color={selectedEvaluation.evaluation.professeur_statut === 'Actif' ? 'success' : 'default'}>
-                            {selectedEvaluation.evaluation.professeur_statut}
-                          </Tag>
+                          <StatusTag tone={selectedEvaluation.evaluation.professeur_statut === 'Actif' ? 'success' : 'neutral'} label={selectedEvaluation.evaluation.professeur_statut} />
                         </div>
                       </div>
                     </Col>
@@ -783,12 +767,13 @@ const Evaluation = () => {
                                 <Text type="secondary">étudiants</Text>
                               </div>
                             </div>
-                            <Tag color="blue">
-                              {Math.round(
+                            <StatusTag
+                              tone="info"
+                              label={`${Math.round(
                                 (parseInt(selectedEvaluation.evaluation.nombre_etudiants) /
                                  parseInt(selectedEvaluation.evaluation.total_etudiants_groupe || selectedEvaluation.evaluation.capacite_max.toString())) * 100
-                              )}%
-                            </Tag>
+                              )}%`}
+                            />
                           </div>
                           
                           <div>
@@ -830,7 +815,7 @@ const Evaluation = () => {
                           <FileTextOutlined />
                           <span>Liste des notes</span>
                           {selectedEvaluation.notes && selectedEvaluation.notes.length > 0 && (
-                            <Tag color="blue">{selectedEvaluation.notes.length} notes</Tag>
+                            <StatusTag tone="info" label={`${selectedEvaluation.notes.length} notes`} />
                           )}
                         </div>
                         <div className="flex items-center gap-2">
@@ -845,10 +830,9 @@ const Evaluation = () => {
                   >
                     {selectedEvaluation.notes && selectedEvaluation.notes.length > 0 ? (
                       <div className="overflow-hidden">
-                        <Table<NoteRecord>
+                        <DataTable<NoteRecord>
                           dataSource={selectedEvaluation.notes}
                           rowKey="id"
-                          size="middle"
                           columns={[
                             {
                               title: 'Matricule',
@@ -876,9 +860,7 @@ const Evaluation = () => {
                               width: 100,
                               sorter: (a, b) => (a.note1 || 0) - (b.note1 || 0),
                               render: (value: number) => (
-                                <Tag color={value >= 10 ? 'success' : 'error'} className="min-w-[60px]">
-                                  {value || '-'}
-                                </Tag>
+                                <StatusTag tone={value >= 10 ? 'success' : 'danger'} label={String(value || '-')} />
                               )
                             },
                             {
@@ -888,9 +870,7 @@ const Evaluation = () => {
                               width: 100,
                               sorter: (a, b) => (a.note2 || 0) - (b.note2 || 0),
                               render: (value: number) => (
-                                <Tag color={value >= 10 ? 'success' : 'error'} className="min-w-[60px]">
-                                  {value || '-'}
-                                </Tag>
+                                <StatusTag tone={value >= 10 ? 'success' : 'danger'} label={String(value || '-')} />
                               )
                             },
                             {
@@ -900,9 +880,7 @@ const Evaluation = () => {
                               width: 100,
                               sorter: (a, b) => (a.partiel || 0) - (b.partiel || 0),
                               render: (value: number) => (
-                                <Tag color={value >= 10 ? 'success' : 'error'} className="min-w-[60px]">
-                                  {value || '-'}
-                                </Tag>
+                                <StatusTag tone={value >= 10 ? 'success' : 'danger'} label={String(value || '-')} />
                               )
                             },
                             {
@@ -916,12 +894,10 @@ const Evaluation = () => {
                                 const moyenneValue = parseFloat(value || '0');
                                 return (
                                   <div className="flex flex-col items-center">
-                                    <Tag 
-                                      color={moyenneValue >= 10 ? 'success' : moyenneValue >= 7 ? 'warning' : 'error'}
-                                      className="min-w-[80px] text-center"
-                                    >
-                                      {value || '0.00'}
-                                    </Tag>
+                                    <StatusTag
+                                      tone={moyenneValue >= 10 ? 'success' : moyenneValue >= 7 ? 'warning' : 'danger'}
+                                      label={value || '0.00'}
+                                    />
                                     <Text type="secondary" className="text-xs mt-1">
                                       Coef: {selectedEvaluation.evaluation.coefficient}
                                     </Text>
@@ -936,12 +912,10 @@ const Evaluation = () => {
                               width: 120,
                               fixed: 'right' as const,
                               render: (value: string) => (
-                                <Tag 
-                                  color={value === 'Validé' ? 'success' : value === 'En attente' ? 'warning' : 'error'}
-                                  className="min-w-[80px]"
-                                >
-                                  {value || 'Non défini'}
-                                </Tag>
+                                <StatusTag
+                                  tone={value === 'Validé' ? 'success' : value === 'En attente' ? 'warning' : 'danger'}
+                                  label={value || 'Non défini'}
+                                />
                               ),
                               filters: [
                                 { text: 'Validé', value: 'Validé' },

@@ -1,8 +1,11 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from "react";
-import { Table, Button, Modal, Form, Input, Select, message, Tag } from "antd";
+import { useEffect, useMemo, useState } from "react";
+import { Button, Modal, Form, Input, Select, message } from "antd";
 import { PlusOutlined, EditOutlined } from "@ant-design/icons";
 import PageHeader from "../../Components/PageHeader/PageHeader";
+import PageContainer from "../../Components/ui/PageContainer";
+import DataTable from "../../Components/ui/DataTable";
+import StatusTag from "../../Components/ui/StatusTag";
 import { apiFetch, ApiError } from "../../lib/api";
 
 const { Option } = Select;
@@ -24,9 +27,15 @@ const Departements = () => {
   const [departements, setDepartements] = useState<Departement[]>([]);
   const [ecoles, setEcoles] = useState<Ecole[]>([]);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState<Departement | null>(null);
   const [form] = Form.useForm();
+
+  const filteredDepartements = useMemo(
+    () => departements.filter(d => d.nom.toLowerCase().includes(search.toLowerCase()) || d.ecole_nom.toLowerCase().includes(search.toLowerCase())),
+    [departements, search]
+  );
 
   const fetchAll = async () => {
     setLoading(true);
@@ -80,8 +89,8 @@ const Departements = () => {
 
   const columns = [
     { title: "Nom", dataIndex: "nom", key: "nom" },
-    { title: "Sigle", dataIndex: "sigle", key: "sigle", render: (s: string) => s ? <Tag color="orange">{s}</Tag> : "-" },
-    { title: "École", dataIndex: "ecole_nom", key: "ecole_nom", render: (n: string) => <Tag color="blue">{n}</Tag> },
+    { title: "Sigle", dataIndex: "sigle", key: "sigle", render: (s: string) => s ? <StatusTag tone="warning" label={s} /> : "-" },
+    { title: "École", dataIndex: "ecole_nom", key: "ecole_nom", render: (n: string) => <StatusTag tone="info" label={n} /> },
     {
       title: "Action", key: "action",
       render: (_: any, row: Departement) => (
@@ -91,14 +100,25 @@ const Departements = () => {
   ];
 
   return (
-    <div className="p-6">
+    <div>
       <PageHeader />
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          Nouveau Département
-        </Button>
-      </div>
-      <Table columns={columns} dataSource={departements} rowKey="id" loading={loading} bordered />
+      <PageContainer title="Départements">
+        <DataTable<Departement>
+          columns={columns}
+          dataSource={filteredDepartements}
+          rowKey="id"
+          loading={loading}
+          searchValue={search}
+          searchPlaceholder="Rechercher un département"
+          onSearchChange={setSearch}
+          toolbarExtra={
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              Nouveau Département
+            </Button>
+          }
+          emptyTitle="Aucun département"
+        />
+      </PageContainer>
 
       <Modal
         title={editing ? "Modifier le département" : "Nouveau département"}

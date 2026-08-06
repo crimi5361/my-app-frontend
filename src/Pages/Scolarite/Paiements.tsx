@@ -1,25 +1,22 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
-import { 
-  Table, 
-  Card, 
-  Button, 
+import {
+  Card,
+  Button,
   DatePicker,
   Space,
-  Spin,
   message,
   Row,
   Col,
   Statistic,
-  Tag,
   Typography,
   Select,
   Alert,
   Tooltip,
   Dropdown,
 } from 'antd';
-import { 
+import {
   EyeOutlined,
   FilterOutlined,
   CalendarOutlined,
@@ -29,6 +26,8 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag from '../../Components/ui/StatusTag';
 import { apiFetch, ApiError } from '../../lib/api';
 import moment from 'moment';
 import type { ColumnsType, TablePaginationConfig } from 'antd/es/table';
@@ -261,9 +260,7 @@ const Paiements = () => {
       dataIndex: 'methode',
       key: 'methode',
       render: (methode: string) => (
-        <Tag color={methode === 'especes' ? 'green' : 'blue'}>
-          {methode.toUpperCase()}
-        </Tag>
+        <StatusTag tone={methode === 'especes' ? 'success' : 'info'} label={methode.toUpperCase()} />
       ),
     },
     {
@@ -282,9 +279,7 @@ const Paiements = () => {
       key: 'annee_academique',
       width: 150,
       render: (annee: string, record: Paiement) => (
-        <Tag color={record.etat_annee === 'en cours' || record.etat_annee === 'en cour' ? 'green' : 'blue'}>
-          {annee}
-        </Tag>
+        <StatusTag tone={record.etat_annee === 'en cours' || record.etat_annee === 'en cour' ? 'success' : 'info'} label={annee} />
       ),
     },
   ];
@@ -427,7 +422,7 @@ const Paiements = () => {
     {
       key: 'page',
       label: `Page courante (${paiements.length} lignes)`,
-      icon: <FileExcelOutlined style={{ color: '#22c55e' }} />,
+      icon: <FileExcelOutlined style={{ color: 'var(--success)' }} />,
       onClick: exportCurrentPage,
     },
     {
@@ -435,7 +430,7 @@ const Paiements = () => {
       label: filters.dateRange?.[0]
         ? 'Toute la période sélectionnée'
         : `Toute l'année (${selectedYearInfo?.annee ?? ''})`,
-      icon: <FileExcelOutlined style={{ color: '#16a34a' }} />,
+      icon: <FileExcelOutlined style={{ color: 'var(--success)' }} />,
       onClick: exportAll,
     },
   ];
@@ -495,9 +490,7 @@ const Paiements = () => {
             <FilterOutlined />
             Filtres
             {periodeLabel && (
-              <Tag color="blue" icon={<CalendarOutlined />}>
-                {periodeLabel}
-              </Tag>
+              <StatusTag tone="info" icon={<CalendarOutlined />} label={periodeLabel} />
             )}
           </Space>
         }
@@ -554,12 +547,11 @@ const Paiements = () => {
 
         {selectedYearInfo && (
           <div style={{ marginTop: 10 }}>
-            <Tag
-              color={selectedYearInfo.etat === 'en cours' || selectedYearInfo.etat === 'en cour' ? 'green' : 'blue'}
+            <StatusTag
+              tone={selectedYearInfo.etat === 'en cours' || selectedYearInfo.etat === 'en cour' ? 'success' : 'info'}
               icon={<CalendarOutlined />}
-            >
-              {selectedYearInfo.annee} ({selectedYearInfo.etat})
-            </Tag>
+              label={`${selectedYearInfo.annee} (${selectedYearInfo.etat})`}
+            />
           </div>
         )}
       </Card>
@@ -579,7 +571,7 @@ const Paiements = () => {
                 <Statistic
                   title="Nombre de paiements"
                   value={nombrePaiements}
-                  valueStyle={{ color: '#1890ff' }}
+                  valueStyle={{ color: 'var(--mod-scolarite)' }}
                   prefix={<EyeOutlined />}
                 />
               </Card>
@@ -590,7 +582,7 @@ const Paiements = () => {
                   title="Montant total"
                   value={totalMontant}
                   precision={0}
-                  valueStyle={{ color: '#52c41a' }}
+                  valueStyle={{ color: 'var(--success)' }}
                   suffix="FCFA"
                   formatter={(v) => Number(v).toLocaleString('fr-FR')}
                 />
@@ -602,7 +594,7 @@ const Paiements = () => {
                   title="Moyenne par paiement"
                   value={moyennePaiement}
                   precision={0}
-                  valueStyle={{ color: '#faad14' }}
+                  valueStyle={{ color: 'var(--warning)' }}
                   suffix="FCFA"
                   formatter={(v) => Math.round(v as number).toLocaleString('fr-FR')}
                 />
@@ -615,13 +607,15 @@ const Paiements = () => {
             title={
               <Space>
                 Liste des paiements
-                <Tag color={periodeLabel ? 'blue' : 'default'}>
-                  {total} résultat(s){periodeLabel ? ' (période)' : ''}
-                </Tag>
+                <StatusTag
+                  tone={periodeLabel ? 'info' : 'neutral'}
+                  label={`${total} résultat(s)${periodeLabel ? ' (période)' : ''}`}
+                />
                 {selectedYearInfo && (
-                  <Tag color={selectedYearInfo.etat === 'en cours' || selectedYearInfo.etat === 'en cour' ? 'green' : 'blue'}>
-                    {selectedYearInfo.annee}
-                  </Tag>
+                  <StatusTag
+                    tone={selectedYearInfo.etat === 'en cours' || selectedYearInfo.etat === 'en cour' ? 'success' : 'info'}
+                    label={selectedYearInfo.annee}
+                  />
                 )}
               </Space>
             }
@@ -633,7 +627,7 @@ const Paiements = () => {
               >
                 <Tooltip title="Exporter en Excel selon la période affichée">
                   <Button
-                    icon={<FileExcelOutlined style={{ color: '#22c55e' }} />}
+                    icon={<FileExcelOutlined style={{ color: 'var(--success)' }} />}
                     disabled={!paiements.length}
                   >
                     Exporter Excel <DownOutlined />
@@ -642,31 +636,27 @@ const Paiements = () => {
               </Dropdown>
             }
           >
-            <Spin spinning={loading} tip="Chargement...">
-              <Table
-                columns={columns}
-                dataSource={paiements}
-                rowKey="numero_recu"
-                pagination={{
-                  current: filters.page,
-                  pageSize: filters.limit,
-                  total: total,
-                  showSizeChanger: true,
-                  pageSizeOptions: ['10', '20', '50', '100', '500'],
-                  showTotal: (t, range) =>
-                    `${range[0]}-${range[1]} sur ${t} paiements${periodeLabel ? ' • ' + periodeLabel : ''}`,
-                }}
-                onChange={handleTableChange}
-                scroll={{ x: 1200 }}
-                locale={{
-                  emptyText: loading
-                    ? 'Chargement...'
-                    : periodeLabel
-                    ? `Aucun paiement pour la période ${periodeLabel} dans ${currentUser.departementName}`
-                    : `Aucun paiement trouvé pour ${currentUser.departementName}`,
-                }}
-              />
-            </Spin>
+            <DataTable
+              columns={columns}
+              dataSource={paiements}
+              rowKey="numero_recu"
+              loading={loading}
+              pagination={{
+                current: filters.page,
+                pageSize: filters.limit,
+                total: total,
+                pageSizeOptions: ['10', '20', '50', '100', '500'],
+                showTotal: (t, range) =>
+                  `${range[0]}-${range[1]} sur ${t} paiements${periodeLabel ? ' • ' + periodeLabel : ''}`,
+              }}
+              onChange={handleTableChange}
+              scroll={{ x: 1200 }}
+              emptyTitle={loading
+                ? 'Chargement...'
+                : periodeLabel
+                ? `Aucun paiement pour la période ${periodeLabel} dans ${currentUser.departementName}`
+                : `Aucun paiement trouvé pour ${currentUser.departementName}`}
+            />
           </Card>
         </>
       )}

@@ -18,12 +18,15 @@ import {
   ClusterOutlined,
   EnvironmentOutlined,
   SafetyCertificateOutlined,
+  GiftOutlined,
+  DatabaseOutlined,
+  UsergroupAddOutlined,
 } from "@ant-design/icons";
 
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { BookDashedIcon } from "lucide-react";
-import { PAGE_PERMISSIONS } from "../../lib/access";
+import { PAGE_PERMISSIONS, getDashboardRouteForRole } from "../../lib/access";
 
 interface SidemenuProps {
   isSidemenuOpen: boolean;
@@ -69,9 +72,10 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
   };
 
   // Seuls admin et fondateur voient la section Dashboard complète
-  // (tableau récapitulatif, prise en charge...) ; comptabilite et caissier
-  // n'ont accès qu'à la page Dashboard générale, en lien direct.
+  // (tableau récapitulatif, prise en charge...) ; comptabilite n'a accès
+  // qu'à son propre Dashboard métier, en lien direct.
   const isFullDashboardRole = currentUserRole === "admin" || currentUserRole === "fondateur";
+  const monDashboard = getDashboardRouteForRole(currentUserRole);
 
   const dashboardMenuItem = isFullDashboardRole
     ? {
@@ -80,7 +84,7 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
         label: "Dashboard",
         children: [
           {
-            key: "/dashboard",
+            key: monDashboard,
             label: "Dashboard",
             icon: <AppstoreAddOutlined />,
           },
@@ -102,7 +106,7 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
         ],
       }
     : {
-        key: "/dashboard",
+        key: monDashboard,
         icon: <DashboardOutlined />,
         label: "Dashboard",
       };
@@ -159,6 +163,7 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
         { key: "/Gestion_academique/Filieres", label: "Filières", icon: <AppstoreAddOutlined />, permission: ["admin", "Gestion_academique"] },
         { key: "/Gestion_academique/Niviaux", label: "Niveaux", icon: <AppstoreAddOutlined />, permission: ["admin", "Gestion_academique"] },
         { key: "/Gestion_academique/Classes", label: "Classes", icon: <AppstoreAddOutlined />, permission: ["admin", "Gestion_academique"] },
+        { key: "/Gestion_academique/GestionGroupes", label: "Gestion des groupes", icon: <UsergroupAddOutlined />, permission: "admin" },
         { key: "/Gestion_academique/Maquettes", label: "Maquettes", icon: <AppstoreAddOutlined />, permission: ["admin", "Gestion_academique"] },
         { key: "/Gestion_academique/Migrations", label: "Migrations", icon: <AppstoreAddOutlined />, permission: ["admin", "Gestion_academique"] },
         { key: "/Gestion_academique/Memoires", label: "Memoires", icon: <BookDashedIcon />, permission: ["admin", "Gestion_academique"] },
@@ -182,12 +187,27 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
       ],
     },
     {
+      key: "moyens_generaux",
+      icon: <GiftOutlined />,
+      label: "Moyens Généraux",
+      children: [
+        { key: "/dashboard/moyensgeneraux", label: "Tableau de bord", icon: <DashboardOutlined />, permission: ["admin", "moyens_generaux"] },
+        { key: "/moyens-generaux/accessoires", label: "Accessoires", icon: <AppstoreAddOutlined />, permission: ["admin", "moyens_generaux"] },
+        { key: "/moyens-generaux/fournisseurs", label: "Fournisseurs", icon: <TeamOutlined />, permission: ["admin", "moyens_generaux"] },
+        { key: "/moyens-generaux/commandes", label: "Commandes", icon: <SolutionOutlined />, permission: ["admin", "moyens_generaux"] },
+        { key: "/moyens-generaux/stock", label: "Stock", icon: <DatabaseOutlined />, permission: ["admin", "moyens_generaux"] },
+        { key: "/moyens-generaux/distribution", label: "Distribution", icon: <UserSwitchOutlined />, permission: ["admin", "moyens_generaux"] },
+        { key: "/moyens-generaux/historique", label: "Historique", icon: <HistoryOutlined />, permission: ["admin", "moyens_generaux"] },
+      ],
+    },
+    {
       key: "Parametres",
       icon: <SettingOutlined />,
       label: "Paramètres",
       children: [
         { key: "/Parametres/gestion_utilisateur", label: "Gestion utilisateurs", icon: <TeamOutlined />, permission: ["admin", "Parametres"] },
         { key: "/Parametres/gestion_permission", label: "Gestion permissions", icon: <TeamOutlined />, permission: ["admin", "Parametres"] },
+        { key: "/Parametres/dossiers_en_attente", label: "Dossiers en attente", icon: <DatabaseOutlined />, permission: "admin" },
       ],
     },
   ];

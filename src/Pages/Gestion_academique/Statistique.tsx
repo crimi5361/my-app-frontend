@@ -241,14 +241,14 @@ const Statistique = () => {
   const tauxAffectation = totalEtu > 0 ? Math.round((totalAffectes / totalEtu) * 100) : 0;
 
   // ── Colonnes tableau ───────────────────────────────────────────────────
-  const thStyle = { background: '#0f2044', color: '#fff', fontWeight: 700, textAlign: 'center' as const };
+  const thStyle = { background: 'var(--ink)', color: '#fff', fontWeight: 700, textAlign: 'center' as const };
   const tdCenter = { textAlign: 'center' as const };
 
   const baseDataCols = [
     { title: 'Affectés', dataIndex: 'etudiants_affectes', key: 'aff', onHeaderCell: () => ({ style: thStyle }), onCell: () => ({ style: tdCenter }),
-      render: (v: string) => <span style={{ color: '#22c55e', fontWeight: 600 }}>{parseInt(v||'0').toLocaleString('fr-FR')}</span> },
+      render: (v: string) => <span style={{ color: 'var(--success)', fontWeight: 600 }}>{parseInt(v||'0').toLocaleString('fr-FR')}</span> },
     { title: 'Non Affectés', dataIndex: 'etudiants_non_affectes', key: 'naff', onHeaderCell: () => ({ style: thStyle }), onCell: () => ({ style: tdCenter }),
-      render: (v: string) => <span style={{ color: '#ef4444', fontWeight: 600 }}>{parseInt(v||'0').toLocaleString('fr-FR')}</span> },
+      render: (v: string) => <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{parseInt(v||'0').toLocaleString('fr-FR')}</span> },
     { title: 'Inscriptions', dataIndex: 'inscriptions', key: 'insc', onHeaderCell: () => ({ style: thStyle }), onCell: () => ({ style: tdCenter }),
       render: (v: string) => parseInt(v||'0').toLocaleString('fr-FR') },
     { title: 'Ré-inscriptions', dataIndex: 'reinscriptions', key: 'reinsc', onHeaderCell: () => ({ style: thStyle }), onCell: () => ({ style: tdCenter }),
@@ -276,7 +276,7 @@ const Statistique = () => {
   const summaryRow = (data: any[]) => (
     <Table.Summary fixed>
       <Table.Summary.Row style={{ background: '#f0f4ff', fontWeight: 700 }}>
-        <Table.Summary.Cell index={0}><strong style={{ color: '#0f2044' }}>Total Général</strong></Table.Summary.Cell>
+        <Table.Summary.Cell index={0}><strong style={{ color: 'var(--ink)' }}>Total Général</strong></Table.Summary.Cell>
         {['etudiants_affectes','etudiants_non_affectes','inscriptions','reinscriptions','total'].map((k, i) => (
           <Table.Summary.Cell index={i+1} key={k}>
             <strong>{data.reduce((s,r) => s + parseInt(r[k]||'0'), 0).toLocaleString('fr-FR')}</strong>
@@ -291,13 +291,13 @@ const Statistique = () => {
     {
       key: 'excel',
       label: 'Exporter en Excel',
-      icon: <FileExcelOutlined style={{ color: '#22c55e' }} />,
+      icon: <FileExcelOutlined style={{ color: 'var(--success)' }} />,
       onClick: () => exportExcel(statistiques, selectedAnneeLabel, departementName),
     },
     {
       key: 'pdf',
       label: 'Exporter en PDF',
-      icon: <FilePdfOutlined style={{ color: '#ef4444' }} />,
+      icon: <FilePdfOutlined style={{ color: 'var(--danger)' }} />,
       onClick: () => exportPDF(statistiques, selectedAnneeLabel, departementName),
     },
   ];
@@ -351,7 +351,7 @@ const Statistique = () => {
           font-family: 'Libre Baskerville', serif;
           font-size: 17px;
           font-weight: 700;
-          color: #0f2044;
+          color: var(--ink);
           margin: 0 0 16px 0;
           display: flex;
           align-items: center;
@@ -452,10 +452,10 @@ const Statistique = () => {
         }
         .filiere-name {
           font-family: 'Libre Baskerville', serif;
-          font-size: 15px; font-weight: 700; color: #0f2044;
+          font-size: 15px; font-weight: 700; color: var(--ink);
         }
         .filiere-badge {
-          background: #0f2044; color: #fff;
+          background: var(--ink); color: #fff;
           border-radius: 20px; padding: 4px 14px;
           font-size: 12px; font-weight: 600;
           font-family: 'Sora', sans-serif;
@@ -529,7 +529,7 @@ const Statistique = () => {
             </div>
             <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
               <div className="filter-label">Département</div>
-              <span style={{ fontSize: 13, fontWeight: 600, color: '#0f2044', fontFamily: 'Sora' }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink)', fontFamily: 'Sora' }}>
                 {departementName}
               </span>
             </div>
@@ -657,7 +657,7 @@ const Statistique = () => {
                                   strokeColor={{ '0%': '#4f7ef8', '100%': '#22c55e' }}
                                   format={p => (
                                     <div>
-                                      <div style={{ fontSize: 18, fontWeight: 700, color: '#0f2044', fontFamily: 'Libre Baskerville' }}>{p}%</div>
+                                      <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--ink)', fontFamily: 'Libre Baskerville' }}>{p}%</div>
                                       <div style={{ fontSize: 9, color: '#9ca3af', fontFamily: 'Sora' }}>Affectés</div>
                                     </div>
                                   )}
@@ -667,10 +667,10 @@ const Statistique = () => {
                             <Col xs={24} md={19}>
                               <Row gutter={[10, 10]}>
                                 {[
-                                  { label: 'Affectés', val: filiere.total_etudiants_affectes, color: '#22c55e', bg: '#f0fdf4' },
-                                  { label: 'Non Affectés', val: filiere.total_etudiants_non_affectes, color: '#ef4444', bg: '#fef2f2' },
-                                  { label: 'Inscriptions', val: filiere.total_inscriptions, color: '#3b82f6', bg: '#eff6ff' },
-                                  { label: 'Ré-inscriptions', val: filiere.total_reinscriptions, color: '#f59e0b', bg: '#fffbeb' },
+                                  { label: 'Affectés', val: filiere.total_etudiants_affectes, color: 'var(--success)', bg: '#f0fdf4' },
+                                  { label: 'Non Affectés', val: filiere.total_etudiants_non_affectes, color: 'var(--danger)', bg: '#fef2f2' },
+                                  { label: 'Inscriptions', val: filiere.total_inscriptions, color: 'var(--mod-scolarite)', bg: '#eff6ff' },
+                                  { label: 'Ré-inscriptions', val: filiere.total_reinscriptions, color: 'var(--warning)', bg: '#fffbeb' },
                                 ].map((s, i) => (
                                   <Col xs={12} md={6} key={i}>
                                     <div style={{ background: s.bg, borderRadius: 10, padding: '12px 14px', textAlign: 'center' }}>

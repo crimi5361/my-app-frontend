@@ -1,20 +1,18 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  Table, 
-  Input, 
-  Button, 
-  Space, 
-  Card, 
-  Tag, 
+import {
+  Input,
+  Button,
+  Space,
+  Card,
   Typography,
   message,
-  Spin,
-  Badge,
   Tooltip,
   Select,
   Alert
 } from 'antd';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag from '../../Components/ui/StatusTag';
 import { 
   SearchOutlined, 
   DownloadOutlined,
@@ -368,7 +366,7 @@ const Etudiant = () => {
       dataIndex: 'matricule_iipea',
       key: 'matricule_iipea',
       width: 150,
-      render: (text) => text ? <Tag color="purple">{text}</Tag> : '-',
+      render: (text) => text ? <StatusTag tone="info" label={text} /> : '-',
     },
     {
       title: 'Sexe',
@@ -379,9 +377,7 @@ const Etudiant = () => {
         const normalizedSexe = String(sexe || '').trim().toUpperCase();
         const isMale = normalizedSexe === 'M' || normalizedSexe === 'MASCULIN';
         return (
-          <Tag color={isMale ? 'blue' : 'pink'}>
-            {isMale ? 'Masculin' : 'Féminin'}
-          </Tag>
+          <StatusTag tone={isMale ? 'info' : 'neutral'} label={isMale ? 'Masculin' : 'Féminin'} />
         );
       },
     },
@@ -401,7 +397,7 @@ const Etudiant = () => {
       dataIndex: 'niveau',
       key: 'niveau',
       width: 120,
-      render: (text) => <Tag color="geekblue">{text}</Tag>,
+      render: (text) => <StatusTag tone="info" label={text} />,
     },
     {
       title: 'Parcours',
@@ -433,7 +429,7 @@ const Etudiant = () => {
       dataIndex: 'nationalite',
       key: 'nationalite',
       width: 120,
-      render: (text) => <Tag>{text}</Tag>,
+      render: (text) => <StatusTag tone="neutral" label={text} />,
     },
     {
       title: 'Date de Naissance',
@@ -459,11 +455,11 @@ const Etudiant = () => {
       key: 'standing',
       width: 120,
       render: (standing) => {
-        let color = 'default';
-        if (standing === 'actif') color = 'green';
-        if (standing === 'suspendu') color = 'orange';
-        if (standing === 'abandon') color = 'red';
-        return <Badge color={color} text={standing} />;
+        let tone: 'success' | 'warning' | 'danger' | 'neutral' = 'neutral';
+        if (standing === 'actif') tone = 'success';
+        if (standing === 'suspendu') tone = 'warning';
+        if (standing === 'abandon') tone = 'danger';
+        return <StatusTag tone={tone} label={standing} />;
       },
     },
     {
@@ -472,11 +468,11 @@ const Etudiant = () => {
       key: 'statut_scolaire',
       width: 150,
       render: (statut) => {
-        let color = 'default';
-        if (statut === 'regular') color = 'green';
-        if (statut === 'irregular') color = 'orange';
-        if (statut === 'exclu') color = 'red';
-        return <Badge color={color} text={statut} />;
+        let tone: 'success' | 'warning' | 'danger' | 'neutral' = 'neutral';
+        if (statut === 'regular') tone = 'success';
+        if (statut === 'irregular') tone = 'warning';
+        if (statut === 'exclu') tone = 'danger';
+        return <StatusTag tone={tone} label={statut} />;
       },
     },
     {
@@ -497,9 +493,7 @@ const Etudiant = () => {
       key: 'extrait_naissance',
       width: 150,
       render: (text) => (
-        <Tag color={text === 'oui' ? 'green' : 'red'}>
-          {text === 'oui' ? 'Déposé' : 'Manquant'}
-        </Tag>
+        <StatusTag tone={text === 'oui' ? 'success' : 'danger'} label={text === 'oui' ? 'Déposé' : 'Manquant'} />
       ),
     },
     {
@@ -508,9 +502,7 @@ const Etudiant = () => {
       key: 'justificatif_identite',
       width: 150,
       render: (text) => (
-        <Tag color={text === 'oui' ? 'green' : 'red'}>
-          {text === 'oui' ? 'Déposé' : 'Manquant'}
-        </Tag>
+        <StatusTag tone={text === 'oui' ? 'success' : 'danger'} label={text === 'oui' ? 'Déposé' : 'Manquant'} />
       ),
     },
     {
@@ -519,9 +511,7 @@ const Etudiant = () => {
       key: 'dernier_diplome',
       width: 150,
       render: (text) => (
-        <Tag color={text === 'oui' ? 'green' : 'red'}>
-          {text === 'oui' ? 'Déposé' : 'Manquant'}
-        </Tag>
+        <StatusTag tone={text === 'oui' ? 'success' : 'danger'} label={text === 'oui' ? 'Déposé' : 'Manquant'} />
       ),
     },
     {
@@ -530,9 +520,7 @@ const Etudiant = () => {
       key: 'fiche_orientation',
       width: 150,
       render: (text) => (
-        <Tag color={text === 'oui' ? 'green' : 'red'}>
-          {text === 'oui' ? 'Déposé' : 'Manquant'}
-        </Tag>
+        <StatusTag tone={text === 'oui' ? 'success' : 'danger'} label={text === 'oui' ? 'Déposé' : 'Manquant'} />
       ),
     },
     {
@@ -553,7 +541,7 @@ const Etudiant = () => {
               type="primary"
               shape="circle"
               icon={<FileTextOutlined />}
-              style={{ backgroundColor: "#1890ff", borderColor: "#1890ff" }}
+              style={{ backgroundColor: "var(--mod-scolarite)", borderColor: "var(--mod-scolarite)" }}
               onClick={() => navigate(`/Etudiant/Certificat_Scolarite/${record.id}`)}
             />
           </Tooltip>
@@ -562,7 +550,7 @@ const Etudiant = () => {
               type="primary"
               shape="circle"
               icon={<FileDoneOutlined />}
-              style={{ backgroundColor: "#52c41a", borderColor: "#52c41a" }}
+              style={{ backgroundColor: "var(--success)", borderColor: "var(--success)" }}
               onClick={() => navigate(`/Etudiant/Certificat_Frequentation/${record.id}`)}
             />
           </Tooltip>
@@ -760,35 +748,30 @@ const Etudiant = () => {
         ) : (
           <>
             {selectedYearInfo && (
-              <div style={{ marginBottom: 16 }}>
-                <Tag color={selectedYearInfo.etat === 'en cours' || selectedYearInfo.etat === 'en cour' ? 'green' : 'blue'}>
-                  Année sélectionnée: {selectedYearInfo.annee} ({selectedYearInfo.etat})
-                </Tag>
-                <Tag color="cyan">Total étudiants: {pagination.total}</Tag>
+              <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+                <StatusTag
+                  tone={selectedYearInfo.etat === 'en cours' || selectedYearInfo.etat === 'en cour' ? 'success' : 'info'}
+                  label={`Année sélectionnée: ${selectedYearInfo.annee} (${selectedYearInfo.etat})`}
+                />
+                <StatusTag tone="info" label={`Total étudiants: ${pagination.total}`} />
               </div>
             )}
-            
-            <Table
+
+            <DataTable<EtudiantData>
               columns={columns}
               dataSource={shouldFilterLocally ? filteredData : data}
               rowKey="id"
-              loading={{
-                spinning: loading,
-                indicator: <Spin tip="Chargement..." size="large" />
-              }}
+              loading={loading}
               pagination={{
                 current: pagination.current,
                 pageSize: pagination.pageSize,
                 total: shouldFilterLocally ? filteredData.length : pagination.total,
-                showSizeChanger: true,
                 pageSizeOptions: ['10', '50', '100', '500', '1000', '5000', '10000'],
-                showTotal: (total, range) => 
+                showTotal: (total, range) =>
                   `${range[0]}-${range[1]} sur ${total} étudiants`,
               }}
               onChange={handleTableChange}
               scroll={{ x: 2300 }}
-              size="middle"
-              bordered
             />
           </>
         )}

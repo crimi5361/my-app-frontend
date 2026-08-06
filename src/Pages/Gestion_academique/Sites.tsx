@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from "react";
-import { Table, Button, Modal, Form, Input, message } from "antd";
+import { useEffect, useMemo, useState } from "react";
+import { Button, Modal, Form, Input, message } from "antd";
 import { PlusOutlined, EditOutlined } from "@ant-design/icons";
 import PageHeader from "../../Components/PageHeader/PageHeader";
+import PageContainer from "../../Components/ui/PageContainer";
+import DataTable from "../../Components/ui/DataTable";
 import { apiFetch, ApiError } from "../../lib/api";
 
 interface Site {
@@ -14,9 +16,15 @@ interface Site {
 const Sites = () => {
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editing, setEditing] = useState<Site | null>(null);
   const [form] = Form.useForm();
+
+  const filteredSites = useMemo(
+    () => sites.filter(s => s.nom.toLowerCase().includes(search.toLowerCase())),
+    [sites, search]
+  );
 
   const fetchSites = async () => {
     setLoading(true);
@@ -76,14 +84,25 @@ const Sites = () => {
   ];
 
   return (
-    <div className="p-6">
+    <div>
       <PageHeader />
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-          Nouveau Site
-        </Button>
-      </div>
-      <Table columns={columns} dataSource={sites} rowKey="id" loading={loading} bordered />
+      <PageContainer title="Sites">
+        <DataTable<Site>
+          columns={columns}
+          dataSource={filteredSites}
+          rowKey="id"
+          loading={loading}
+          searchValue={search}
+          searchPlaceholder="Rechercher un site"
+          onSearchChange={setSearch}
+          toolbarExtra={
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+              Nouveau Site
+            </Button>
+          }
+          emptyTitle="Aucun site"
+        />
+      </PageContainer>
 
       <Modal
         title={editing ? "Modifier le site" : "Nouveau site"}

@@ -84,11 +84,14 @@ interface EtudiantDetails {
   niveau: string;
   departement: string;
   annee_academique: string;
+  // Chantier 6 (2026-08-01) : classe et groupe sont deux champs indépendants — la classe est
+  // connue dès le premier paiement, le groupe seulement une fois la classe découpée manuellement
+  // par un administrateur (jusque-là, `groupe` est absent et seule `classe` doit s'afficher).
+  classe?: {
+    nom: string;
+  };
   groupe?: {
     nom: string;
-    classe: {
-      nom: string;
-    };
   };
   scolarite: {
     montant_scolarite: number;
@@ -673,15 +676,15 @@ const RecuEtudiant = () => {
             <Descriptions.Item label="Année Académique">
               {etudiant.annee_academique}
             </Descriptions.Item>
+            {etudiant.classe && (
+              <Descriptions.Item label="Classe">
+                {etudiant.classe.nom}
+              </Descriptions.Item>
+            )}
             {etudiant.groupe && (
-              <>
-                <Descriptions.Item label="Classe">
-                  {etudiant.groupe.classe.nom}
-                </Descriptions.Item>
-                <Descriptions.Item label="Groupe">
-                  {etudiant.groupe.nom}
-                </Descriptions.Item>
-              </>
+              <Descriptions.Item label="Groupe">
+                {etudiant.groupe.nom}
+              </Descriptions.Item>
             )}
             <Descriptions.Item label="Email">
               {etudiant.email}
@@ -701,10 +704,23 @@ const RecuEtudiant = () => {
               fontSize: '10px'
             }}>
               <Text strong style={{ color: '#fa541c' }}>
-                ⚠️ Important: La scolarité doit être soldée avant le 15 Janvier 2026
+                ⚠️ Important: La totalité des frais de scolarité devra être réglée au plus tard le 15 Janvier 2027.
               </Text>
             </div>
           )}
+
+          {/* Mention obligatoire (Chantier 5) : non liée au solde, affichée sur tout reçu de paiement */}
+          <div style={{
+            marginTop: '10px',
+            padding: '7px',
+            backgroundColor: '#fafafa',
+            border: '1px solid #d9d9d9',
+            borderRadius: '3px',
+            fontSize: '9px',
+            color: '#666'
+          }}>
+            Après un délai de 24 heures suivant le paiement, aucun remboursement ne pourra être effectué.
+          </div>
         </Card>
 
         {/* Section Kit École */}

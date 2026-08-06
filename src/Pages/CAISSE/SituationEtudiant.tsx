@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import {
-  Input, Button, Card, List, Tag, Space, Typography, message,
-  Table, Descriptions, Form, Select, InputNumber, Alert, Avatar, Result
+  Input, Button, Card, List, Space, Typography, message,
+  Descriptions, Form, Select, InputNumber, Alert, Avatar, Result
 } from 'antd';
 import { SearchOutlined, PrinterOutlined, CheckCircleOutlined } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag from '../../Components/ui/StatusTag';
 import { apiFetch, ApiError } from '../../lib/api';
 
 const { Text, Title } = Typography;
@@ -189,7 +191,7 @@ const SituationEtudiant = () => {
     { title: 'Année', dataIndex: 'annee', key: 'annee' },
     {
       title: 'Statut', key: 'is_current', render: (_: unknown, r: AnneeEtudiant) => (
-        <Tag color={r.is_current ? 'blue' : 'default'}>{r.is_current ? 'Année en cours' : 'Année antérieure'}</Tag>
+        <StatusTag tone={r.is_current ? 'info' : 'neutral'} label={r.is_current ? 'Année en cours' : 'Année antérieure'} />
       )
     },
     { title: 'Niveau', dataIndex: 'niveau', key: 'niveau', render: (v: string | null) => v || '—' },
@@ -208,7 +210,7 @@ const SituationEtudiant = () => {
     },
     {
       title: 'Statut paiement', dataIndex: 'statut_paiement', key: 'statut_paiement',
-      render: (v: string | null) => <Tag color={v === 'SOLDE' ? 'green' : 'orange'}>{v || 'NON_SOLDE'}</Tag>
+      render: (v: string | null) => <StatusTag tone={v === 'SOLDE' ? 'success' : 'warning'} label={v || 'NON_SOLDE'} />
     },
     {
       title: 'Action', key: 'action', render: (_: unknown, r: AnneeEtudiant) => (
@@ -224,7 +226,7 @@ const SituationEtudiant = () => {
     { title: 'N° Reçu', dataIndex: 'numero_recu', key: 'numero_recu', render: (v: string | null) => v || '—' },
     { title: 'Caissier', dataIndex: 'caissier_nom', key: 'caissier_nom', render: (v: string | null) => v || '—' },
     {
-      title: 'Action', key: 'action', render: (_: unknown, r: PaiementAnnee) => (
+      title: 'Action', key: 'action', render: (_: unknown, _r: PaiementAnnee) => (
         <Button
           size="small"
           icon={<PrinterOutlined />}
@@ -269,7 +271,7 @@ const SituationEtudiant = () => {
                   title={`${item.nom} ${item.prenoms} — ${item.matricule_iipea}`}
                   description={`${item.filiere} (${item.niveau})`}
                 />
-                <Tag color={item.standing === 'Inscrit' ? 'green' : 'orange'}>{item.standing}</Tag>
+                <StatusTag tone={item.standing === 'Inscrit' ? 'success' : 'warning'} label={item.standing} />
               </List.Item>
             )}
           />
@@ -277,7 +279,7 @@ const SituationEtudiant = () => {
       )}
 
       {!etudiant && !searched && (
-        <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-soft)' }}>
           <Title level={5} type="secondary">Recherchez un étudiant pour consulter sa situation</Title>
           <Text type="secondary">Par nom, prénom ou matricule IIPEA — toutes ses années académiques, en cours ou antérieures</Text>
         </div>
@@ -301,12 +303,11 @@ const SituationEtudiant = () => {
           </Card>
 
           <Card title="Années académiques" loading={loadingAnnees} style={{ marginBottom: 24 }}>
-            <Table
+            <DataTable
               rowKey="annee_academique_id"
               dataSource={annees}
               columns={anneesColumns}
               pagination={false}
-              size="small"
             />
           </Card>
 
@@ -316,9 +317,7 @@ const SituationEtudiant = () => {
                 <Descriptions.Item label="Niveau">{selectedAnnee.niveau || '—'}</Descriptions.Item>
                 <Descriptions.Item label="Filière">{selectedAnnee.filiere || '—'}</Descriptions.Item>
                 <Descriptions.Item label="Statut">
-                  <Tag color={selectedAnnee.statut_paiement === 'SOLDE' ? 'green' : 'orange'}>
-                    {selectedAnnee.statut_paiement || 'NON_SOLDE'}
-                  </Tag>
+                  <StatusTag tone={selectedAnnee.statut_paiement === 'SOLDE' ? 'success' : 'warning'} label={selectedAnnee.statut_paiement || 'NON_SOLDE'} />
                 </Descriptions.Item>
                 <Descriptions.Item label="Montant scolarité">
                   {Number(selectedAnnee.montant_scolarite ?? 0).toLocaleString('fr-FR')} FCFA
@@ -332,14 +331,13 @@ const SituationEtudiant = () => {
               </Descriptions>
 
               <Title level={5}>Historique des versements</Title>
-              <Table
+              <DataTable
                 rowKey="id"
                 dataSource={paiements}
                 columns={paiementsColumns}
                 pagination={false}
-                size="small"
                 style={{ marginBottom: 24 }}
-                locale={{ emptyText: 'Aucun paiement enregistré pour cette année' }}
+                emptyTitle="Aucun paiement enregistré pour cette année"
               />
 
               {soldeRestant <= 0 ? (

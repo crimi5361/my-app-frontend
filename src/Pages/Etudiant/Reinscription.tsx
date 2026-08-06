@@ -2,16 +2,18 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Input, Button, List, Avatar, Card, Descriptions, Tag, Alert, Row, Col,
-  Divider, Form, message, Spin, Empty, Typography, Space, Radio, Select, Result, Table, Checkbox
+  Input, Button, List, Avatar, Card, Descriptions, Alert, Row, Col,
+  Divider, Form, message, Spin, Empty, Typography, Space, Radio, Select, Result, Checkbox
 } from 'antd';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag, { type StatusTone } from '../../Components/ui/StatusTag';
 import { SearchOutlined, CheckCircleOutlined, WarningOutlined, CloseCircleOutlined, PrinterOutlined } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import { apiFetch, ApiError } from '../../lib/api';
 import { calculerApercuEcheancier } from '../../lib/echeancier';
 
 const { Option } = Select;
-import AcademicCascadeSelect, { type AcademicSelection } from '../../Components/AcademicCascadeSelect/AcademicCascadeSelect';
+import FormationCascadeSelect, { type FormationSelection } from '../../Components/FormationCascadeSelect/FormationCascadeSelect';
 import WebcamCapture from '../../Components/WebcamCapture/WebcamCapture';
 import { getReferenceData, type ReferenceData } from '../../lib/referenceData';
 
@@ -111,11 +113,11 @@ const IDENTITE_FIELDS = [
 
 type ProgressionMode = 'redoublement' | 'progression' | 'orientation' | 'cycle';
 
-const decisionColor = (decision?: string) => {
-  if (decision === 'ADMIS') return 'green';
-  if (decision === 'DÉROGÉ') return 'orange';
-  if (decision === 'AJOURNÉ') return 'red';
-  return 'default';
+const decisionTone = (decision?: string): StatusTone => {
+  if (decision === 'ADMIS') return 'success';
+  if (decision === 'DÉROGÉ') return 'warning';
+  if (decision === 'AJOURNÉ') return 'danger';
+  return 'neutral';
 };
 
 const Reinscription = () => {
@@ -131,7 +133,7 @@ const Reinscription = () => {
   const [progressionMode, setProgressionMode] = useState<ProgressionMode>('redoublement');
   const [orientationFiliereId, setOrientationFiliereId] = useState<number | null>(null);
   const [curcusId, setCurcusId] = useState<number | null>(null);
-  const [cascadeSelection, setCascadeSelection] = useState<AcademicSelection>({});
+  const [cascadeSelection, setCascadeSelection] = useState<FormationSelection>({});
   const [cycleFormationInfo, setCycleFormationInfo] = useState<{ typeFiliereLibelle: string | null; niveauLibelle: string | null }>({ typeFiliereLibelle: null, niveauLibelle: null });
   const [montant, setMontant] = useState<number | null>(null);
   const [statutApplique, setStatutApplique] = useState<string | null>(null);
@@ -447,7 +449,7 @@ const Reinscription = () => {
             <Descriptions column={1} bordered size="small" style={{ maxWidth: 500, margin: '0 auto 24px auto' }}>
               <Descriptions.Item label="N° de dossier">{demandeResult.reinscription_id}</Descriptions.Item>
               <Descriptions.Item label="Statut">
-                <Tag color={demandeResult.eligible ? 'blue' : 'red'}>{demandeResult.statut}</Tag>
+                <StatusTag tone={demandeResult.eligible ? 'info' : 'danger'} label={demandeResult.statut} />
               </Descriptions.Item>
               {demandeResult.montant_annuel !== null && (
                 <Descriptions.Item label="Montant à payer">{demandeResult.montant_annuel.toLocaleString('fr-FR')} FCFA</Descriptions.Item>
@@ -542,9 +544,7 @@ const Reinscription = () => {
               <Card title="Situation académique">
                 {academique ? (
                   <>
-                    <Tag color={decisionColor(academique.decision)} style={{ fontSize: 14, padding: '4px 12px' }}>
-                      {academique.decision}
-                    </Tag>
+                    <StatusTag tone={decisionTone(academique.decision)} label={academique.decision} />
                     {academique.decision === 'DÉROGÉ' && (
                       <Alert
                         style={{ marginTop: 8 }}
@@ -560,11 +560,11 @@ const Reinscription = () => {
                     {academique.ecue_a_reprendre?.length > 0 && (
                       <>
                         <Divider orientation="left" style={{ fontSize: 13 }}>Matières à reprendre</Divider>
-                        {academique.ecue_a_reprendre.map((m, i) => (
-                          <Tag key={i} color="volcano" style={{ marginBottom: 4 }}>
-                            {m.matiere_nom} ({m.moyenne}/20)
-                          </Tag>
-                        ))}
+                        <Space wrap>
+                          {academique.ecue_a_reprendre.map((m, i) => (
+                            <StatusTag key={i} tone="danger" label={`${m.matiere_nom} (${m.moyenne}/20)`} />
+                          ))}
+                        </Space>
                       </>
                     )}
                   </>
@@ -630,11 +630,10 @@ const Reinscription = () => {
 
               {progressionMode === 'cycle' && (
                 <>
-                  <AcademicCascadeSelect
+                  <FormationCascadeSelect
                     value={cascadeSelection}
                     onChange={setCascadeSelection}
                     onFormationInfo={setCycleFormationInfo}
-                    showFiliereNiveau
                   />
                   {changementDeCycle && (
                     <Alert
@@ -688,7 +687,7 @@ const Reinscription = () => {
                 </Col>
                 <Col span={8}>
                   <Form.Item label="Montant annuel (FCFA)">
-                    <Input value={montant !== null ? `${montant.toLocaleString('fr-FR')} FCFA` : 'Non déterminé'} disabled style={{ fontWeight: 'bold', color: '#1890ff' }} />
+                    <Input value={montant !== null ? `${montant.toLocaleString('fr-FR')} FCFA` : 'Non déterminé'} disabled style={{ fontWeight: 'bold', color: 'var(--mod-scolarite)' }} />
                   </Form.Item>
                 </Col>
               </Row>
@@ -712,8 +711,7 @@ const Reinscription = () => {
               </Row>
 
               {nombreVersementsApercu > 1 && montant !== null && (
-                <Table
-                  size="small"
+                <DataTable
                   style={{ marginBottom: 16, maxWidth: 500 }}
                   pagination={false}
                   dataSource={calculerApercuEcheancier(montant, nombreVersementsApercu)}
@@ -835,7 +833,7 @@ const Reinscription = () => {
       )}
 
       {!dossier && !loadingDossier && results.length === 0 && (
-        <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-soft)' }}>
           <Title level={5} type="secondary">Recherchez un étudiant pour commencer une réinscription</Title>
           <Text type="secondary">Par nom, prénom ou matricule IIPEA</Text>
         </div>

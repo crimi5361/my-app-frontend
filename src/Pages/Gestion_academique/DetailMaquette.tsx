@@ -7,12 +7,14 @@ import PageHeader from '../../Components/PageHeader/PageHeader';
 import { apiFetch } from '../../lib/api';
 import {
   Card, Button, Modal, Form, Input, InputNumber, Select, Space,
-  message, Spin, Table, Tag, Row, Col, Typography, Tooltip, Popconfirm
+  message, Spin, Table, Row, Col, Typography, Tooltip, Popconfirm
 } from 'antd';
 import {
   PlusOutlined, ArrowLeftOutlined, CheckOutlined,
   EditOutlined, SaveOutlined, CloseOutlined
 } from '@ant-design/icons';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag from '../../Components/ui/StatusTag';
 
 const { Title, Text } = Typography;
 
@@ -435,14 +437,16 @@ const DetailMaquette: React.FC = () => {
         render: (_: any, record: EditableRow) =>
           record.ue_code ? (
             <Tooltip title="Cliquer pour copier">
-              <Tag
-                color="blue"
-                style={{ cursor: 'pointer', fontSize: 12, wordBreak: 'break-all', whiteSpace: 'normal' }}
+              <span
+                style={{ cursor: 'pointer', display: 'inline-block' }}
                 onClick={e => { e.stopPropagation(); copyToClipboard(record.ue_code, 'Code UE'); }}
               >
-                {record.ue_code}
-                {copiedCode === record.ue_code && <CheckOutlined style={{ marginLeft: 4 }} />}
-              </Tag>
+                <StatusTag
+                  tone="info"
+                  label={record.ue_code}
+                  icon={copiedCode === record.ue_code ? <CheckOutlined /> : undefined}
+                />
+              </span>
             </Tooltip>
           ) : <Text type="secondary">—</Text>,
         width: '10%',
@@ -492,14 +496,16 @@ const DetailMaquette: React.FC = () => {
         render: (_: any, record: EditableRow) =>
           record.code_ecue ? (
             <Tooltip title="Cliquer pour copier">
-              <Tag
-                color="green"
-                style={{ cursor: 'pointer', fontSize: 12, wordBreak: 'break-all', whiteSpace: 'normal' }}
+              <span
+                style={{ cursor: 'pointer', display: 'inline-block' }}
                 onClick={e => { e.stopPropagation(); copyToClipboard(record.code_ecue!, 'Code ECUE'); }}
               >
-                {record.code_ecue}
-                {copiedCode === record.code_ecue && <CheckOutlined style={{ marginLeft: 4 }} />}
-              </Tag>
+                <StatusTag
+                  tone="success"
+                  label={record.code_ecue}
+                  icon={copiedCode === record.code_ecue ? <CheckOutlined /> : undefined}
+                />
+              </span>
             </Tooltip>
           ) : <Text type="secondary">—</Text>,
         width: '10%',
@@ -562,7 +568,7 @@ const DetailMaquette: React.FC = () => {
         onCell: () => ({ style: { borderRight: '1px solid #d9d9d9', borderBottom: '1px solid #d9d9d9' } }),
         render: (_: any, record: Matiere) => {
           const cout = calculateCoutCM(record.volume_horaire_cm, record.taux_horaire_cm);
-          return cout > 0 ? <Tag color="blue" style={{ margin: 0 }}>{cout?.toLocaleString('fr-FR')} F</Tag> : '-';
+          return cout > 0 ? <StatusTag tone="info" label={`${cout?.toLocaleString('fr-FR')} F`} /> : '-';
         },
         width: '8%',
       },
@@ -608,7 +614,7 @@ const DetailMaquette: React.FC = () => {
         onCell: () => ({ style: { borderRight: '1px solid #d9d9d9', borderBottom: '1px solid #d9d9d9' } }),
         render: (_: any, record: Matiere) => {
           const cout = calculateCoutTD(record.volume_horaire_td, record.taux_horaire_td);
-          return cout > 0 ? <Tag color="green" style={{ margin: 0 }}>{cout?.toLocaleString('fr-FR')} F</Tag> : '-';
+          return cout > 0 ? <StatusTag tone="success" label={`${cout?.toLocaleString('fr-FR')} F`} /> : '-';
         },
         width: '8%',
       },
@@ -628,7 +634,7 @@ const DetailMaquette: React.FC = () => {
         }),
         render: (v: any) => {
           const coeff = typeof v === 'string' ? parseFloat(v) : v;
-          return coeff > 0 ? <Tag color="orange" style={{ margin: 0 }}>{coeff}</Tag> : '-';
+          return coeff > 0 ? <StatusTag tone="warning" label={String(coeff)} /> : '-';
         },
         width: '5%',
       },
@@ -651,7 +657,7 @@ const DetailMaquette: React.FC = () => {
                 icon={<SaveOutlined />}
                 loading={saving}
                 onClick={() => saveRow(record)}
-                style={{ background: '#52c41a', borderColor: '#52c41a' }}
+                style={{ background: 'var(--success)', borderColor: 'var(--success)' }}
               >
                 OK
               </Button>
@@ -665,7 +671,7 @@ const DetailMaquette: React.FC = () => {
               icon={<EditOutlined />}
               disabled={editingKey !== ''}
               onClick={() => startEdit(record)}
-              style={{ borderColor: '#1890ff', color: '#1890ff' }}
+              style={{ borderColor: 'var(--mod-scolarite)', color: 'var(--mod-scolarite)' }}
             >
               Éditer
             </Button>
@@ -773,7 +779,7 @@ const DetailMaquette: React.FC = () => {
                 setMatiereModalVisible(true);
               }}
               size="large"
-              style={{ borderRadius: '6px', background: '#389e0d', borderColor: '#389e0d' }}
+              style={{ borderRadius: '6px', background: 'var(--success)', borderColor: 'var(--success)' }}
             >
               Nouvelle Matière
             </Button>
@@ -781,7 +787,7 @@ const DetailMaquette: React.FC = () => {
               icon={<EditOutlined />}
               size="large"
               onClick={() => { setEditMode(true); setEditingKey(''); }}
-              style={{ borderRadius: '6px', borderColor: '#fa8c16', color: '#fa8c16', fontWeight: 600 }}
+              style={{ borderRadius: '6px', borderColor: 'var(--warning)', color: 'var(--warning)', fontWeight: 600 }}
             >
               Modifier le tableau
             </Button>
@@ -792,14 +798,14 @@ const DetailMaquette: React.FC = () => {
               display: 'flex',
               alignItems: 'center',
               gap: 12,
-              background: '#fffbe6',
-              border: '1px solid #ffe58f',
+              background: 'var(--paper)',
+              border: '1px solid var(--warning)',
               borderRadius: 8,
               padding: '8px 16px',
               flex: 1,
             }}>
-              <EditOutlined style={{ color: '#fa8c16', fontSize: 16 }} />
-              <Text style={{ color: '#ad6800', fontWeight: 600 }}>
+              <EditOutlined style={{ color: 'var(--warning)', fontSize: 16 }} />
+              <Text style={{ color: 'var(--accent-ink)', fontWeight: 600 }}>
                 Mode édition actif — cliquez <b>Éditer</b> sur une ligne, modifiez les champs, puis <b>OK</b> pour enregistrer.
               </Text>
             </div>
@@ -826,7 +832,7 @@ const DetailMaquette: React.FC = () => {
             title={
               <div className="flex items-center justify-between">
                 <span className="text-xl font-bold text-gray-800">SEMESTRE {semestre.libelle}</span>
-                <Tag color="blue">{semestre.ues?.length || 0} UE(s)</Tag>
+                <StatusTag tone="info" label={`${semestre.ues?.length || 0} UE(s)`} />
               </div>
             }
             className="mb-6 shadow-lg border-0"
@@ -834,7 +840,7 @@ const DetailMaquette: React.FC = () => {
           >
             {semestre.ues && semestre.ues.length > 0 ? (
               <Form form={form} component={false}>
-                <Table
+                <DataTable
                   components={{
                     body: { cell: EditableCell },
                     header: {
@@ -842,7 +848,7 @@ const DetailMaquette: React.FC = () => {
                         <th
                           {...props}
                           style={{
-                            backgroundColor: editMode ? '#fa8c16' : '#1890ff',
+                            backgroundColor: editMode ? 'var(--warning)' : 'var(--mod-scolarite)',
                             color: 'white',
                             fontWeight: 'bold',
                             textAlign: 'center',
@@ -856,13 +862,12 @@ const DetailMaquette: React.FC = () => {
                   }}
                   columns={mergedColumns}
                   dataSource={getGroupedDataByUE(semestre)}
+                  rowKey="key"
                   pagination={false}
-                  size="middle"
-                  bordered
                   rowClassName={(record: any) =>
                     editMode && isEditing(record) ? 'editing-row' : ''
                   }
-                  style={{ border: '2px solid #1890ff', borderRadius: '8px', overflow: 'hidden' }}
+                  style={{ border: '2px solid var(--mod-scolarite)', borderRadius: '8px', overflow: 'hidden' }}
                   summary={() => {
                     const allMatieres = semestre.ues.flatMap(ue => ue.matieres || []);
                     const totalCM = allMatieres.reduce((t: number, m: any) => t + (m.volume_horaire_cm || 0), 0);
@@ -882,15 +887,15 @@ const DetailMaquette: React.FC = () => {
                           <Table.Summary.Cell index={1} align="center">{totalCM > 0 ? <Text strong>{totalCM}h</Text> : '-'}</Table.Summary.Cell>
                           <Table.Summary.Cell index={2} align="center">-</Table.Summary.Cell>
                           <Table.Summary.Cell index={3} align="center">
-                            {totalCoutCM > 0 ? <Tag color="blue">{totalCoutCM.toLocaleString('fr-FR')} F</Tag> : '-'}
+                            {totalCoutCM > 0 ? <StatusTag tone="info" label={`${totalCoutCM.toLocaleString('fr-FR')} F`} /> : '-'}
                           </Table.Summary.Cell>
                           <Table.Summary.Cell index={4} align="center">{totalTD > 0 ? <Text strong>{totalTD}h</Text> : '-'}</Table.Summary.Cell>
                           <Table.Summary.Cell index={5} align="center">-</Table.Summary.Cell>
                           <Table.Summary.Cell index={6} align="center">
-                            {totalCoutTD > 0 ? <Tag color="green">{totalCoutTD.toLocaleString('fr-FR')} F</Tag> : '-'}
+                            {totalCoutTD > 0 ? <StatusTag tone="success" label={`${totalCoutTD.toLocaleString('fr-FR')} F`} /> : '-'}
                           </Table.Summary.Cell>
                           <Table.Summary.Cell index={7} align="center">
-                            {totalCoeff > 0 ? <Tag color="orange">{totalCoeff}</Tag> : '-'}
+                            {totalCoeff > 0 ? <StatusTag tone="warning" label={String(totalCoeff)} /> : '-'}
                           </Table.Summary.Cell>
                           {editMode && <Table.Summary.Cell index={8} />}
                         </Table.Summary.Row>
@@ -1021,7 +1026,7 @@ const DetailMaquette: React.FC = () => {
           <Form.Item className="text-right mb-0">
             <Space>
               <Button onClick={() => setMatiereModalVisible(false)} size="large">Annuler</Button>
-              <Button type="primary" htmlType="submit" size="large" style={{ background: '#389e0d', borderColor: '#389e0d' }}>
+              <Button type="primary" htmlType="submit" size="large" style={{ background: 'var(--success)', borderColor: 'var(--success)' }}>
                 Créer la Matière
               </Button>
             </Space>

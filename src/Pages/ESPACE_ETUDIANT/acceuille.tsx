@@ -416,7 +416,7 @@ const Acceuille = () => {
                   </p>
                   <p>Classe: {studentInfo?.classe}</p>
                   <p>Année: {studentInfo?.annee_academique}</p>
-                  <p>Groupe: {studentInfo?.groupe}</p>
+                  {studentInfo?.groupe && <p>Groupe: {studentInfo.groupe}</p>}
                 </motion.div>
               </div>
 

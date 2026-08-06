@@ -1,18 +1,22 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
-  Button, Drawer, Form, Input, Select, Tag,
-  Space, List, Card, Divider, notification, InputRef, Popconfirm,
+  Button, Drawer, Form, Input, Select,
+  Space, List, Divider, notification, Popconfirm, Tag,
 } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import {
   PlusOutlined, SaveOutlined, DeleteOutlined,
-  EditOutlined, SearchOutlined, ApartmentOutlined,
+  EditOutlined, SettingOutlined, RocketOutlined,
 } from '@ant-design/icons';
-import DataTable from 'react-data-table-component';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import PageContainer from '../../Components/ui/PageContainer';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag from '../../Components/ui/StatusTag';
 import AcademicCascadeSelect, { type AcademicSelection } from '../../Components/AcademicCascadeSelect/AcademicCascadeSelect';
 import FiliereParcoursDrawer, { type NiveauParcours } from '../../Components/FiliereParcoursDrawer/FiliereParcoursDrawer';
+import { apiFetch } from '../../lib/api';
 
 const { Option } = Select;
 
@@ -22,6 +26,13 @@ interface Niveau {
   prix_formation: string;
   ordre?: number | null;
   niveau_suivant_id?: number | null;
+  parcours?: string[];
+  tarif?: {
+    montant_affecte: number | string | null;
+    montant_affecte_reinscription: number | string | null;
+    montant_non_affecte: number | string | null;
+    toujours_non_affecte: boolean;
+  } | null;
 }
 
 interface FiliereData {
@@ -35,12 +46,19 @@ interface FiliereData {
   filiere_mere_id: number | null;
   filiere_mere_nom?: string | null;
   niveaux: Niveau[];
+  configuree?: boolean;
 }
 
 interface TypeFiliere {
   id: string;
   libelle: string;
   description: string;
+}
+
+interface AnneeAcademique {
+  id: number;
+  annee: string;
+  etat?: string;
 }
 
 // Helper pour ajouter le token d'authentification
@@ -62,10 +80,12 @@ const Filieres = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [searchText, setSearchText] = useState('');
-  const [filteredData, setFilteredData] = useState<any[]>([]);
   const [academicSelection, setAcademicSelection] = useState<AcademicSelection>({});
   const [departementsIndex, setDepartementsIndex] = useState<{ id: number; ecole_id: number }[]>([]);
   const [parcoursFiliere, setParcoursFiliere] = useState<FiliereData | null>(null);
+  const [annees, setAnnees] = useState<AnneeAcademique[]>([]);
+  const [selectedAnneeId, setSelectedAnneeId] = useState<number | null>(null);
+  const [loadingYears, setLoadingYears] = useState(false);
 
   const nomValue = Form.useWatch('nom', form);
   const sigleValue = Form.useWatch('sigle', form);
@@ -74,33 +94,47 @@ const Filieres = () => {
     && (!!editingFiliere || niveaux.length > 0);
 
   const API_URL = import.meta.env.VITE_API_URL_SERVER || '';
-  const searchInput = React.useRef<InputRef>(null);
 
-  // ── Fetch filières avec authentification ──────────────────────────────────────────
-  const fetchFilieres = async () => {
+  // ── Fetch filières pour la préparation de rentrée : TOUTES les filières permanentes, avec leur
+  // état de configuration pour l'année académique sélectionnée (jamais seulement l'année en cours
+  // du site — cette page doit permettre de préparer une année différente de l'année active).
+  const fetchFilieres = async (anneeId: number) => {
     try {
-      const res = await fetch(`${API_URL}/api/filieres/table/Filiere`, {
-        headers: getAuthHeaders()
-      });
-      if (!res.ok) {
-        throw new Error(`Erreur HTTP: ${res.status}`);
-      }
-      const data = await res.json();
+      const data: FiliereData[] = await apiFetch(`/api/filieres/table/Filiere?toutes=true&anneeAcademiqueId=${anneeId}`);
       setFilieres(data);
     } catch (error) {
       console.error('Erreur fetchFilieres:', error);
-      notification.error({ 
-        message: 'Erreur', 
-        description: 'Impossible de charger les filières. Vérifiez votre connexion.' 
+      notification.error({
+        message: 'Erreur',
+        description: 'Impossible de charger les filières. Vérifiez votre connexion.'
       });
     }
   };
 
+  // ── Chargement des années académiques (même pattern que les autres écrans : Effectifs, etc.) ──
+  useEffect(() => {
+    const fetchAnnees = async () => {
+      setLoadingYears(true);
+      try {
+        const data: AnneeAcademique[] = await apiFetch('/api/annees');
+        setAnnees(data);
+        const courante = data.find(a => ['en cours', 'en cour', 'active'].includes((a.etat || '').toLowerCase()));
+        setSelectedAnneeId((courante || data[data.length - 1])?.id ?? null);
+      } catch {
+        notification.error({ message: 'Erreur', description: 'Impossible de charger les années académiques.' });
+      } finally {
+        setLoadingYears(false);
+      }
+    };
+    fetchAnnees();
+  }, []);
+
   useEffect(() => {
     const fetchAll = async () => {
+      if (!selectedAnneeId) return;
       setLoading(true);
       try {
-        await fetchFilieres();
+        await fetchFilieres(selectedAnneeId);
         const typesRes = await fetch(`${API_URL}/api/typesfiliere`, {
           headers: getAuthHeaders()
         });
@@ -117,7 +151,9 @@ const Filieres = () => {
       }
     };
     fetchAll();
-  }, [API_URL]);
+  }, [API_URL, selectedAnneeId]);
+
+  const selectedAnneeLabel = annees.find(a => a.id === selectedAnneeId)?.annee || '';
 
   // Garde parcoursFiliere synchronisé après un rechargement (fetchFilieres) déclenché depuis le
   // Drawer parcours — sinon la liste de niveaux affichée resterait figée sur l'ancien snapshot.
@@ -127,34 +163,16 @@ const Filieres = () => {
     if (jourFiliere && jourFiliere !== parcoursFiliere) setParcoursFiliere(jourFiliere);
   }, [filieres]);
 
-  // ── Formatage tableau ───────────────────────────────────────────────────────
-  const formattedData = useMemo(() =>
-    filieres.map(item => ({
-      id: item.id,
-      filiere_nom: item.nom,
-      filiere_sigle: item.sigle,
-      typefiliere_id: item.typefiliere_id,
-      type_filiere_libelle: item.typefiliere_libelle,
-      type_filiere_description: item.typefiliere_description,
-      departement_id: item.departement_id,
-      filiere_mere_id: item.filiere_mere_id,
-      filiere_mere_nom: item.filiere_mere_nom,
-      niveaux: item.niveaux || [],
-    })),
-  [filieres]);
-
   // ── Recherche ───────────────────────────────────────────────────────────────
-  useEffect(() => {
-    setFilteredData(
-      searchText
-        ? formattedData.filter(item =>
-            item.filiere_nom.toLowerCase().includes(searchText.toLowerCase()) ||
-            item.filiere_sigle.toLowerCase().includes(searchText.toLowerCase()) ||
-            item.type_filiere_libelle.toLowerCase().includes(searchText.toLowerCase())
-          )
-        : formattedData
-    );
-  }, [searchText, formattedData]);
+  const filteredFilieres = useMemo(() =>
+    searchText
+      ? filieres.filter(item =>
+          item.nom.toLowerCase().includes(searchText.toLowerCase()) ||
+          item.sigle.toLowerCase().includes(searchText.toLowerCase()) ||
+          item.typefiliere_libelle.toLowerCase().includes(searchText.toLowerCase())
+        )
+      : filieres,
+  [filieres, searchText]);
 
   // ── Ajouter un niveau ────────────────────────────────────────────────────
   const handleAddNiveau = () => {
@@ -219,7 +237,12 @@ const Filieres = () => {
       }
 
       if (response.status === 409) {
-        notification.warning({ message: 'Doublon', description: 'Cette filière existe déjà.' });
+        const errorData = await response.json().catch(() => null);
+        notification.warning({
+          message: 'Filière déjà existante',
+          description: errorData?.message || 'Cette filière existe déjà. Utilisez « Préparer la rentrée » / « Gérer » depuis sa fiche plutôt que d\'en recréer une.',
+          duration: 8,
+        });
         return;
       }
       
@@ -233,7 +256,7 @@ const Filieres = () => {
         description: isEdit ? 'Filière mise à jour avec succès' : 'Filière créée avec succès',
       });
       closeDrawer();
-      await fetchFilieres();
+      if (selectedAnneeId) await fetchFilieres(selectedAnneeId);
     } catch (error: any) {
       if (error?.errorFields) return;
       console.error('Erreur submit:', error);
@@ -244,21 +267,21 @@ const Filieres = () => {
   };
 
   // ── Ouvrir en mode édition ──────────────────────────────────────────────────
-  const handleEdit = (row: any) => {
+  const handleEdit = (row: FiliereData) => {
     setEditingFiliere({
       id: row.id,
-      nom: row.filiere_nom,
-      sigle: row.filiere_sigle,
+      nom: row.nom,
+      sigle: row.sigle,
       typefiliere_id: row.typefiliere_id,
-      typefiliere_libelle: row.type_filiere_libelle,
-      typefiliere_description: row.type_filiere_description,
+      typefiliere_libelle: row.typefiliere_libelle,
+      typefiliere_description: row.typefiliere_description,
       departement_id: row.departement_id,
       filiere_mere_id: row.filiere_mere_id ?? null,
       niveaux: row.niveaux || [],
     });
     form.setFieldsValue({
-      nom: row.filiere_nom,
-      sigle: row.filiere_sigle,
+      nom: row.nom,
+      sigle: row.sigle,
       typeFiliere: String(row.typefiliere_id),
       filiereMereId: row.filiere_mere_id ?? undefined,
     });
@@ -280,7 +303,7 @@ const Filieres = () => {
         return;
       }
       notification.success({ message: 'Filière supprimée' });
-      await fetchFilieres();
+      if (selectedAnneeId) await fetchFilieres(selectedAnneeId);
     } catch (error) {
       console.error('Erreur handleDelete:', error);
       notification.error({ message: 'Erreur', description: 'Impossible de supprimer cette filière.' });
@@ -307,98 +330,135 @@ const Filieres = () => {
   };
 
   // ── Colonnes ────────────────────────────────────────────────────────────────
-  const columns = [
+  const columns: ColumnsType<FiliereData> = [
     {
-      name: 'Nom',
-      selector: (row: any) => row.filiere_nom,
-      sortable: true,
-      cell: (row: any) => <div style={{ fontWeight: 500 }}>{row.filiere_nom}</div>,
+      title: 'Nom',
+      dataIndex: 'nom',
+      key: 'nom',
+      sorter: (a, b) => a.nom.localeCompare(b.nom),
+      render: (nom: string) => <span style={{ fontWeight: 500 }}>{nom}</span>,
     },
     {
-      name: 'Sigle',
-      selector: (row: any) => row.filiere_sigle,
-      sortable: true,
-      cell: (row: any) => <Tag color="orange">{row.filiere_sigle}</Tag>,
+      title: 'Sigle',
+      dataIndex: 'sigle',
+      key: 'sigle',
+      sorter: (a, b) => a.sigle.localeCompare(b.sigle),
+      render: (sigle: string) => <StatusTag tone="warning" label={sigle} />,
     },
     {
-      name: 'Type de filière',
-      selector: (row: any) => row.type_filiere_libelle,
-      sortable: true,
-      cell: (row: any) => <Tag color="blue">{row.type_filiere_libelle}</Tag>,
+      title: 'Type de filière',
+      dataIndex: 'typefiliere_libelle',
+      key: 'typefiliere_libelle',
+      sorter: (a, b) => a.typefiliere_libelle.localeCompare(b.typefiliere_libelle),
+      render: (libelle: string) => <StatusTag tone="info" label={libelle} />,
     },
     {
-      name: 'Niveaux',
-      cell: (row: any) => (
-        <Space size={4} wrap>
-          {(row.niveaux || []).map((n: Niveau, i: number) => (
-            <Tag key={i} color="green">{n.libelle}</Tag>
-          ))}
-        </Space>
+      title: `État ${selectedAnneeLabel}`,
+      key: 'configuree',
+      width: 150,
+      filters: [
+        { text: 'Configurée', value: true },
+        { text: 'Non configurée', value: false },
+      ],
+      onFilter: (value, row) => row.configuree === value,
+      render: (_, row) => (
+        row.configuree
+          ? <StatusTag tone="success" label="✓ Configurée" />
+          : <StatusTag tone="warning" label="⚠ Non configurée" />
       ),
     },
     {
-      name: 'Actions',
-      cell: (row: any) => (
+      title: 'Niveaux ouverts',
+      key: 'niveaux',
+      render: (_, row) => (
+        (row.niveaux || []).length === 0
+          ? <span style={{ color: 'var(--text-soft)', fontSize: 12 }}>Aucun</span>
+          : (
+            <Space size={4} wrap>
+              {(row.niveaux || []).map((n: Niveau, i: number) => (
+                <StatusTag key={i} tone="success" label={n.libelle} />
+              ))}
+            </Space>
+          )
+      ),
+    },
+    {
+      title: 'Parcours',
+      key: 'parcours',
+      render: (_, row) => {
+        const parcoursUniques = Array.from(new Set((row.niveaux || []).flatMap(n => n.parcours || [])));
+        return parcoursUniques.length === 0
+          ? <span style={{ color: 'var(--text-soft)', fontSize: 12 }}>—</span>
+          : (
+            <Space size={4} wrap>
+              {parcoursUniques.map(p => <Tag key={p} color="blue">{p}</Tag>)}
+            </Space>
+          );
+      },
+    },
+    {
+      title: 'Actions',
+      key: 'actions',
+      width: 220,
+      render: (_, row) => (
         <Space>
-          <Button icon={<ApartmentOutlined />} size="small" onClick={() => openParcours(row)} title="Parcours (niveaux, orientations, duplication)" />
-          <Button icon={<EditOutlined />} size="small" style={{ color: '#1890ff' }} onClick={() => handleEdit(row)} />
+          {row.configuree ? (
+            <Button icon={<SettingOutlined />} size="small" onClick={() => openParcours(row)}>
+              Gérer
+            </Button>
+          ) : (
+            <Button type="primary" icon={<RocketOutlined />} size="small" onClick={() => openParcours(row)}>
+              Préparer la rentrée
+            </Button>
+          )}
+          <Button icon={<EditOutlined />} size="small" style={{ color: 'var(--mod-scolarite)' }} onClick={() => handleEdit(row)} title="Modifier nom/sigle/type" />
           <Popconfirm
             title="Supprimer cette filière ?"
-            description="Bloqué automatiquement si des niveaux y sont encore rattachés."
+            description="Bloqué automatiquement si des niveaux y sont encore rattachés (toutes années confondues)."
             onConfirm={() => handleDelete(row.id)}
           >
             <Button icon={<DeleteOutlined />} size="small" danger />
           </Popconfirm>
         </Space>
       ),
-      width: '160px',
     },
   ];
 
-  const customStyles = {
-    headRow: { style: { backgroundColor: '#fafafa', fontWeight: 'bold' } },
-    rows: { style: { '&:not(:last-of-type)': { borderBottom: '1px solid #f0f0f0' } } },
-    cells: { style: { padding: '16px' } },
-  };
-
   return (
-    <div style={{ padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-        <PageHeader />
-        <Button type="primary" icon={<PlusOutlined />} onClick={showDrawer}>
-          Ajouter une Filière
-        </Button>
-      </div>
-
-      <Card
-        title="Liste des Filières"
-        extra={
-          <Input
-            ref={searchInput}
-            placeholder="Rechercher..."
-            prefix={<SearchOutlined />}
-            onChange={e => setSearchText(e.target.value)}
-            style={{ width: 300 }}
-            allowClear
-          />
+    <div>
+      <PageHeader />
+      <PageContainer
+        title="Gestion des filières — Préparation de rentrée"
+        actions={
+          <Button type="primary" icon={<PlusOutlined />} onClick={showDrawer}>
+            Nouvelle Filière
+          </Button>
         }
-        variant="borderless"
-        style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}
       >
-        <DataTable
+        <div style={{ marginBottom: 16, maxWidth: 280 }}>
+          <div style={{ marginBottom: 4, fontWeight: 500 }}>Année académique</div>
+          <Select
+            value={selectedAnneeId}
+            onChange={setSelectedAnneeId}
+            style={{ width: '100%' }}
+            loading={loadingYears}
+            placeholder="Sélectionner une année"
+          >
+            {annees.map(a => <Option key={a.id} value={a.id}>{a.annee}</Option>)}
+          </Select>
+        </div>
+
+        <DataTable<FiliereData>
           columns={columns}
-          data={filteredData}
-          pagination
-          progressPending={loading}
-          highlightOnHover
-          customStyles={customStyles}
-          noDataComponent={
-            <div style={{ padding: 24, textAlign: 'center' }}>
-              {searchText ? 'Aucun résultat trouvé' : 'Aucune donnée disponible'}
-            </div>
-          }
+          dataSource={filteredFilieres}
+          rowKey="id"
+          loading={loading}
+          searchValue={searchText}
+          searchPlaceholder="Rechercher une filière"
+          onSearchChange={setSearchText}
+          emptyTitle={searchText ? 'Aucun résultat trouvé' : 'Aucune filière'}
         />
-      </Card>
+      </PageContainer>
 
       {/* ── Drawer ─────────────────────────────────────────────────────────── */}
       <Drawer
@@ -416,7 +476,6 @@ const Filieres = () => {
               icon={<SaveOutlined />}
               loading={submitting}
               disabled={!canSubmit}
-              style={{ backgroundColor: '#B56910', borderColor: '#B56910' }}
             >
               Enregistrer
             </Button>
@@ -459,15 +518,15 @@ const Filieres = () => {
           {/* ── Section Niveaux ────────────────────────────────────────────── */}
           <Divider orientation="left">
             Niveaux de formation{' '}
-            <span style={{ color: niveaux.length === 0 ? '#ff4d4f' : '#52c41a', fontSize: 12 }}>
+            <span style={{ color: niveaux.length === 0 ? 'var(--danger)' : 'var(--success)', fontSize: 12 }}>
               ({niveaux.length} ajouté{niveaux.length > 1 ? 's' : ''})
             </span>
           </Divider>
 
           {editingFiliere ? (
-            <div style={{ fontSize: 13, color: '#888', marginBottom: 12 }}>
+            <div style={{ fontSize: 13, color: 'var(--text-soft)', marginBottom: 12 }}>
               La gestion des niveaux (ajout, modification, suppression, ordre, progression) se fait
-              désormais depuis le bouton "Parcours" de la liste des filières.
+              désormais depuis le bouton "Gérer" / "Préparer la rentrée" de la liste des filières.
             </div>
           ) : (
             <div style={{ display: 'flex', gap: 12, marginBottom: 12, alignItems: 'flex-end' }}>
@@ -509,10 +568,10 @@ const Filieres = () => {
           )}
 
           {!editingFiliere && niveaux.length === 0 && (
-            <div style={{ 
-              textAlign: 'center', padding: '12px', 
-              border: '1px dashed #ffccc7', borderRadius: 6,
-              color: '#ff4d4f', fontSize: 13 
+            <div style={{
+              textAlign: 'center', padding: '12px',
+              border: '1px dashed var(--danger)', borderRadius: 6,
+              color: 'var(--danger)', fontSize: 13
             }}>
               ⚠️ Ajoutez au moins un niveau pour pouvoir enregistrer
             </div>
@@ -525,10 +584,12 @@ const Filieres = () => {
         onClose={() => setParcoursFiliere(null)}
         filiereId={parcoursFiliere?.id ?? null}
         filiereNom={parcoursFiliere?.nom ?? ''}
+        anneeId={selectedAnneeId}
+        anneeLabel={selectedAnneeLabel}
         niveaux={(parcoursFiliere?.niveaux ?? []) as NiveauParcours[]}
         toutesLesFilieres={filieres.map(f => ({ id: f.id, nom: f.nom, filiere_mere_id: f.filiere_mere_id }))}
         onChanged={async () => {
-          await fetchFilieres();
+          if (selectedAnneeId) await fetchFilieres(selectedAnneeId);
         }}
       />
     </div>

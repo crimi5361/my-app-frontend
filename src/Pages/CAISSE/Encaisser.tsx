@@ -81,7 +81,10 @@ const Encaisser = () => {
     try {
       const data = await apiFetch(`/api/caisse/recherche?code=${encodeURIComponent(codeRecherche)}`);
       setDossier(data.data);
-      form.setFieldsValue({ montant: data.data.montant_annuel_nouveau, methode: undefined });
+      // Le champ de saisie démarre toujours à 150 000 FCFA (premier versement le plus courant),
+      // quel que soit le montant total de la scolarité — celui-ci reste affiché séparément
+      // dans les Descriptions ci-dessous. L'agent modifie le champ si un autre montant est reçu.
+      form.setFieldsValue({ montant: 150000, methode: undefined });
     } catch (e) {
       if (e instanceof ApiError) {
         if (e.status === 401) return;
@@ -207,7 +210,7 @@ const Encaisser = () => {
           <Result
             status="success"
             icon={<CheckCircleOutlined />}
-            title="Paiement validé — Réinscription finalisée"
+            title={`Paiement validé — ${dossier?.reinscription_id ? 'Réinscription' : 'Admission'} finalisée`}
             subTitle={`Reçu N° ${validationResult.numero_recu} — l'étudiant est désormais officiellement inscrit.`}
           >
             <Descriptions column={1} bordered size="small" style={{ maxWidth: 500, margin: '0 auto 24px auto' }}>
@@ -285,7 +288,7 @@ const Encaisser = () => {
       )}
 
       {!dossier && !searching && !notFoundMessage && (
-        <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-soft)' }}>
           <Title level={5} type="secondary">Saisissez le code de paiement remis à l'étudiant</Title>
           <Text type="secondary">Le dossier correspondant (inscription ou réinscription) s'affichera automatiquement</Text>
         </div>

@@ -2,12 +2,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Table,
   Button,
   Input,
   Select,
   Space,
-  Tag,
   Card,
   Row,
   Col,
@@ -25,6 +23,8 @@ import {
   Upload,
   DatePicker,
 } from 'antd';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag, { type StatusTone } from '../../Components/ui/StatusTag';
 import dayjs, { Dayjs } from 'dayjs';
 import {
   Eye,
@@ -37,7 +37,6 @@ import {
   AlertCircle,
   RefreshCw,
   FileSpreadsheet,
-  FileText,
   CheckSquare,
   XSquare,
   Upload as UploadIcon,
@@ -608,20 +607,16 @@ const GesMemoire: React.FC = () => {
 
   // Obtenir le tag de statut
   const getStatusTag = (statut: Memoire['statut']): React.ReactNode => {
-    const statusConfig: Record<Memoire['statut'], { color: string; icon: React.ReactNode; label: string }> = {
-      'en_attente': { color: 'gold', icon: <AlertCircle size={14} />, label: 'En attente' },
-      'encours': { color: 'blue', icon: <PlayCircle size={14} />, label: 'En cours' },
-      'valide': { color: 'green', icon: <CheckCircle size={14} />, label: 'Validé' },
-      'rejete': { color: 'red', icon: <XCircle size={14} />, label: 'Rejeté' }
+    const statusConfig: Record<Memoire['statut'], { tone: StatusTone; icon: React.ReactNode; label: string }> = {
+      'en_attente': { tone: 'warning', icon: <AlertCircle size={14} />, label: 'En attente' },
+      'encours': { tone: 'info', icon: <PlayCircle size={14} />, label: 'En cours' },
+      'valide': { tone: 'success', icon: <CheckCircle size={14} />, label: 'Validé' },
+      'rejete': { tone: 'danger', icon: <XCircle size={14} />, label: 'Rejeté' }
     };
-    
+
     const config = statusConfig[statut];
-    
-    return (
-      <Tag color={config.color} icon={config.icon} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-        {config.label}
-      </Tag>
-    );
+
+    return <StatusTag tone={config.tone} icon={config.icon} label={config.label} />;
   };
 
   // Colonnes du tableau
@@ -691,10 +686,10 @@ const GesMemoire: React.FC = () => {
         <div>
           <div style={{ fontWeight: 500 }}>{record.agent_nom || 'Non assigné'}</div>
           {record.statut === 'encours' && record.traite_par && isAssignedToMe(record) && (
-            <div style={{ fontSize: 11, color: '#52c41a' }}>● Vous êtes en charge</div>
+            <div style={{ fontSize: 11, color: 'var(--success)' }}>● Vous êtes en charge</div>
           )}
           {record.rapport_analyse && (
-            <div style={{ fontSize: 11, color: '#1890ff' }}>
+            <div style={{ fontSize: 11, color: 'var(--mod-scolarite)' }}>
               <FilePdfOutlined size={12} /> Rapport disponible
             </div>
           )}
@@ -716,7 +711,7 @@ const GesMemoire: React.FC = () => {
                 type="text"
                 icon={<Eye size={16} />}
                 onClick={() => handleViewPdf(record)}
-                style={{ color: '#1890ff' }}
+                style={{ color: 'var(--mod-scolarite)' }}
               />
             </Tooltip>
             
@@ -734,7 +729,7 @@ const GesMemoire: React.FC = () => {
                   type="text"
                   icon={<FilePdfOutlined size={16} />}
                   onClick={() => handleViewRapport(record)}
-                  style={{ color: '#faad14' }}
+                  style={{ color: 'var(--warning)' }}
                 />
               </Tooltip>
             )}
@@ -745,7 +740,7 @@ const GesMemoire: React.FC = () => {
                   type="text"
                   icon={<PlayCircle size={16} />}
                   onClick={() => handleStartTreatment(record)}
-                  style={{ color: '#52c41a' }}
+                  style={{ color: 'var(--success)' }}
                 />
               </Tooltip>
             )}
@@ -757,8 +752,8 @@ const GesMemoire: React.FC = () => {
                     type="text"
                     icon={<CheckCircle size={16} />}
                     onClick={() => openValidateModal(record)}
-                    style={{ 
-                      color: assignedToMe ? '#52c41a' : '#d9d9d9',
+                    style={{
+                      color: assignedToMe ? 'var(--success)' : 'var(--mist)',
                       cursor: assignedToMe ? 'pointer' : 'not-allowed'
                     }}
                     disabled={!assignedToMe}
@@ -770,8 +765,8 @@ const GesMemoire: React.FC = () => {
                     type="text"
                     icon={<XCircle size={16} />}
                     onClick={() => openRejectModal(record)}
-                    style={{ 
-                      color: assignedToMe ? '#ff4d4f' : '#d9d9d9',
+                    style={{
+                      color: assignedToMe ? 'var(--danger)' : 'var(--mist)',
                       cursor: assignedToMe ? 'pointer' : 'not-allowed'
                     }}
                     disabled={!assignedToMe}
@@ -812,7 +807,7 @@ const GesMemoire: React.FC = () => {
   }, [selectedAnneeId]);
 
   return (
-    <div style={{ padding: 24, background: '#f0f2f5', minHeight: '100vh' }}>
+    <div style={{ padding: 24, background: 'var(--paper)', minHeight: '100vh' }}>
       {contextHolder}
       
       {/* Header */}
@@ -829,7 +824,7 @@ const GesMemoire: React.FC = () => {
                   Exporter Excel
                 </Button>
               </Dropdown>
-              <Badge count={filteredMemoires.length} showZero color="#1890ff">
+              <Badge count={filteredMemoires.length} showZero color="var(--mod-scolarite)">
                 <Button icon={<RefreshCw size={16} />} onClick={fetchMemoires}>
                   Actualiser
                 </Button>
@@ -943,20 +938,13 @@ const GesMemoire: React.FC = () => {
       {/* Tableau des mémoires */}
       <Card style={{ borderRadius: 8 }}>
         <Spin spinning={loading}>
-          <Table
+          <DataTable<Memoire>
             columns={columns}
             dataSource={paginatedData}
             rowKey="id"
             scroll={{ x: 1500 }}
             pagination={false}
-            locale={{
-              emptyText: (
-                <div style={{ padding: 40, textAlign: 'center' }}>
-                  <FileText size={48} style={{ color: '#bfbfbf', marginBottom: 16 }} />
-                  <div>Aucun mémoire trouvé</div>
-                </div>
-              )
-            }}
+            emptyTitle="Aucun mémoire trouvé"
           />
           
           {/* Pagination performante */}
@@ -1001,7 +989,7 @@ const GesMemoire: React.FC = () => {
       <Modal
         title={
           <Space>
-            <CheckCircle size={20} style={{ color: '#52c41a' }} />
+            <CheckCircle size={20} style={{ color: 'var(--success)' }} />
             <span>Validation du mémoire</span>
           </Space>
         }
@@ -1021,7 +1009,7 @@ const GesMemoire: React.FC = () => {
           }}>
             Annuler
           </Button>,
-          <Button key="submit" type="primary" style={{ backgroundColor: '#52c41a' }} onClick={handleValidateConfirm} loading={uploading}>
+          <Button key="submit" type="primary" style={{ backgroundColor: 'var(--success)' }} onClick={handleValidateConfirm} loading={uploading}>
             Valider
           </Button>
         ]}
@@ -1044,9 +1032,7 @@ const GesMemoire: React.FC = () => {
             </Upload>
             {rapportFile && (
               <div style={{ marginTop: 8 }}>
-                <Tag color="blue">
-                  <FilePdfOutlined size={14} /> {rapportFile.name}
-                </Tag>
+                <StatusTag tone="info" icon={<FilePdfOutlined size={14} />} label={rapportFile.name} />
                 <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
                   ({(rapportFile.size / 1024 / 1024).toFixed(2)} Mo)
                 </Text>
@@ -1063,7 +1049,7 @@ const GesMemoire: React.FC = () => {
       <Modal
         title={
           <Space>
-            <XCircle size={20} style={{ color: '#ff4d4f' }} />
+            <XCircle size={20} style={{ color: 'var(--danger)' }} />
             <span>Rejeter le mémoire</span>
           </Space>
         }
@@ -1117,9 +1103,7 @@ const GesMemoire: React.FC = () => {
             </Upload>
             {rapportFile && (
               <div style={{ marginTop: 8 }}>
-                <Tag color="blue">
-                  <FilePdfOutlined size={14} /> {rapportFile.name}
-                </Tag>
+                <StatusTag tone="info" icon={<FilePdfOutlined size={14} />} label={rapportFile.name} />
                 <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
                   ({(rapportFile.size / 1024 / 1024).toFixed(2)} Mo)
                 </Text>

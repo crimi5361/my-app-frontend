@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Input, Button, Card, List, Tag, Space, Typography, message } from 'antd';
+import { Input, Button, Card, List, Space, Typography, message } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import StatusTag from '../../Components/ui/StatusTag';
 import { apiFetch, ApiError } from '../../lib/api';
 
 const { Text, Title } = Typography;
@@ -86,13 +87,13 @@ const RechercheEtudiantCaisse = () => {
                     description={`${item.filiere} (${item.niveau})`}
                   />
                   <Space direction="vertical" align="end">
-                    <Tag color={item.standing === 'Inscrit' ? 'green' : 'orange'}>{item.standing}</Tag>
+                    <StatusTag tone={item.standing === 'Inscrit' ? 'success' : 'warning'} label={item.standing} />
                     {item.montant_scolarite !== null && (
                       <Text type="secondary">
                         Reste à payer : {Number(item.scolarite_restante ?? item.montant_scolarite).toLocaleString('fr-FR')} FCFA
                       </Text>
                     )}
-                    {codeEnAttente && <Tag color="blue">Réinscription en attente — {codeEnAttente}</Tag>}
+                    {codeEnAttente && <StatusTag tone="info" label={`Réinscription en attente — ${codeEnAttente}`} />}
                   </Space>
                 </List.Item>
               );
@@ -102,7 +103,7 @@ const RechercheEtudiantCaisse = () => {
       )}
 
       {!searched && (
-        <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-soft)' }}>
           <Title level={5} type="secondary">Recherchez un étudiant pour consulter sa situation</Title>
           <Text type="secondary">Par nom, prénom ou matricule IIPEA</Text>
         </div>

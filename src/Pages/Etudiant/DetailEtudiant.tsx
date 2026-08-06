@@ -1,28 +1,31 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  Card, 
-  Descriptions, 
-  Tag, 
-  Typography, 
+import {
+  Card,
+  Descriptions,
+  Typography,
   Image,
   Button,
   Divider,
-  Badge,
   Spin,
   message,
   Row,
   Col,
-  Statistic,
   Space,
-  Table,
   Progress,
   Modal,
-  Upload
+  Upload,
+  Form,
+  Input,
+  Select,
+  DatePicker,
+  Table,
 } from 'antd';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag, { type StatusTone } from '../../Components/ui/StatusTag';
 import {
   ArrowLeftOutlined,
-  IdcardOutlined,
   PhoneOutlined,
   HomeOutlined,
   UserOutlined,
@@ -31,17 +34,20 @@ import {
   DollarOutlined,
   BookOutlined,
   PlusOutlined,
-  LockOutlined,
-  ExclamationCircleOutlined,
   GiftOutlined,
   InsuranceOutlined,
   EyeOutlined,
   EditOutlined,
-  UploadOutlined
+  UploadOutlined,
+  CameraOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import { apiFetch, ApiError } from '../../lib/api';
 
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 interface Kit {
   id: string | null;
@@ -83,31 +89,45 @@ interface EtudiantDetails {
   lieu_naissance: string;
   pays_naissance: string;
   telephone: string;
+  contact_etudiant: string | null;
   email: string;
+  email_personnel: string | null;
   lieu_residence: string;
   contact_parent: string;
   contact_parent_2: string;
   nom_parent_1: string;
   nom_parent_2: string;
+  adresse_parent_1: string | null;
+  adresse_parent_2: string | null;
   code_unique: string;
   annee_bac: string;
   serie_bac: string;
   nationalite: string;
   sexe: string;
   matricule_iipea: string;
+  ip_ministere: string | null;
   filiere: string;
   filiere_sigle: string;
   niveau: string;
   annee_academique: string;
+  site: string;
+  departement: string | null;
+  ecole: string | null;
+  cursus: string | null;
   standing: string;
   statut_scolaire: string;
+  statut_paiement: string;
   date_inscription: string;
   photo_url: string;
   etablissement_origine: string;
-  inscrit_par: string;
+  cree_par: string | null;
+  verifie_par: string | null;
+  date_verification: string | null;
+  compte_actif: boolean;
   montant_scolarite?: number;
   scolarite_verse?: number;
   scolarite_restante?: number;
+  nombre_versements_prevu: number | null;
   groupe: {
     id: string | null;
     nom: string | null;
@@ -123,6 +143,50 @@ interface EtudiantDetails {
   documents_justificatifs: DocumentJustificatif[];
 }
 
+interface AnneePaiement {
+  annee_academique_id: number;
+  annee: string;
+  is_current: boolean;
+}
+
+interface LignePaiement {
+  id: number;
+  montant: number;
+  date_paiement: string;
+  methode: string;
+  numero_recu: string | null;
+  recu_id: number | null;
+  caissier_nom: string | null;
+}
+
+const getStatutTone = (statut: string | null): StatusTone => {
+  switch (statut?.toUpperCase()) {
+    case 'SOLDE':
+    case 'VALIDÉ':
+    case 'ACCEPTÉ':
+      return 'success';
+    case 'EN ATTENTE':
+    case 'EN COURS':
+      return 'warning';
+    case 'NON_SOLDE':
+    case 'REFUSÉ':
+    case 'REJETÉ':
+      return 'danger';
+    default:
+      return 'neutral';
+  }
+};
+
+const formatCurrency = (amount: number | null | undefined) => {
+  if (amount === null || amount === undefined) return '-';
+  return `${amount.toLocaleString('fr-FR')} FCFA`;
+};
+
+const formatDate = (date: string | null) => {
+  if (!date) return '-';
+  return new Date(date).toLocaleDateString('fr-FR');
+};
+
 const DetailEtudiant = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -130,157 +194,168 @@ const DetailEtudiant = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [modalKitVisible, setModalKitVisible] = useState(false);
   const [modalPECVisible, setModalPECVisible] = useState(false);
   const [uploadingDoc, setUploadingDoc] = useState<string | null>(null);
-  const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editForm] = Form.useForm();
+  const [pays, setPays] = useState<{ code_iso: string; nom: string; nationalite: string }[]>([]);
+  const [villes, setVilles] = useState<{ id: number; nom: string }[]>([]);
+  const [anneesFinance, setAnneesFinance] = useState<AnneePaiement[]>([]);
+  const [paiementsAnneeCourante, setPaiementsAnneeCourante] = useState<LignePaiement[]>([]);
+  const [loadingFinance, setLoadingFinance] = useState(false);
+  const API_URL = import.meta.env.VITE_API_URL_SERVER || '';
+
+  const peutEditer = userRole === 'admin' || userRole === 'scolarite';
+  const canArchiveDocuments = userRole ? ['admin', 'scolarite', 'archiviste'].includes(userRole) : false;
 
   useEffect(() => {
-    const fetchUserData = () => {
-      const userData = localStorage.getItem('user');
-      if (userData) {
-        const user = JSON.parse(userData);
-        setUserRole(user.role);
-      }
-    };
-
-    fetchUserData();
+    const userData = localStorage.getItem('user');
+    if (userData) setUserRole(JSON.parse(userData).role);
   }, []);
 
+  const fetchEtudiant = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      if (!id) throw new Error("ID de l'étudiant non fourni");
+      const data = await apiFetch(`/api/etudiants/etudiant/${id}`);
+      if (!data.success) throw new Error(data.message || 'Étudiant non trouvé');
+      setEtudiant(data.data);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) return;
+      const e = err as Error;
+      setError(e.message || 'Erreur de chargement');
+      message.error(e.message || 'Erreur de chargement');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchEtudiant = async () => {
+    fetchEtudiant();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
+  // Référentiels pour le formulaire d'édition (mêmes listes que Nouvelle Admission)
+  useEffect(() => {
+    apiFetch('/api/data/pays').then(d => { if (d.success) setPays(d.data); }).catch(() => {});
+    apiFetch('/api/data/villes').then(d => { if (d.success) setVilles(d.data); }).catch(() => {});
+  }, []);
+
+  // Historique financier — endpoints déjà existants côté caisse
+  useEffect(() => {
+    if (!id) return;
+    const fetchFinance = async () => {
       try {
-        setLoading(true);
-        setError(null);
-        
-        if (!id) {
-          throw new Error("ID de l'étudiant non fourni");
-        }
-
-        const token = localStorage.getItem('token');
-        
-        if (!token) {
-          message.error('Session expirée, veuillez vous reconnecter');
-          navigate('/login');
-          return;
-        }
-
-        const response = await fetch(`${API_URL}/api/etudiants/etudiant/${id}`, {
-          method: 'GET',
-          headers: {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
+        setLoadingFinance(true);
+        const hist = await apiFetch(`/api/caisse/etudiant/${id}/annees`);
+        if (hist.success) {
+          setAnneesFinance(hist.data.annees);
+          const courante = hist.data.annees.find((a: AnneePaiement) => a.is_current) || hist.data.annees[0];
+          if (courante) {
+            const det = await apiFetch(`/api/caisse/etudiant/${id}/annees/${courante.annee_academique_id}/paiements`);
+            if (det.success) setPaiementsAnneeCourante(det.data.paiements);
           }
-        });
-
-        if (response.status === 401) {
-          localStorage.removeItem('token');
-          navigate('/login');
-          return;
         }
-
-        const data = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(data.message || 'Erreur lors de la récupération des données');
-        }
-
-        if (!data.success) {
-          throw new Error(data.message || 'Étudiant non trouvé');
-        }
-
-        setEtudiant(data.data);
-      } catch (error) {
-         const err = error as Error; 
-        console.error('Erreur:', error);
-        setError(err.message || 'Erreur de chargement');
-        message.error(err.message || 'Erreur de chargement');
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) return;
+        // Historique financier non bloquant pour le reste de la fiche
       } finally {
-        setLoading(false);
+        setLoadingFinance(false);
       }
     };
+    fetchFinance();
+  }, [id]);
 
-    fetchEtudiant();
-  }, [id, navigate, API_URL]);
-
-  const handleNewPayment = () => {
-    navigate(`/Etudiant/Effectuer_Payement/${id}`);
-  };
-
-  const handleManageKit = () => {
-    navigate(`/Etudiant/GestionKit/${id}`);
-  };
-
-  const handleManagePEC = () => {
-    navigate(`/Etudiant/GestionPEC/${id}`);
-  };
-
-  const canArchiveDocuments = userRole ? ['admin', 'scolarite', 'archiviste'].includes(userRole) : false;
+  const handleNewPayment = () => navigate(`/Etudiant/Effectuer_Payement/${id}`);
+  const handleManagePEC = () => navigate(`/Etudiant/GestionPEC/${id}`);
 
   const handleUploadDocument = async (code: string, file: File) => {
     if (!id) return false;
     setUploadingDoc(code);
     try {
-      const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('fichier', file);
-
-      const response = await fetch(`${API_URL}/api/etudiants/etudiant/${id}/documents/${code}`, {
-        method: 'POST',
-        body: formData,
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      const data = await response.json();
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || "Erreur lors du dépôt du document");
-      }
-
+      const data = await apiFetch(`/api/etudiants/etudiant/${id}/documents/${code}`, { method: 'POST', body: formData });
+      if (!data.success) throw new Error(data.message || 'Erreur lors du dépôt du document');
       message.success('Document archivé avec succès');
-      setEtudiant(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          documents_justificatifs: prev.documents_justificatifs.map(doc =>
-            doc.code === code
-              ? { ...doc, fourni: true, fichier_path: data.data.fichier_path, storage_provider: data.data.storage_provider, date_upload: data.data.date_upload }
-              : doc
-          )
-        };
-      });
-    } catch (error) {
-      const err = error as Error;
-      message.error(err.message || "Erreur lors du dépôt du document");
+      setEtudiant(prev => prev ? {
+        ...prev,
+        documents_justificatifs: prev.documents_justificatifs.map(doc =>
+          doc.code === code
+            ? { ...doc, fourni: true, fichier_path: data.data.fichier_path, storage_provider: data.data.storage_provider, date_upload: data.data.date_upload }
+            : doc
+        )
+      } : prev);
+    } catch (err) {
+      if (!(err instanceof ApiError && err.status === 401)) {
+        message.error((err as Error).message || 'Erreur lors du dépôt du document');
+      }
     } finally {
       setUploadingDoc(null);
     }
     return false;
   };
 
-  const getStatutColor = (statut: string | null) => {
-    switch (statut?.toLowerCase()) {
-      case 'validé':
-      case 'accepté':
-      case 'payé':
-        return 'green';
-      case 'en attente':
-      case 'en cours':
-        return 'orange';
-      case 'refusé':
-      case 'rejeté':
-        return 'red';
-      default:
-        return 'default';
+  const handleUploadPhoto = async (file: File) => {
+    if (!id) return false;
+    setUploadingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append('photo', file);
+      const data = await apiFetch(`/api/etudiants/etudiant/${id}/photo`, { method: 'POST', body: formData });
+      if (!data.success) throw new Error(data.message || 'Erreur lors du changement de photo');
+      message.success('Photo mise à jour');
+      setEtudiant(prev => prev ? { ...prev, photo_url: data.data.photo_url } : prev);
+    } catch (err) {
+      if (!(err instanceof ApiError && err.status === 401)) {
+        message.error((err as Error).message || 'Erreur lors du changement de photo');
+      }
+    } finally {
+      setUploadingPhoto(false);
     }
+    return false;
   };
 
-  const formatCurrency = (amount: number | null | undefined) => {
-    if (amount === null || amount === undefined) return '-';
-    return `${amount.toLocaleString()} FCFA`;
+  const openEditModal = () => {
+    if (!etudiant) return;
+    editForm.setFieldsValue({
+      ...etudiant,
+      date_naissance: etudiant.date_naissance ? dayjs(etudiant.date_naissance) : undefined,
+    });
+    setEditModalVisible(true);
   };
 
-  const formatDate = (date: string | null) => {
-    if (!date) return '-';
-    return new Date(date).toLocaleDateString();
+  const handleSaveEdit = async () => {
+    if (!id) return;
+    try {
+      const values = await editForm.validateFields();
+      setSavingEdit(true);
+      const data = await apiFetch(`/api/etudiants/etudiant/${id}/informations-personnelles`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          ...values,
+          date_naissance: values.date_naissance ? values.date_naissance.format('YYYY-MM-DD') : undefined,
+        }),
+      });
+      if (!data.success) throw new Error(data.message || 'Erreur lors de la mise à jour');
+      message.success('Informations personnelles mises à jour');
+      setEditModalVisible(false);
+      fetchEtudiant();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 401) return;
+        message.error(err.message);
+      } else if ((err as any)?.errorFields) {
+        // erreurs de validation du formulaire — déjà affichées par AntD
+      } else {
+        message.error('Erreur lors de la mise à jour');
+      }
+    } finally {
+      setSavingEdit(false);
+    }
   };
 
   if (loading) {
@@ -291,35 +366,13 @@ const DetailEtudiant = () => {
     );
   }
 
-  if (error) {
+  if (error || !etudiant) {
     return (
       <div style={{ padding: '24px' }}>
         <PageHeader />
         <Card>
-          <Typography.Text type="danger">{error}</Typography.Text>
-          <Button 
-            type="primary" 
-            onClick={() => navigate('/Etudiant')}
-            style={{ marginTop: '16px' }}
-          >
-            Retour à la liste
-          </Button>
-        </Card>
-      </div>
-    );
-  }
-
-  if (!etudiant) {
-    return (
-      <div style={{ padding: '24px' }}>
-        <PageHeader />
-        <Card>
-          <Typography.Text type="danger">Aucune donnée disponible pour cet étudiant</Typography.Text>
-          <Button 
-            type="primary" 
-            onClick={() => navigate('/Etudiant')}
-            style={{ marginTop: '16px' }}
-          >
+          <Typography.Text type="danger">{error || 'Aucune donnée disponible pour cet étudiant'}</Typography.Text>
+          <Button type="primary" onClick={() => navigate('/Etudiant')} style={{ marginTop: '16px' }}>
             Retour à la liste
           </Button>
         </Card>
@@ -330,519 +383,260 @@ const DetailEtudiant = () => {
   const montantScolarite = parseFloat(etudiant.montant_scolarite?.toString() || '0');
   const scolariteVerse = parseFloat(etudiant.scolarite_verse?.toString() || '0');
   const scolariteRestante = parseFloat(etudiant.scolarite_restante?.toString() || '0');
-  const soldeEntierementPaye = etudiant.scolarite_restante !== null && 
-  (scolariteRestante <= 0 || montantScolarite <= scolariteVerse);
-
+  const soldeEntierementPaye = scolariteRestante <= 0 || montantScolarite <= scolariteVerse;
   const pourcentagePaiement = montantScolarite > 0 ? (scolariteVerse / montantScolarite) * 100 : 0;
+
+  const colonnesPaiements = [
+    { title: 'Date', dataIndex: 'date_paiement', key: 'date', render: formatDate },
+    { title: 'Montant', dataIndex: 'montant', key: 'montant', render: (v: number) => formatCurrency(parseFloat(v?.toString() || '0')) },
+    { title: 'Méthode', dataIndex: 'methode', key: 'methode' },
+    { title: 'Reçu', dataIndex: 'numero_recu', key: 'recu', render: (v: string) => v || '-' },
+    { title: 'Caissier', dataIndex: 'caissier_nom', key: 'caissier', render: (v: string) => v || '-' },
+    {
+      title: '', key: 'action',
+      render: () => (
+        <Button size="small" icon={<EyeOutlined />} onClick={() => navigate(`/Etudiant/Recu_Payement/${id}`)}>
+          Voir le reçu
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       <PageHeader />
-      
+
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <Button 
-          type="text" 
-          icon={<ArrowLeftOutlined />} 
-          onClick={() => navigate(-1)}
-        >
+        <Button type="text" icon={<ArrowLeftOutlined />} onClick={() => navigate(-1)}>
           Retour
         </Button>
-        
         <Space>
           {(userRole === 'admin' || userRole === 'comptabilite') && !soldeEntierementPaye && (
-            <Button 
-              type="primary" 
-              icon={<PlusOutlined />}
-              onClick={handleNewPayment}
-            >
+            <Button type="primary" icon={<PlusOutlined />} onClick={handleNewPayment}>
               Nouveau Paiement
             </Button>
           )}
-          
-          {/* {(userRole === 'admin' || userRole === 'comptabilite') && (
-            <Button 
-              icon={<GiftOutlined />}
-              onClick={handleManageKit}
-            >
-              Gérer Kit
-            </Button>
-          )}
-          
-          {(userRole === 'admin' || userRole === 'comptabilite') && (
-            <Button 
-              icon={<InsuranceOutlined />}
-              onClick={handleManagePEC}
-            >
-              Gérer PEC
-            </Button>
-          )} */}
         </Space>
       </div>
 
       <Card
         title={
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Title level={3} style={{ margin: 0 }}>
-              Fiche Étudiant
-            </Title>
+            <Title level={3} style={{ margin: 0 }}>Fiche Étudiant</Title>
             {etudiant.code_unique && (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                <Text strong style={{ 
-                  fontSize: 25, 
-                  color: '#1890ff',
-                  backgroundColor: '#e6f7ff',
-                  padding: '4px 8px',
-                  borderRadius: 4
-                }}>
-                  {etudiant.code_unique}
-                </Text>
-              </div>
+              <Text strong style={{ fontSize: 25, color: 'var(--mod-scolarite)', backgroundColor: 'var(--paper)', padding: '4px 8px', borderRadius: 4 }}>
+                {etudiant.code_unique}
+              </Text>
             )}
           </div>
         }
-        headStyle={{ borderBottom: 'none' }}
-        bodyStyle={{ paddingTop: 0 }}
+        styles={{ header: { borderBottom: 'none' }, body: { paddingTop: 0 } }}
       >
-        {/* Section en-tête avec photo et infos principales */}
+        {/* ── En-tête : photo + identité + statuts ── */}
         <Row gutter={24} style={{ marginBottom: 24 }}>
           <Col xs={24} sm={8} md={6}>
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center',
-              border: '1px solid #f0f0f0',
-              borderRadius: 8,
-              padding: 16
-            }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', border: '1px solid #f0f0f0', borderRadius: 8, padding: 16 }}>
               <Image
                 width={160}
                 src={etudiant.photo_url ? `${API_URL}${etudiant.photo_url}` : 'https://via.placeholder.com/200'}
                 alt={`Photo de ${etudiant.nom} ${etudiant.prenoms}`}
-                style={{ 
-                  borderRadius: '8px',
-                  marginBottom: 16,
-                  border: '1px solid #f0f0f0'
-                }}
+                style={{ borderRadius: '8px', marginBottom: 12, border: '1px solid #f0f0f0' }}
                 fallback="https://via.placeholder.com/200"
               />
-              <Tag color="purple" style={{ fontSize: 16, padding: '8px 12px' }}>
-                {etudiant.matricule_iipea}
-              </Tag>
+              {peutEditer && (
+                <Upload showUploadList={false} accept="image/jpeg,image/jpg,image/png" beforeUpload={handleUploadPhoto}>
+                  <Button size="small" icon={<CameraOutlined />} loading={uploadingPhoto}>
+                    Changer la photo
+                  </Button>
+                </Upload>
+              )}
+              <div style={{ marginTop: 8 }}>
+                <StatusTag tone="info" label={etudiant.matricule_iipea} />
+              </div>
             </div>
           </Col>
-          
+
           <Col xs={24} sm={16} md={18}>
-            <Title level={2} style={{ marginBottom: 8 }}>
-              {etudiant.nom} {etudiant.prenoms}
-            </Title>
-            
-            <Space size={[16, 16]} wrap style={{ marginBottom: 16 }}>
-              <Tag icon={<IdcardOutlined />} color="blue">Matricule Mers : {etudiant.matricule}</Tag>
-              <Tag icon={<UserOutlined />} color={etudiant.sexe === 'Masculin' ? 'blue' : 'pink'}>
-                Genre : {etudiant.sexe}
-              </Tag>
-              <Tag icon={<CalendarOutlined />}>
-                Date de Naissance : {new Date(etudiant.date_naissance).toLocaleDateString()}
-              </Tag>
-              <Tag>Nationalité : {etudiant.nationalite}</Tag>
-            </Space>
-            
-            <div style={{ marginBottom: 16 }}>
-              <Text strong style={{ display: 'block', marginBottom: 4 }}>Filière</Text>
-              <Text>{etudiant.filiere} ({etudiant.filiere_sigle}) - {etudiant.niveau}</Text>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <Title level={2} style={{ marginBottom: 8 }}>{etudiant.nom} {etudiant.prenoms}</Title>
+              {peutEditer && (
+                <Button icon={<EditOutlined />} onClick={openEditModal}>Modifier</Button>
+              )}
             </div>
-            
-            <Row gutter={16}>
-              <Col xs={24} sm={12} md={8}>
-                <Statistic 
-                  title="Statut" 
-                  value={etudiant.standing} 
-                  prefix={
-                    <Badge 
-                      status={
-                        etudiant.standing === 'actif' ? 'success' : 
-                        etudiant.standing === 'suspendu' ? 'warning' : 'default'
-                      } 
-                    />
-                  }
-                />
-              </Col>
-              <Col xs={24} sm={12} md={8}>
-                <Statistic 
-                  title="Statut Scolaire" 
-                  value={etudiant.statut_scolaire}
-                  prefix={
-                    <Badge 
-                      status={
-                        etudiant.statut_scolaire === 'regular' ? 'success' : 
-                        etudiant.statut_scolaire === 'irregular' ? 'warning' : 'default'
-                      } 
-                    />
-                  }
-                />
-              </Col>
-              <Col xs={24} sm={12} md={8}>
-                <Statistic 
-                  title="Date Inscription" 
-                  value={new Date(etudiant.date_inscription).toLocaleDateString()}
-                  prefix={<CalendarOutlined />}
-                />
-              </Col>
-            </Row>
+
+            <Space size={[16, 16]} wrap style={{ marginBottom: 16 }}>
+              <StatusTag tone={getStatutTone(etudiant.standing)} label={`Statut : ${etudiant.standing}`} />
+              <StatusTag tone={getStatutTone(etudiant.statut_paiement)} label={`Scolarité : ${etudiant.statut_paiement === 'NON_DEFINI' ? 'Non définie' : etudiant.statut_paiement}`} />
+              <StatusTag tone="neutral" icon={<CalendarOutlined />} label={`Inscrit le ${formatDate(etudiant.date_inscription)}`} />
+            </Space>
+
+            <Descriptions column={2} size="small">
+              <Descriptions.Item label={<Text strong><PhoneOutlined /> Téléphone</Text>}>
+                {etudiant.telephone}
+                {etudiant.contact_etudiant && etudiant.contact_etudiant !== etudiant.telephone && (
+                  <Text type="secondary"> · {etudiant.contact_etudiant}</Text>
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label={<Text strong>E-mail personnel</Text>}>{etudiant.email_personnel || '-'}</Descriptions.Item>
+              <Descriptions.Item label={<Text strong><CalendarOutlined /> Naissance</Text>}>{formatDate(etudiant.date_naissance)} à {etudiant.lieu_naissance}</Descriptions.Item>
+              <Descriptions.Item label={<Text strong><UserOutlined /> Genre / Nationalité</Text>}>{etudiant.sexe} · {etudiant.nationalite}</Descriptions.Item>
+              <Descriptions.Item label={<Text strong><HomeOutlined /> Ville</Text>}>{etudiant.lieu_residence}</Descriptions.Item>
+              <Descriptions.Item label={<Text strong>Matricule MENET</Text>}>{etudiant.matricule}</Descriptions.Item>
+              <Descriptions.Item label={<Text strong>Matricule ministère</Text>}>{etudiant.ip_ministere || '-'}</Descriptions.Item>
+            </Descriptions>
           </Col>
         </Row>
 
-        {/* Section Kit et Prise en Charge */}
-        <Row gutter={16} style={{ marginBottom: 24 }}>
+        {/* ── Parents ── */}
+        <Divider orientation="left" style={{ marginTop: 0 }}><UserOutlined /> Parents / Tuteurs</Divider>
+        <Row gutter={24} style={{ marginBottom: 24 }}>
           <Col xs={24} sm={12}>
-            <Card 
-              title={
-                <Space>
-                  <GiftOutlined />
-                  Kit Étudiant
-                  {etudiant.kit && (
-                    <Button 
-                      type="text" 
-                      icon={<EyeOutlined />} 
-                      size="small"
-                      onClick={() => setModalKitVisible(true)}
-                    />
-                  )}
-                </Space>
-              }
-              size="small"
-              extra={
-                etudiant.kit && (
-                  <Tag color={etudiant.kit.deposer ? 'green' : 'red'}>
-                    {etudiant.kit.deposer ? 'Déposé' : 'Non déposé'}
-                  </Tag>
-                )
-              }
-            >
-              {etudiant.kit ? (
-                <Descriptions column={1} size="small">
-                  <Descriptions.Item label="Montant">
-                    <Text strong>{formatCurrency(etudiant.kit.montant)}</Text>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Statut">
-                    <Tag color={etudiant.kit.deposer ? 'green' : 'red'}>
-                      {etudiant.kit.deposer ? 'Déposé' : 'Non déposé'}
-                    </Tag>
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Date enregistrement">
-                    {formatDate(etudiant.kit.date_enregistrement)}
-                  </Descriptions.Item>
-                </Descriptions>
-              ) : (
-                <Text type="secondary">Aucun kit enregistré</Text>
-              )}
-            </Card>
-          </Col>
-
-          <Col xs={24} sm={12}>
-            <Card 
-              title={
-                <Space>
-                  <InsuranceOutlined />
-                  Prise en Charge
-                  {etudiant.prise_en_charge && (
-                    <Button 
-                      type="text" 
-                      icon={<EyeOutlined />} 
-                      size="small"
-                      onClick={() => setModalPECVisible(true)}
-                    />
-                  )}
-                </Space>
-              }
-              size="small"
-              extra={
-                etudiant.prise_en_charge && (
-                  <Tag color={getStatutColor(etudiant.prise_en_charge.statut)}>
-                    {etudiant.prise_en_charge.statut || 'Non défini'}
-                  </Tag>
-                )
-              }
-            >
-              {etudiant.prise_en_charge ? (
-                <Descriptions column={1} size="small">
-                  <Descriptions.Item label="Type">
-                    {etudiant.prise_en_charge.type || '-'}
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Réduction">
-                    {etudiant.prise_en_charge.pourcentage_reduction ? 
-                      `${etudiant.prise_en_charge.pourcentage_reduction}%` : 
-                      formatCurrency(etudiant.prise_en_charge.montant_reduction)
-                    }
-                  </Descriptions.Item>
-                  <Descriptions.Item label="Statut">
-                    <Tag color={getStatutColor(etudiant.prise_en_charge.statut)}>
-                      {etudiant.prise_en_charge.statut || 'Non défini'}
-                    </Tag>
-                  </Descriptions.Item>
-                </Descriptions>
-              ) : (
-                <Text type="secondary">Aucune prise en charge</Text>
-              )}
-            </Card>
-          </Col>
-        </Row>
-
-        {/* Section Informations Personnelles */}
-        <Divider orientation="left" style={{ marginTop: 0 }}>
-          <FileDoneOutlined /> Informations Personnelles
-        </Divider>
-        
-        <Row gutter={24}>
-          <Col xs={24} sm={12}>
-            <Card size="small" style={{ marginBottom: 24 }}>
-              <Descriptions column={1}>
-                <Descriptions.Item label={<Text strong><PhoneOutlined /> Téléphone</Text>}>
-                  {etudiant.telephone}
-                </Descriptions.Item>
-                <Descriptions.Item label={<Text strong><HomeOutlined /> Lieu de Résidence</Text>}>
-                  {etudiant.lieu_residence}
-                </Descriptions.Item>
-                <Descriptions.Item label={<Text strong>Contact Parent 1</Text>}>
-                  {etudiant.contact_parent}
-                </Descriptions.Item>
-                <Descriptions.Item label={<Text strong>Contact Parent 2</Text>}>
-                  {etudiant.contact_parent_2 || '-'}
-                </Descriptions.Item>
-                <Descriptions.Item label={<Text strong>Nom Parent 1</Text>}>
-                  {etudiant.nom_parent_1}
-                </Descriptions.Item>
-                <Descriptions.Item label={<Text strong>Nom Parent 2</Text>}>
-                  {etudiant.nom_parent_2 || '-'}
-                </Descriptions.Item>
+            <Card size="small">
+              <Descriptions column={1} size="small">
+                <Descriptions.Item label="Parent 1">{etudiant.nom_parent_1 || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Contact">{etudiant.contact_parent}</Descriptions.Item>
+                <Descriptions.Item label="Adresse">{etudiant.adresse_parent_1 || '-'}</Descriptions.Item>
               </Descriptions>
             </Card>
           </Col>
-          
           <Col xs={24} sm={12}>
-            <Card size="small" style={{ marginBottom: 24 }}>
-              <Descriptions column={1}>
-                <Descriptions.Item label={<Text strong>Lieu de Naissance</Text>}>
-                  {etudiant.lieu_naissance}
-                </Descriptions.Item>
-                <Descriptions.Item label={<Text strong>Pays de Naissance</Text>}>
-                  {etudiant.pays_naissance}
-                </Descriptions.Item>
-                <Descriptions.Item label={<Text strong>Établissement d'Origine</Text>}>
-                  {etudiant.etablissement_origine}
-                </Descriptions.Item>
-                <Descriptions.Item label={<Text strong>Année Bac</Text>}>
-                  {etudiant.annee_bac} - Série {etudiant.serie_bac}
-                </Descriptions.Item>
-                <Descriptions.Item label={<Text strong>Numéro de Table</Text>}>
-                  {etudiant.numero_table || '-'}
-                </Descriptions.Item>
-                <Descriptions.Item label={<Text strong>Inscrit par</Text>}>
-                  {etudiant.inscrit_par}
-                </Descriptions.Item>
+            <Card size="small">
+              <Descriptions column={1} size="small">
+                <Descriptions.Item label="Parent 2">{etudiant.nom_parent_2 || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Contact">{etudiant.contact_parent_2 || '-'}</Descriptions.Item>
+                <Descriptions.Item label="Adresse">{etudiant.adresse_parent_2 || '-'}</Descriptions.Item>
               </Descriptions>
             </Card>
           </Col>
         </Row>
 
-        {/* Section Académique */}
-        <Divider orientation="left">
-          <BookOutlined /> Informations Académiques
-        </Divider>
-
-        <Table
-          dataSource={[etudiant]} 
+        {/* ── Section Académique (année courante) ── */}
+        <Divider orientation="left"><BookOutlined /> Informations Académiques — Année en cours</Divider>
+        <DataTable
+          dataSource={[etudiant]}
+          rowKey="id"
           columns={[
-            {
-              title: 'Année Académique',
-              dataIndex: 'annee_academique',
-              key: 'annee_academique',
-            },
-            {
-              title: 'Filière',
-              render: (_, record) => `${record.filiere} (${record.filiere_sigle})`,
-              key: 'filiere',
-            },
-            {
-              title: 'Niveau',
-              dataIndex: 'niveau',
-              key: 'niveau',
-            },
-            {
-              title: 'Classe',
-              render: (_, record) => record.groupe?.classe?.nom || 'Non affecté à une classe',
-              key: 'classe',
-            },
-            {
-              title: 'Montant Scolarité',
-              render: (_, record) => {
-                const montant = parseFloat(record.montant_scolarite?.toString() || '0');
-                return montant > 0 ? `${montant.toLocaleString()} FCFA` : '-';
-              },
-              key: 'montant_scolarite',
-            },
-            {
-              title: 'Montant Versé',
-              render: (_, record) => {
-                const verse = parseFloat(record.scolarite_verse?.toString() || '0');
-                return verse > 0 ? `${verse.toLocaleString()} FCFA` : '-';
-              },
-              key: 'scolarite_verse',
-            },
-            {
-              title: 'Reste à Payer',
-              render: (_, record) => {
-                const restant = parseFloat(record.scolarite_restante?.toString() || '0');
-                return restant > 0 ? `${restant.toLocaleString()} FCFA` : 'Solde réglé';
-              },
-              key: 'scolarite_restante',
-            },
-            {
-              title: 'Date Inscription',
-              render: (_, record) => new Date(record.date_inscription).toLocaleDateString(),
-              key: 'date_inscription',
-            },
-          ]} 
+            { title: 'Année Académique', dataIndex: 'annee_academique', key: 'annee_academique' },
+            { title: 'École', render: (_: any, r: EtudiantDetails) => r.ecole || '-', key: 'ecole' },
+            { title: 'Département', render: (_: any, r: EtudiantDetails) => r.departement || '-', key: 'dept' },
+            { title: 'Filière', render: (_: any, r: EtudiantDetails) => `${r.filiere} (${r.filiere_sigle})`, key: 'filiere' },
+            { title: 'Niveau', dataIndex: 'niveau', key: 'niveau' },
+            { title: 'Cursus', render: (_: any, r: EtudiantDetails) => r.cursus || '-', key: 'cursus' },
+            { title: 'Classe', render: (_: any, r: EtudiantDetails) => r.groupe?.classe?.nom || '-', key: 'classe' },
+            { title: 'Groupe', render: (_: any, r: EtudiantDetails) => r.groupe?.nom || '-', key: 'groupe' },
+            { title: 'Statut', render: (_: any, r: EtudiantDetails) => <StatusTag tone={getStatutTone(r.statut_scolaire)} label={r.statut_scolaire} />, key: 'statut' },
+          ]}
           pagination={false}
-          bordered
-          size="middle"
           style={{ marginBottom: 24 }}
         />
 
-        {/* Section Scolarité */}
-        {(montantScolarite > 0) && (
-          <>
-            <Divider orientation="left">
-              <DollarOutlined /> Informations Financières
-            </Divider>
-            
-            <Row gutter={16} style={{ marginBottom: 24 }}>
-              <Col xs={24} sm={8}>
-                <Card size="small">
-                  <Statistic
-                    title="Montant Scolarité"
-                    value={montantScolarite}
-                    precision={2}
-                    prefix="FCFA"
-                    valueStyle={{ color: '#1890ff' }}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={8}>
-                <Card size="small">
-                  <Statistic
-                    title="Montant Payé"
-                    value={scolariteVerse}
-                    precision={2}
-                    prefix="FCFA"
-                    valueStyle={{ color: '#52c41a' }}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={8}>
-                <Card size="small">
-                  <Statistic
-                    title="Reste à Payer"
-                    value={scolariteRestante}
-                    precision={2}
-                    prefix="FCFA"
-                    valueStyle={{ color: scolariteRestante > 0 ? '#f5222d' : '#52c41a' }}
-                  />
-                </Card>
-              </Col>
-            </Row>
-
-            <Progress
-              percent={Math.min(pourcentagePaiement, 100)}
-              status={pourcentagePaiement === 100 ? 'success' : 'active'}
-              style={{ marginBottom: 24 }}
-              format={percent => `${percent}% payé`}
-            />
-          </>
+        {/* ── Section Financière ── */}
+        <Divider orientation="left"><DollarOutlined /> Informations Financières</Divider>
+        <Row gutter={16} style={{ marginBottom: 16 }}>
+          <Col xs={24} sm={8}>
+            <Card size="small">
+              <Text type="secondary" style={{ fontSize: 12 }}>Montant Scolarité</Text>
+              <Title level={4} style={{ margin: 0, color: 'var(--mod-scolarite)' }}>{formatCurrency(montantScolarite)}</Title>
+            </Card>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Card size="small">
+              <Text type="secondary" style={{ fontSize: 12 }}>Montant Payé</Text>
+              <Title level={4} style={{ margin: 0, color: 'var(--success)' }}>{formatCurrency(scolariteVerse)}</Title>
+            </Card>
+          </Col>
+          <Col xs={24} sm={8}>
+            <Card size="small">
+              <Text type="secondary" style={{ fontSize: 12 }}>Reste à Payer</Text>
+              <Title level={4} style={{ margin: 0, color: scolariteRestante > 0 ? 'var(--danger)' : 'var(--success)' }}>{formatCurrency(scolariteRestante)}</Title>
+            </Card>
+          </Col>
+        </Row>
+        {montantScolarite > 0 && (
+          <Progress
+            percent={Math.min(Math.round(pourcentagePaiement), 100)}
+            status={pourcentagePaiement >= 100 ? 'success' : 'active'}
+            style={{ marginBottom: etudiant.nombre_versements_prevu ? 4 : 24 }}
+          />
+        )}
+        {etudiant.nombre_versements_prevu != null && (
+          <Text type="secondary" style={{ display: 'block', marginBottom: 24 }}>
+            Versements prévus : {etudiant.nombre_versements_prevu}
+          </Text>
         )}
 
-        {/* Section Accès Étudiant */}
-        <Divider orientation="left">
-          <LockOutlined /> Accès Étudiant
-        </Divider>
-
-        <Card size="small" style={{ marginBottom: 24 }}>
-          <Text style={{ display: 'block', marginBottom: 16 }}>
-            Bienvenue à IIPEA, veuillez trouver ci-dessous vos accès étudiant (E-MAIL & Mot de passe), 
-            vous donnant accès à l'application MyIIPEA disponible sur PlayStore et AppleStore et sur {' '}
-            <a href="https://www.myiipea.com" target="_blank" rel="noopener noreferrer">
-              www.myiipea.com
-            </a>. Ces accès vous donnent aussi droit aux services professionnels de Google (Gmail, Dashboard, 
-            Google Drive illimité et plus).
-          </Text>
-
-          <Row gutter={24}>
-            <Col xs={24} sm={12}>
-              <Card size="small">
-                <Descriptions column={1}>
-                  <Descriptions.Item label={<Text strong>E-mail</Text>}>
-                    <Text copyable>{etudiant.email}</Text>
-                  </Descriptions.Item>
-                  <Descriptions.Item label={<Text strong>Mot de passe</Text>}>
-                    <Text copyable>@elites@</Text>
+        <Row gutter={16} style={{ marginBottom: 24 }}>
+          <Col xs={24} sm={12}>
+            <Card title={<Space><GiftOutlined />Kit Étudiant</Space>} size="small"
+              extra={etudiant.kit && <StatusTag tone={etudiant.kit.deposer ? 'success' : 'danger'} label={etudiant.kit.deposer ? 'Déposé' : 'Non déposé'} />}>
+              {etudiant.kit ? (
+                <Descriptions column={1} size="small">
+                  <Descriptions.Item label="Montant"><Text strong>{formatCurrency(etudiant.kit.montant)}</Text></Descriptions.Item>
+                  <Descriptions.Item label="Date">{formatDate(etudiant.kit.date_enregistrement)}</Descriptions.Item>
+                </Descriptions>
+              ) : <Text type="secondary">Aucun kit enregistré</Text>}
+            </Card>
+          </Col>
+          <Col xs={24} sm={12}>
+            <Card title={<Space><InsuranceOutlined />Prise en Charge</Space>} size="small"
+              extra={etudiant.prise_en_charge && (
+                <Space>
+                  <StatusTag tone={getStatutTone(etudiant.prise_en_charge.statut)} label={etudiant.prise_en_charge.statut || 'Non défini'} />
+                  <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => setModalPECVisible(true)} />
+                </Space>
+              )}>
+              {etudiant.prise_en_charge ? (
+                <Descriptions column={1} size="small">
+                  <Descriptions.Item label="Type">{etudiant.prise_en_charge.type || '-'}</Descriptions.Item>
+                  <Descriptions.Item label="Réduction">
+                    {etudiant.prise_en_charge.pourcentage_reduction ? `${etudiant.prise_en_charge.pourcentage_reduction}%` : formatCurrency(etudiant.prise_en_charge.montant_reduction)}
                   </Descriptions.Item>
                 </Descriptions>
-              </Card>
-            </Col>
-          </Row>
+              ) : <Text type="secondary">Aucune prise en charge</Text>}
+            </Card>
+          </Col>
+        </Row>
 
-          <Text type="warning" style={{ display: 'block', marginTop: 16 }}>
-            <ExclamationCircleOutlined /> Important : Changez votre mot de passe après votre première connexion.
-          </Text>
+        <Title level={5}>Historique des paiements {anneesFinance.length > 0 && `— ${anneesFinance.find(a => a.is_current)?.annee || ''}`}</Title>
+        <Table
+          size="small"
+          loading={loadingFinance}
+          columns={colonnesPaiements}
+          dataSource={paiementsAnneeCourante}
+          rowKey="id"
+          pagination={false}
+          locale={{ emptyText: 'Aucun paiement enregistré pour cette année' }}
+          style={{ marginBottom: 24 }}
+        />
+
+        {/* ── Section Accès Étudiant ── */}
+        <Divider orientation="left"><UserOutlined /> Accès Étudiant</Divider>
+        <Card size="small" style={{ marginBottom: 24 }}>
+          <Descriptions column={2} size="small">
+            <Descriptions.Item label="E-mail"><Text copyable>{etudiant.email}</Text></Descriptions.Item>
+            <Descriptions.Item label="Mot de passe"><Text copyable>@elites@</Text></Descriptions.Item>
+          </Descriptions>
         </Card>
 
-        {/* Section Documents */}
-        <Divider orientation="left">
-          <FileDoneOutlined /> Documents
-        </Divider>
-        
+        {/* ── Section Pièces justificatives ── */}
+        <Divider orientation="left"><FileDoneOutlined /> Pièces justificatives</Divider>
         <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
           Statut « Vérifié » = pièce présentée et vérifiée à l'inscription. Le fichier numérisé est archivé séparément par l'archiviste.
         </Text>
         <Row gutter={[16, 16]}>
           {(etudiant.documents_justificatifs || []).map(doc => (
             <Col xs={24} sm={12} md={6} key={doc.code}>
-              <Card
-                title={doc.libelle}
-                size="small"
-                headStyle={{
-                  backgroundColor: doc.fourni ? '#f6ffed' : '#fff2f0',
-                  borderBottom: 'none'
-                }}
-              >
+              <Card title={doc.libelle} size="small" styles={{ header: { backgroundColor: doc.fourni ? 'var(--paper)' : '#fff2f0', borderBottom: 'none' } }}>
                 <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                  <Tag color={doc.fourni ? 'green' : 'red'} style={{ margin: 0 }}>
-                    {doc.fourni ? 'Vérifié à l\'inscription' : 'Non fourni'}
-                  </Tag>
-
+                  <StatusTag tone={doc.fourni ? 'success' : 'danger'} label={doc.fourni ? "Vérifié à l'inscription" : 'Non fourni'} />
                   {doc.fichier_path ? (
-                    <a
-                      href={doc.fichier_path.startsWith('http') ? doc.fichier_path : `${API_URL}${doc.fichier_path}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
+                    <a href={doc.fichier_path.startsWith('http') ? doc.fichier_path : `${API_URL}${doc.fichier_path}`} target="_blank" rel="noopener noreferrer">
                       <EyeOutlined /> Voir le fichier archivé{doc.storage_provider === 'drive' ? ' (Drive)' : ''}
                     </a>
-                  ) : (
-                    <Text type="secondary" style={{ fontSize: 12 }}>Aucun scan archivé</Text>
-                  )}
-
+                  ) : <Text type="secondary" style={{ fontSize: 12 }}>Aucun scan archivé</Text>}
                   {canArchiveDocuments && (
-                    <Upload
-                      showUploadList={false}
-                      accept="image/*,.pdf"
-                      beforeUpload={(file) => handleUploadDocument(doc.code, file)}
-                    >
-                      <Button
-                        size="small"
-                        icon={<UploadOutlined />}
-                        loading={uploadingDoc === doc.code}
-                      >
+                    <Upload showUploadList={false} accept="image/*,.pdf" beforeUpload={(file) => handleUploadDocument(doc.code, file)}>
+                      <Button size="small" icon={<UploadOutlined />} loading={uploadingDoc === doc.code}>
                         {doc.fichier_path ? 'Remplacer' : 'Archiver'}
                       </Button>
                     </Upload>
@@ -852,60 +646,29 @@ const DetailEtudiant = () => {
             </Col>
           ))}
         </Row>
-      </Card>
 
-      {/* Modal pour les détails du Kit */}
-      <Modal
-        title="Détails du Kit Étudiant"
-        open={modalKitVisible}
-        onCancel={() => setModalKitVisible(false)}
-        footer={[
-          <Button key="close" onClick={() => setModalKitVisible(false)}>
-            Fermer
-          </Button>,
-          <Button 
-            key="edit" 
-            type="primary" 
-            icon={<EditOutlined />}
-            onClick={handleManageKit}
-          >
-            Modifier
-          </Button>
-        ]}
-      >
-        {etudiant.kit && (
-          <Descriptions column={1} bordered>
-            <Descriptions.Item label="ID">{etudiant.kit.id}</Descriptions.Item>
-            <Descriptions.Item label="Montant">{formatCurrency(etudiant.kit.montant)}</Descriptions.Item>
-            <Descriptions.Item label="Statut">
-              <Tag color={etudiant.kit.deposer ? 'green' : 'red'}>
-                {etudiant.kit.deposer ? 'Déposé' : 'Non déposé'}
-              </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="Date d'enregistrement">
-              {formatDate(etudiant.kit.date_enregistrement)}
+        {/* ── Section Informations système ── */}
+        <Divider orientation="left"><InfoCircleOutlined /> Informations système</Divider>
+        <Card size="small">
+          <Descriptions column={2} size="small">
+            <Descriptions.Item label="Créé par">{etudiant.cree_par || '-'}</Descriptions.Item>
+            <Descriptions.Item label="Vérifié par">{etudiant.verifie_par || '-'}</Descriptions.Item>
+            <Descriptions.Item label="Date de vérification">{formatDate(etudiant.date_verification)}</Descriptions.Item>
+            <Descriptions.Item label="Compte MyIIPEA">
+              <StatusTag tone={etudiant.compte_actif ? 'success' : 'danger'} label={etudiant.compte_actif ? 'Actif' : 'Inactif'} />
             </Descriptions.Item>
           </Descriptions>
-        )}
-      </Modal>
+        </Card>
+      </Card>
 
-      {/* Modal pour les détails de la Prise en Charge */}
+      {/* ── Modal Prise en charge ── */}
       <Modal
         title="Détails de la Prise en Charge"
         open={modalPECVisible}
         onCancel={() => setModalPECVisible(false)}
         footer={[
-          <Button key="close" onClick={() => setModalPECVisible(false)}>
-            Fermer
-          </Button>,
-          <Button 
-            key="edit" 
-            type="primary" 
-            icon={<EditOutlined />}
-            onClick={handleManagePEC}
-          >
-            Modifier
-          </Button>
+          <Button key="close" onClick={() => setModalPECVisible(false)}>Fermer</Button>,
+          <Button key="edit" type="primary" icon={<EditOutlined />} onClick={handleManagePEC}>Modifier</Button>,
         ]}
         width={600}
       >
@@ -913,33 +676,81 @@ const DetailEtudiant = () => {
           <Descriptions column={1} bordered>
             <Descriptions.Item label="Référence">{etudiant.prise_en_charge.reference || '-'}</Descriptions.Item>
             <Descriptions.Item label="Type">{etudiant.prise_en_charge.type || '-'}</Descriptions.Item>
-            <Descriptions.Item label="Pourcentage réduction">
-              {etudiant.prise_en_charge.pourcentage_reduction ? `${etudiant.prise_en_charge.pourcentage_reduction}%` : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label="Montant réduction">
-              {formatCurrency(etudiant.prise_en_charge.montant_reduction)}
-            </Descriptions.Item>
-            <Descriptions.Item label="Statut">
-              <Tag color={getStatutColor(etudiant.prise_en_charge.statut)}>
-                {etudiant.prise_en_charge.statut || 'Non défini'}
-              </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="Date demande">
-              {formatDate(etudiant.prise_en_charge.date_demande)}
-            </Descriptions.Item>
-            <Descriptions.Item label="Date validation">
-              {formatDate(etudiant.prise_en_charge.date_validation)}
-            </Descriptions.Item>
-            <Descriptions.Item label="Validé par">
-              {etudiant.prise_en_charge.valide_par || '-'}
-            </Descriptions.Item>
-            {etudiant.prise_en_charge.motif_refus && (
-              <Descriptions.Item label="Motif de refus">
-                {etudiant.prise_en_charge.motif_refus}
-              </Descriptions.Item>
-            )}
+            <Descriptions.Item label="Pourcentage réduction">{etudiant.prise_en_charge.pourcentage_reduction ? `${etudiant.prise_en_charge.pourcentage_reduction}%` : '-'}</Descriptions.Item>
+            <Descriptions.Item label="Montant réduction">{formatCurrency(etudiant.prise_en_charge.montant_reduction)}</Descriptions.Item>
+            <Descriptions.Item label="Statut"><StatusTag tone={getStatutTone(etudiant.prise_en_charge.statut)} label={etudiant.prise_en_charge.statut || 'Non défini'} /></Descriptions.Item>
+            <Descriptions.Item label="Date demande">{formatDate(etudiant.prise_en_charge.date_demande)}</Descriptions.Item>
+            <Descriptions.Item label="Date validation">{formatDate(etudiant.prise_en_charge.date_validation)}</Descriptions.Item>
+            {etudiant.prise_en_charge.motif_refus && <Descriptions.Item label="Motif de refus">{etudiant.prise_en_charge.motif_refus}</Descriptions.Item>}
           </Descriptions>
         )}
+      </Modal>
+
+      {/* ── Modal Édition informations personnelles ── */}
+      <Modal
+        title="Modifier les informations personnelles"
+        open={editModalVisible}
+        onCancel={() => setEditModalVisible(false)}
+        onOk={handleSaveEdit}
+        confirmLoading={savingEdit}
+        okText="Enregistrer"
+        cancelText="Annuler"
+        width={800}
+        destroyOnHidden
+      >
+        <Form form={editForm} layout="vertical">
+          <Text strong style={{ display: 'block', marginBottom: 12 }}>État civil</Text>
+          <Row gutter={16}>
+            <Col span={8}><Form.Item name="nom" label="Nom" rules={[{ required: true, message: 'Requis' }]}><Input /></Form.Item></Col>
+            <Col span={8}><Form.Item name="prenoms" label="Prénoms" rules={[{ required: true, message: 'Requis' }]}><Input /></Form.Item></Col>
+            <Col span={8}><Form.Item name="sexe" label="Sexe" rules={[{ required: true, message: 'Requis' }]}>
+              <Select><Option value="Masculin">Masculin</Option><Option value="Féminin">Féminin</Option></Select>
+            </Form.Item></Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}><Form.Item name="date_naissance" label="Date de naissance" rules={[{ required: true, message: 'Requis' }]}>
+              <DatePicker style={{ width: '100%' }} disabledDate={c => c && c > dayjs().endOf('day')} />
+            </Form.Item></Col>
+            <Col span={8}><Form.Item name="lieu_naissance" label="Lieu de naissance"><Input /></Form.Item></Col>
+            <Col span={8}><Form.Item name="pays_naissance" label="Pays de naissance">
+              <Select showSearch optionFilterProp="children">
+                {pays.map(p => <Option key={p.code_iso} value={p.code_iso}>{p.nom}</Option>)}
+              </Select>
+            </Form.Item></Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}><Form.Item name="nationalite" label="Nationalité" rules={[{ required: true, message: 'Requis' }]}>
+              <Select showSearch optionFilterProp="children">
+                {pays.map(p => <Option key={`nat-${p.code_iso}`} value={p.code_iso}>{p.nom} ({p.nationalite})</Option>)}
+              </Select>
+            </Form.Item></Col>
+            <Col span={8}><Form.Item name="lieu_residence" label="Lieu de résidence">
+              <Select showSearch optionFilterProp="children">
+                {villes.map(v => <Option key={v.id} value={v.nom}>{v.nom}</Option>)}
+              </Select>
+            </Form.Item></Col>
+          </Row>
+
+          <Text strong style={{ display: 'block', margin: '16px 0 12px' }}>Contacts</Text>
+          <Row gutter={16}>
+            <Col span={8}><Form.Item name="telephone" label="Téléphone" rules={[{ required: true, message: 'Requis' }, { pattern: /^[0-9]{10,15}$/, message: 'Numéro invalide' }]}><Input /></Form.Item></Col>
+            <Col span={8}><Form.Item name="email_personnel" label="E-mail personnel" rules={[{ required: true, message: 'Requis' }, { type: 'email', message: 'E-mail invalide' }]}><Input /></Form.Item></Col>
+            <Col span={8}><Form.Item name="contact_parent" label="Contact parent 1" rules={[{ required: true, message: 'Requis' }, { pattern: /^[0-9]{10,15}$/, message: 'Numéro invalide' }]}><Input /></Form.Item></Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}><Form.Item name="contact_parent_2" label="Contact parent 2" rules={[{ pattern: /^[0-9]{10,15}$/, message: 'Numéro invalide' }]}><Input /></Form.Item></Col>
+          </Row>
+
+          <Text strong style={{ display: 'block', margin: '16px 0 12px' }}>Parents / Tuteurs</Text>
+          <Row gutter={16}>
+            <Col span={12}><Form.Item name="nom_parent_1" label="Nom parent 1 (Père)"><Input /></Form.Item></Col>
+            <Col span={12}><Form.Item name="adresse_parent_1" label="Adresse parent 1"><Input /></Form.Item></Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}><Form.Item name="nom_parent_2" label="Nom parent 2 (Mère)"><Input /></Form.Item></Col>
+            <Col span={12}><Form.Item name="adresse_parent_2" label="Adresse parent 2"><Input /></Form.Item></Col>
+          </Row>
+        </Form>
       </Modal>
     </div>
   );

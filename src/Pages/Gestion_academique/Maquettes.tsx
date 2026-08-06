@@ -4,30 +4,28 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PageHeader from '../../Components/PageHeader/PageHeader';
-import { 
-  Table, 
-  Button, 
-  Select, 
-  Card, 
-  Space, 
-  Modal, 
-  Form, 
-  message, 
-  Spin, 
-  Tag,
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag from '../../Components/ui/StatusTag';
+import {
+  Button,
+  Select,
+  Card,
+  Space,
+  Modal,
+  Form,
+  message,
+  Spin,
   Row,
   Col,
-  Input,
   Tooltip,
   Badge,
   Alert
 } from 'antd';
-import { 
-  PlusOutlined, 
-  EyeOutlined, 
-  SearchOutlined, 
+import {
+  PlusOutlined,
+  EyeOutlined,
   FilterOutlined,
-  ReloadOutlined 
+  ReloadOutlined
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
@@ -391,15 +389,15 @@ const Maquettes: React.FC = () => {
       render: (text, record) => (
         <div>
           <div className="filiere-name">{text}</div>
-          <Tag color="blue">{record.filiere_sigle}</Tag>
+          <StatusTag tone="info" label={record.filiere_sigle} />
         </div>
       )
     },
-    { 
-      title: 'Niveau', 
-      dataIndex: 'niveau_libelle', 
+    {
+      title: 'Niveau',
+      dataIndex: 'niveau_libelle',
       key: 'niveau_libelle',
-      render: (text) => <Tag color="green">{text}</Tag>
+      render: (text) => <StatusTag tone="success" label={text} />
     },
     { 
       title: 'Année Académique', 
@@ -411,7 +409,7 @@ const Maquettes: React.FC = () => {
       title: 'Parcour', 
       dataIndex: 'parcour', 
       key: 'parcour',
-      render: (text) => <Tag color="orange">{text}</Tag>
+      render: (text) => <StatusTag tone="warning" label={text} />
     },
     { 
       title: 'Date Création', 
@@ -500,9 +498,9 @@ const Maquettes: React.FC = () => {
       
       <Card className="maquettes-card">
         <Row gutter={[16, 16]} className="mb-4">
-          <Col xs={24} md={8}>
+          <Col xs={24} md={12}>
             <div style={{ marginBottom: 4 }}>
-              <span style={{ fontSize: 12, color: '#666' }}>Année académique</span>
+              <span style={{ fontSize: 12, color: 'var(--text-soft)' }}>Année académique</span>
             </div>
             <Select
               placeholder="Sélectionner une année académique"
@@ -526,29 +524,17 @@ const Maquettes: React.FC = () => {
             </Select>
             {selectedAnneeInfo && (
               <div style={{ marginTop: 8 }}>
-                <Tag color={selectedAnneeInfo.etat === 'en cours' || selectedAnneeInfo.etat === 'en cour' ? 'green' : 'blue'}>
-                  Année sélectionnée: {selectedAnneeInfo.annee}
-                </Tag>
+                <StatusTag
+                  tone={selectedAnneeInfo.etat === 'en cours' || selectedAnneeInfo.etat === 'en cour' ? 'success' : 'info'}
+                  label={`Année sélectionnée: ${selectedAnneeInfo.annee}`}
+                />
               </div>
             )}
           </Col>
-          
-          <Col xs={24} md={10}>
+
+          <Col xs={24} md={12}>
             <div style={{ marginBottom: 4 }}>
-              <span style={{ fontSize: 12, color: '#666' }}>Recherche</span>
-            </div>
-            <Input
-              placeholder="Rechercher par filière, niveau, parcour..."
-              prefix={<SearchOutlined />}
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              allowClear
-            />
-          </Col>
-          
-          <Col xs={24} md={6}>
-            <div style={{ marginBottom: 4 }}>
-              <span style={{ fontSize: 12, color: '#666' }}>Actions</span>
+              <span style={{ fontSize: 12, color: 'var(--text-soft)' }}>Actions</span>
             </div>
             <Space style={{ width: '100%', justifyContent: 'flex-end' }}>
               <Tooltip title="Actualiser">
@@ -558,9 +544,9 @@ const Maquettes: React.FC = () => {
                   loading={loading}
                 />
               </Tooltip>
-              
-              <Button 
-                type="primary" 
+
+              <Button
+                type="primary"
                 icon={<PlusOutlined />}
                 onClick={() => setModalVisible(true)}
                 className="new-maquette-btn"
@@ -579,23 +565,17 @@ const Maquettes: React.FC = () => {
             showIcon
           />
         ) : (
-          <Table 
-            columns={columns} 
-            dataSource={filteredMaquettes} 
+          <DataTable<Maquette>
+            columns={columns}
+            dataSource={filteredMaquettes}
             rowKey="id"
-            pagination={{ 
-              pageSize: 10, 
-              showSizeChanger: true,
-              showQuickJumper: true,
-              showTotal: (total, range) => 
-                `${range[0]}-${range[1]} sur ${total} maquettes`
-            }}
             loading={loading}
+            searchValue={searchText}
+            searchPlaceholder="Rechercher par filière, niveau, parcour…"
+            onSearchChange={setSearchText}
+            pagination={{ pageSize: 10, showQuickJumper: true }}
             scroll={{ x: 800 }}
-            className="maquettes-table"
-            locale={{
-              emptyText: loading ? 'Chargement...' : `Aucune maquette trouvée pour l'année ${selectedAnneeInfo?.annee || 'sélectionnée'}`
-            }}
+            emptyTitle={loading ? 'Chargement...' : `Aucune maquette trouvée pour l'année ${selectedAnneeInfo?.annee || 'sélectionnée'}`}
           />
         )}
       </Card>

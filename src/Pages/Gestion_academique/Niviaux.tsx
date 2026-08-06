@@ -1,9 +1,7 @@
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Card,
-  Table,
-  Tag,
   Typography,
   Space,
   Statistic,
@@ -19,6 +17,8 @@ import {
   ApartmentOutlined
 } from '@ant-design/icons';
 import PageHeader from "../../Components/PageHeader/PageHeader";
+import DataTable from "../../Components/ui/DataTable";
+import StatusTag from "../../Components/ui/StatusTag";
 import { apiFetch } from "../../lib/api";
 
 const { Title, Text } = Typography;
@@ -57,6 +57,15 @@ const Niviaux = () => {
   const [departementId] = useState<number | null>(getDepartementId());
   const [annees, setAnnees] = useState<AnneeAcademique[]>([]);
   const [selectedAnneeId, setSelectedAnneeId] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
+
+  const filteredNiveaux = useMemo(
+    () => niveaux.filter(n =>
+      n.libelle.toLowerCase().includes(search.toLowerCase()) ||
+      n.filiere_nom.toLowerCase().includes(search.toLowerCase())
+    ),
+    [niveaux, search]
+  );
 
   // Récupère les années académiques du site et sélectionne l'année en cours par défaut
   useEffect(() => {
@@ -117,13 +126,15 @@ const Niviaux = () => {
       dataIndex: 'prix_formation',
       key: 'prix_formation',
       render: (value: string) => (
-        <Tag color="green" icon={<DollarOutlined />}>
-          {parseFloat(value).toLocaleString("fr-FR", { 
-            style: "currency", 
+        <StatusTag
+          tone="success"
+          icon={<DollarOutlined />}
+          label={parseFloat(value).toLocaleString("fr-FR", {
+            style: "currency",
             currency: "XOF",
             minimumFractionDigits: 0
           })}
-        </Tag>
+        />
       ),
       sorter: (a: Niveau, b: Niveau) => parseFloat(a.prix_formation) - parseFloat(b.prix_formation),
     },
@@ -131,11 +142,7 @@ const Niviaux = () => {
       title: 'Type Filière',
       dataIndex: 'typefiliere_libelle',
       key: 'typefiliere_libelle',
-      render: (text: string) => (
-        <Tag color="blue" icon={<ApartmentOutlined />}>
-          {text}
-        </Tag>
-      ),
+      render: (text: string) => <StatusTag tone="info" icon={<ApartmentOutlined />} label={text} />,
       sorter: (a: Niveau, b: Niveau) => a.typefiliere_libelle.localeCompare(b.typefiliere_libelle),
     },
   ];
@@ -151,8 +158,8 @@ const Niviaux = () => {
             <Title level={3} style={{ margin: 0 }}>Liste des Niveaux</Title>
           </Space>
         }
-        bordered={false}
-        headStyle={{ borderBottom: 'none' }}
+        variant="borderless"
+        styles={{ header: { borderBottom: 'none' } }}
       >
         <Space style={{ marginBottom: 16 }}>
           <Text type="secondary">Année académique :</Text>
@@ -171,7 +178,9 @@ const Niviaux = () => {
 
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '40px' }}>
-            <Spin size="large" tip="Chargement des niveaux..." />
+            <Spin size="large" tip="Chargement des niveaux...">
+              <div style={{ height: 120, width: 240 }} />
+            </Spin>
           </div>
         ) : (
           <>
@@ -182,7 +191,7 @@ const Niviaux = () => {
                     title="Nombre de Niveaux"
                     value={niveaux.length}
                     prefix={<BookOutlined />}
-                    valueStyle={{ color: '#1890ff' }}
+                    valueStyle={{ color: 'var(--mod-scolarite)' }}
                   />
                 </Card>
               </Col>
@@ -193,7 +202,7 @@ const Niviaux = () => {
                     value={totalFormation}
                     precision={0}
                     prefix="FCFA"
-                    valueStyle={{ color: '#52c41a' }}
+                    valueStyle={{ color: 'var(--success)' }}
                   />
                 </Card>
               </Col>
@@ -204,7 +213,7 @@ const Niviaux = () => {
                     value={(totalFormation / (niveaux.length || 1)).toFixed(0)}
                     precision={0}
                     prefix="FCFA"
-                    valueStyle={{ color: '#722ed1' }}
+                    valueStyle={{ color: 'var(--mod-comptabilite)' }}
                   />
                 </Card>
               </Col>
@@ -214,21 +223,15 @@ const Niviaux = () => {
               <BookOutlined /> Détails des Niveaux
             </Divider>
 
-            <Table<Niveau>
+            <DataTable<Niveau>
               columns={columns}
-              dataSource={niveaux}
+              dataSource={filteredNiveaux}
               rowKey="id"
-              pagination={{
-                pageSizeOptions: ['10', '20', '50'],
-                showSizeChanger: true,
-                showTotal: (total, range) => `${range[0]}-${range[1]} sur ${total} niveaux`,
-              }}
-              bordered
-              size="middle"
-              scroll={{ x: 'max-content' }}
-              locale={{
-                emptyText: 'Aucun niveau trouvé'
-              }}
+              searchValue={search}
+              searchPlaceholder="Rechercher un niveau ou une filière"
+              onSearchChange={setSearch}
+              pagination={{ pageSizeOptions: ['10', '20', '50'] }}
+              emptyTitle="Aucun niveau trouvé"
             />
           </>
         )}

@@ -11,10 +11,10 @@ import {
   Col,
   Typography,
   Divider,
-  Tag,
   Grid,
   Modal
 } from 'antd';
+import StatusTag from '../../Components/ui/StatusTag';
 import {
   ArrowLeftOutlined,
   FileDoneOutlined,
@@ -128,7 +128,7 @@ const Resultat: React.FC = () => {
       semestre: 1,
       route: '#',
       description: 'Consulter le procès-verbal du premier semestre',
-      color: '#1890ff',
+      color: 'var(--mod-scolarite)',
       bgColor: 'bg-white',
       iconBgColor: 'bg-blue-50',
       type: 'pv'
@@ -140,7 +140,7 @@ const Resultat: React.FC = () => {
       semestre: 2,
       route: '#',
       description: 'Consulter le procès-verbal du deuxième semestre',
-      color: '#1890ff',
+      color: 'var(--mod-scolarite)',
       bgColor: 'bg-white',
       iconBgColor: 'bg-blue-50',
       type: 'pv'
@@ -152,7 +152,7 @@ const Resultat: React.FC = () => {
       semestre: 1,
       route: '#',
       description: 'Générer tous les bulletins individuels du semestre 1',
-      color: '#52c41a',
+      color: 'var(--success)',
       bgColor: 'bg-white',
       iconBgColor: 'bg-green-50',
       type: 'bulletin'
@@ -164,7 +164,7 @@ const Resultat: React.FC = () => {
       semestre: 2,
       route: '#',
       description: 'Générer tous les bulletins individuels du semestre 2',
-      color: '#52c41a',
+      color: 'var(--success)',
       bgColor: 'bg-white',
       iconBgColor: 'bg-green-50',
       type: 'bulletin'
@@ -314,9 +314,9 @@ const Resultat: React.FC = () => {
             <Title level={3} className="mb-0 text-gray-800">
               Groupe : {groupe?.nom}
             </Title>
-            <Tag color="blue" icon={<BookOutlined />} className="ml-4">
-              {groupe?.classe_nom}
-            </Tag>
+            <span className="ml-4">
+              <StatusTag tone="info" icon={<BookOutlined />} label={groupe?.classe_nom || ''} />
+            </span>
           </div>
 
           <Card className="border border-gray-100 mb-6 shadow-sm">
@@ -358,9 +358,10 @@ const Resultat: React.FC = () => {
                     Étudiants inscrits / Capacité totale
                   </Text>
                   <div className="mt-2">
-                    <Tag color={groupe?.taux_remplissage && groupe.taux_remplissage >= 80 ? 'green' : 'orange'}>
-                      Taux de remplissage: {groupe?.taux_remplissage || 0}%
-                    </Tag>
+                    <StatusTag
+                      tone={groupe?.taux_remplissage && groupe.taux_remplissage >= 80 ? 'success' : 'warning'}
+                      label={`Taux de remplissage: ${groupe?.taux_remplissage || 0}%`}
+                    />
                   </div>
                 </div>
               </div>
@@ -420,11 +421,12 @@ const Resultat: React.FC = () => {
                         <Text type="secondary" className="block text-sm leading-relaxed">
                           {card.description}
                         </Text>
-                        <div className="mt-2">
-                          <Tag color={card.type === 'pv' ? 'blue' : 'green'}>
-                            {card.type === 'pv' ? 'Procès-Verbal' : 'Bulletins individuels'}
-                          </Tag>
-                          <Tag color="purple">Semestre {card.semestre}</Tag>
+                        <div className="mt-2" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                          <StatusTag
+                            tone={card.type === 'pv' ? 'info' : 'success'}
+                            label={card.type === 'pv' ? 'Procès-Verbal' : 'Bulletins individuels'}
+                          />
+                          <StatusTag tone="neutral" label={`Semestre ${card.semestre}`} />
                         </div>
                       </div>
                     </div>

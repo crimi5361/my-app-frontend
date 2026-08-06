@@ -2,16 +2,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  Card, 
-  Typography, 
+import {
+  Card,
+  Typography,
   Button,
   Select,
   Upload,
   Form,
   Row,
   Col,
-  Tag,
   Spin,
   message,
   Space,
@@ -22,6 +21,7 @@ import {
   Modal,
   List,
 } from 'antd';
+import StatusTag from '../../Components/ui/StatusTag';
 import { 
   UploadOutlined, 
   FileExcelOutlined, 
@@ -65,6 +65,9 @@ interface GroupeInfo {
   nom: string;
   classe_nom?: string;
   classe_description?: string;   // NOUVEAU
+  filiere_id?: number | null;
+  niveau_id?: number | null;
+  annee_academique_id?: number | null;
 }
 
 interface MaquetteDetail {
@@ -227,11 +230,14 @@ const NouvelleNote = () => {
         const groupeInfo: GroupeInfo = {
           id: data.id,
           nom: data.nom,
-          classe_description: data.classe_description   // NOUVEAU
+          classe_description: data.classe_description,   // NOUVEAU
+          filiere_id: data.filiere_id,
+          niveau_id: data.niveau_id,
+          annee_academique_id: data.annee_academique_id
         };
-        
+
         setGroupeInfo(groupeInfo);
-        await fetchMaquetteForClasse(data.nom, data.classe_description);   // on passe la description
+        await fetchMaquetteForClasse(data.nom, data.classe_description, data.filiere_id, data.niveau_id, data.annee_academique_id);
         
       } catch (error: any) {
         console.error('Erreur chargement groupe:', error);
@@ -295,41 +301,57 @@ const NouvelleNote = () => {
     return '';
   };
 
-  const fetchMaquetteForClasse = async (classeNom: string, classeDescription?: string) => {
+  const fetchMaquetteForClasse = async (
+    classeNom: string,
+    classeDescription?: string,
+    filiereId?: number | null,
+    niveauId?: number | null,
+    anneeAcademiqueId?: number | null
+  ) => {
     try {
-      
+
       const data = await apiFetch('/api/maquettes');
 
       if (Array.isArray(data)) {
-        const filiereClasse = extractFiliere(classeNom);
-        const niveauClasse = extractNiveau(classeNom);
         const regimeClasse = extractRegime(classeDescription || '');
 
-
-        // Si on n'a pas pu extraire le niveau, on ne peut pas matcher de façon fiable
-        if (!niveauClasse) {
-          console.warn('⚠️ Niveau non reconnu dans le nom du groupe:', classeNom);
-          message.warning('Impossible de détecter le niveau depuis le nom du groupe');
-          return;
+        // Identifiants fiables (filiere_id/niveau_id/annee_academique_id de la classe, via le
+        // groupe) — prioritaires sur toute extraction textuelle : le nom d'un groupe est un champ
+        // libre choisi par l'agent (ex: "Groupe A", "TD1") et ne contient pas forcément le
+        // filière/niveau, contrairement à ce que l'ancienne extraction par regex supposait. Cette
+        // même correspondance par ID évite aussi de matcher, par coïncidence de nom, la maquette
+        // d'une AUTRE année académique.
+        let maquettesCandidates: any[] = [];
+        if (filiereId && niveauId && anneeAcademiqueId) {
+          maquettesCandidates = data.filter((maquette: any) =>
+            maquette.filiere_id === filiereId &&
+            maquette.niveau_id === niveauId &&
+            maquette.anneeacademique_id === anneeAcademiqueId
+          );
         }
-        
-        const maquettesCandidates = data.filter((maquette: any) => {
-          const filiereMaquette = extractFiliere(maquette.filiere_nom);
-          const niveauMaquette = extractNiveau(maquette.niveau_libelle);
-          
-          const correspondanceFiliere =
-            filiereClasse.includes(filiereMaquette) ||
-            filiereMaquette.includes(filiereClasse);
-          
-          // Les deux niveaux doivent être non vides ET identiques
-          const correspondanceNiveau =
-            niveauClasse !== '' &&
-            niveauMaquette !== '' &&
-            niveauClasse === niveauMaquette;
-          
-          return correspondanceFiliere && correspondanceNiveau;
-        });
 
+        // Repli sur l'ancienne extraction textuelle si les IDs sont indisponibles (compatibilité).
+        if (maquettesCandidates.length === 0 && (!filiereId || !niveauId || !anneeAcademiqueId)) {
+          const filiereClasse = extractFiliere(classeNom);
+          const niveauClasse = extractNiveau(classeNom);
+          if (!niveauClasse) {
+            console.warn('⚠️ Niveau non reconnu dans le nom du groupe:', classeNom);
+            message.warning('Impossible de détecter le niveau depuis le nom du groupe');
+            return;
+          }
+          maquettesCandidates = data.filter((maquette: any) => {
+            const filiereMaquette = extractFiliere(maquette.filiere_nom);
+            const niveauMaquette = extractNiveau(maquette.niveau_libelle);
+            const correspondanceFiliere =
+              filiereClasse.includes(filiereMaquette) ||
+              filiereMaquette.includes(filiereClasse);
+            const correspondanceNiveau =
+              niveauClasse !== '' &&
+              niveauMaquette !== '' &&
+              niveauClasse === niveauMaquette;
+            return correspondanceFiliere && correspondanceNiveau;
+          });
+        }
 
         let maquetteTrouvee = null;
 
@@ -342,7 +364,7 @@ const NouvelleNote = () => {
         if (!maquetteTrouvee) {
           maquetteTrouvee = maquettesCandidates[0];
         }
-        
+
         if (maquetteTrouvee) {
           await fetchMaquetteDetail(maquetteTrouvee.id);
         } else {
@@ -653,7 +675,7 @@ const NouvelleNote = () => {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: 'var(--paper)' }}>
       <PageHeader />
       
       <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
@@ -676,7 +698,7 @@ const NouvelleNote = () => {
           </Button>
           
           <div>
-            <Title level={2} style={{ margin: 0, fontSize: '24px', color: '#1890ff' }}>
+            <Title level={2} style={{ margin: 0, fontSize: '24px', color: 'var(--mod-scolarite)' }}>
               <TeamOutlined style={{ marginRight: '8px' }} />
               Importation des notes
             </Title>
@@ -727,7 +749,7 @@ const NouvelleNote = () => {
             >
               <Descriptions column={1} size="small">
                 <Descriptions.Item label="Groupe">
-                  <Tag color="blue">{groupeInfo?.nom}</Tag>
+                  <StatusTag tone="info" label={groupeInfo?.nom || ''} />
                 </Descriptions.Item>
                 
                 {maquetteDetail && (
@@ -736,15 +758,16 @@ const NouvelleNote = () => {
                       <Text strong>{maquetteDetail.maquette.filiere_nom}</Text>
                     </Descriptions.Item>
                     <Descriptions.Item label="Niveau">
-                      <Tag color="purple">{maquetteDetail.maquette.niveau_libelle}</Tag>
+                      <StatusTag tone="neutral" label={maquetteDetail.maquette.niveau_libelle} />
                     </Descriptions.Item>
                     <Descriptions.Item label="Année académique">
                       <Text>{maquetteDetail.maquette.annee_academique}</Text>
                     </Descriptions.Item>
                     <Descriptions.Item label="Parcours">
-                      <Tag color={maquetteDetail.maquette.parcour === 'Universitaire' ? 'green' : 'orange'}>
-                        {maquetteDetail.maquette.parcour}
-                      </Tag>
+                      <StatusTag
+                        tone={maquetteDetail.maquette.parcour === 'Universitaire' ? 'success' : 'warning'}
+                        label={maquetteDetail.maquette.parcour}
+                      />
                     </Descriptions.Item>
                   </>
                 )}
@@ -759,7 +782,7 @@ const NouvelleNote = () => {
                 color: '#666'
               }}>
                 <div>📊 Debug:</div>
-                <div>Matéri chargées: {matieres.length}</div>
+                <div>Matières chargées: {matieres.length}</div>
                 <div>Professeurs: {professeurs.length}</div>
                 <div>Fichier: {fileList.length > 0 ? fileList[0].name : 'Aucun'}</div>
                 <div>Matière: {selectedMatiere?.nom || 'Aucune'}</div>
@@ -840,15 +863,15 @@ const NouvelleNote = () => {
                               padding: '4px 0'
                             }}>
                               <span style={{ fontWeight: 500 }}>{nomComplet}</span>
-                              <div>
+                              <div style={{ marginLeft: 8 }}>
                                 {professeur.id_matiere === selectedMatiere.id && (
-                                  <Tag color="green" style={{ marginLeft: 8 }}>Déjà assigné</Tag>
+                                  <StatusTag tone="success" label="Déjà assigné" />
                                 )}
                                 {professeur.id_matiere && professeur.id_matiere !== selectedMatiere.id && (
-                                  <Tag color="orange" style={{ marginLeft: 8 }}>Assigné à autre</Tag>
+                                  <StatusTag tone="warning" label="Assigné à autre" />
                                 )}
                                 {!professeur.id_matiere && (
-                                  <Tag color="blue" style={{ marginLeft: 8 }}>Disponible</Tag>
+                                  <StatusTag tone="info" label="Disponible" />
                                 )}
                               </div>
                             </div>
@@ -864,9 +887,9 @@ const NouvelleNote = () => {
                       description={
                         <div style={{ marginTop: '8px' }}>
                           Le professeur sera assigné à cette matière lors de l'importation des notes.
-                          {professeurs.find(p => p.id === selectedProfesseur)?.id_matiere && 
+                          {professeurs.find(p => p.id === selectedProfesseur)?.id_matiere &&
                            professeurs.find(p => p.id === selectedProfesseur)?.id_matiere !== selectedMatiere.id && (
-                            <div style={{ marginTop: '4px', color: '#fa8c16' }}>
+                            <div style={{ marginTop: '4px', color: 'var(--warning)' }}>
                               ⚠️ Attention: Ce professeur est déjà assigné à une autre matière.
                             </div>
                           )}
@@ -881,17 +904,17 @@ const NouvelleNote = () => {
               )}
 
               {selectedMatiere && (
-                <div style={{ 
-                  background: '#f0f5ff',
+                <div style={{
+                  background: 'var(--paper)',
                   padding: '16px',
                   borderRadius: '8px',
-                  border: '1px solid #adc6ff',
+                  border: '1px solid var(--mist)',
                   marginTop: '16px'
                 }}>
-                  <div style={{ 
-                    fontSize: '16px', 
-                    fontWeight: 'bold', 
-                    color: '#1890ff',
+                  <div style={{
+                    fontSize: '16px',
+                    fontWeight: 'bold',
+                    color: 'var(--mod-scolarite)',
                     marginBottom: '12px',
                     wordBreak: 'break-word'
                   }}>
@@ -901,7 +924,7 @@ const NouvelleNote = () => {
                     <Col span={8}>
                       <div style={{ textAlign: 'center' }}>
                         <Text type="secondary" style={{ fontSize: '12px' }}>Coefficient</Text>
-                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#1890ff' }}>
+                        <div style={{ fontSize: '20px', fontWeight: 'bold', color: 'var(--mod-scolarite)' }}>
                           {selectedMatiere.coefficient}
                         </div>
                       </div>
@@ -909,7 +932,7 @@ const NouvelleNote = () => {
                     <Col span={8}>
                       <div style={{ textAlign: 'center' }}>
                         <Text type="secondary" style={{ fontSize: '12px' }}>Volume CM</Text>
-                        <div style={{ fontSize: '16px', fontWeight: '500', color: '#52c41a' }}>
+                        <div style={{ fontSize: '16px', fontWeight: '500', color: 'var(--success)' }}>
                           {selectedMatiere.volume_horaire_cm}h
                         </div>
                       </div>
@@ -917,7 +940,7 @@ const NouvelleNote = () => {
                     <Col span={8}>
                       <div style={{ textAlign: 'center' }}>
                         <Text type="secondary" style={{ fontSize: '12px' }}>Volume TD</Text>
-                        <div style={{ fontSize: '16px', fontWeight: '500', color: '#fa8c16' }}>
+                        <div style={{ fontSize: '16px', fontWeight: '500', color: 'var(--warning)' }}>
                           {selectedMatiere.volume_horaire_td}h
                         </div>
                       </div>
@@ -967,17 +990,15 @@ const NouvelleNote = () => {
                   description={
                     <div>
                       <Text>Votre fichier doit contenir ces colonnes obligatoires :</Text>
-                      <div style={{ marginTop: '8px' }}>
-                        <Tag color="blue" style={{ marginBottom: '4px' }}>CODE (matricule_iipea)</Tag>
-                        <Tag color="blue" style={{ marginBottom: '4px' }}>NOM</Tag>
-                        <Tag color="blue" style={{ marginBottom: '4px' }}>PRENOM</Tag>
+                      <div style={{ marginTop: '8px', display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                        <StatusTag tone="info" label="CODE (matricule_iipea)" />
+                        <StatusTag tone="info" label="NOM" />
+                        <StatusTag tone="info" label="PRENOM" />
                         {form.getFieldValue('noteTypes')?.map((type: string) => (
-                          <Tag color="green" key={type} style={{ marginBottom: '4px' }}>
-                            {type.toUpperCase().replace(/ /g, '_')}
-                          </Tag>
+                          <StatusTag tone="success" key={type} label={type.toUpperCase().replace(/ /g, '_')} />
                         ))}
                       </div>
-                      <div style={{ marginTop: '12px', fontSize: '12px', color: '#fa8c16' }}>
+                      <div style={{ marginTop: '12px', fontSize: '12px', color: 'var(--warning)' }}>
                         ⚠️ IMPORTANT: La colonne "CODE" doit correspondre exactement au "matricule_iipea" des étudiants dans la base de données.
                       </div>
                     </div>
@@ -1013,7 +1034,7 @@ const NouvelleNote = () => {
                         <Row gutter={16} style={{ marginTop: '8px' }}>
                           <Col span={6}>
                             <div style={{ textAlign: 'center' }}>
-                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: existingNotesInfo.notesExistantes ? '#fa8c16' : '#52c41a' }}>
+                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: existingNotesInfo.notesExistantes ? 'var(--warning)' : 'var(--success)' }}>
                                 {existingNotesInfo.etudiantsAvecNotes}/{existingNotesInfo.totalEtudiants}
                               </div>
                               <Text type="secondary">Étudiants</Text>
@@ -1021,7 +1042,7 @@ const NouvelleNote = () => {
                           </Col>
                           <Col span={6}>
                             <div style={{ textAlign: 'center' }}>
-                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: existingNotesInfo.notesExistantes ? '#fa8c16' : '#52c41a' }}>
+                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: existingNotesInfo.notesExistantes ? 'var(--warning)' : 'var(--success)' }}>
                                 {existingNotesInfo.pourcentage}%
                               </div>
                               <Text type="secondary">Couverture</Text>
@@ -1029,7 +1050,7 @@ const NouvelleNote = () => {
                           </Col>
                           <Col span={6}>
                             <div style={{ textAlign: 'center' }}>
-                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: existingNotesInfo.notesExistantes ? '#fa8c16' : '#52c41a' }}>
+                              <div style={{ fontSize: '18px', fontWeight: 'bold', color: existingNotesInfo.notesExistantes ? 'var(--warning)' : 'var(--success)' }}>
                                 {existingNotesInfo.count}
                               </div>
                               <Text type="secondary">Notes</Text>
@@ -1037,14 +1058,15 @@ const NouvelleNote = () => {
                           </Col>
                           <Col span={6}>
                             <div style={{ textAlign: 'center' }}>
-                              <Tag color={existingNotesInfo.notesExistantes ? 'orange' : 'green'} >
-                                {existingNotesInfo.notesExistantes ? 'MISE À JOUR' : 'NOUVELLES'}
-                              </Tag>
+                              <StatusTag
+                                tone={existingNotesInfo.notesExistantes ? 'warning' : 'success'}
+                                label={existingNotesInfo.notesExistantes ? 'MISE À JOUR' : 'NOUVELLES'}
+                              />
                             </div>
                           </Col>
                         </Row>
                         {existingNotesInfo.derniereImportation && (
-                          <div style={{ marginTop: '8px', fontSize: '12px', color: '#666' }}>
+                          <div style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-soft)' }}>
                             Dernière importation: {new Date(existingNotesInfo.derniereImportation).toLocaleString()}
                           </div>
                         )}
@@ -1071,16 +1093,16 @@ const NouvelleNote = () => {
                 >
                   <Upload.Dragger
                     {...uploadProps}
-                    style={{ 
+                    style={{
                       padding: '40px 0',
-                      background: fileList.length > 0 ? '#f6ffed' : '#fafafa',
-                      border: fileList.length > 0 ? '1px solid #b7eb8f' : '1px dashed #d9d9d9'
+                      background: fileList.length > 0 ? 'var(--paper)' : 'var(--surface-2)',
+                      border: fileList.length > 0 ? '1px solid var(--success)' : '1px dashed var(--border)'
                     }}
                   >
                     <p className="ant-upload-drag-icon">
-                      <FileExcelOutlined style={{ 
-                        fontSize: '48px', 
-                        color: fileList.length > 0 ? '#52c41a' : '#999' 
+                      <FileExcelOutlined style={{
+                        fontSize: '48px',
+                        color: fileList.length > 0 ? 'var(--success)' : 'var(--text-soft)'
                       }} />
                     </p>
                     <p className="ant-upload-text" style={{ fontSize: '16px', fontWeight: 500 }}>
@@ -1093,7 +1115,7 @@ const NouvelleNote = () => {
                       }
                     </p>
                     {fileList.length === 0 && (
-                      <p style={{ color: '#fa8c16', marginTop: '8px' }}>
+                      <p style={{ color: 'var(--warning)', marginTop: '8px' }}>
                         ⚠️ Un seul fichier Excel par matière
                       </p>
                     )}
@@ -1133,9 +1155,7 @@ const NouvelleNote = () => {
                   </Text>
                   {existingNotesInfo && existingNotesInfo.notesExistantes && (
                     <div style={{ marginTop: '8px' }}>
-                      <Tag color="orange" icon={<WarningOutlined />} >
-                        MISE À JOUR DES NOTES EXISTANTES
-                      </Tag>
+                      <StatusTag tone="warning" icon={<WarningOutlined />} label="MISE À JOUR DES NOTES EXISTANTES" />
                     </div>
                   )}
                 </div>
@@ -1189,7 +1209,7 @@ const NouvelleNote = () => {
       <Modal
         title={
           <span>
-            <CheckCircleOutlined style={{ color: '#52c41a', marginRight: 8 }} />
+            <CheckCircleOutlined style={{ color: 'var(--success)', marginRight: 8 }} />
             Résultat de l'importation
           </span>
         }
@@ -1244,9 +1264,10 @@ const NouvelleNote = () => {
                 </Descriptions.Item>
               )}
               <Descriptions.Item label="Parcours">
-                <Tag color={uploadResult.details.parcour === 'Universitaire' ? 'green' : 'orange'}>
-                  {uploadResult.details.parcour}
-                </Tag>
+                <StatusTag
+                  tone={uploadResult.details.parcour === 'Universitaire' ? 'success' : 'warning'}
+                  label={uploadResult.details.parcour}
+                />
               </Descriptions.Item>
               <Descriptions.Item label="Session">
                 {uploadResult.details.session}
@@ -1258,7 +1279,7 @@ const NouvelleNote = () => {
               <Row gutter={16}>
                 <Col span={6}>
                   <Card size="small" style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 24, fontWeight: 'bold', color: '#1890ff' }}>
+                    <div style={{ fontSize: 24, fontWeight: 'bold', color: 'var(--mod-scolarite)' }}>
                       {uploadResult.details.stats.totalTraitees}
                     </div>
                     <Text type="secondary">Total traité</Text>
@@ -1266,7 +1287,7 @@ const NouvelleNote = () => {
                 </Col>
                 <Col span={6}>
                   <Card size="small" style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 24, fontWeight: 'bold', color: '#52c41a' }}>
+                    <div style={{ fontSize: 24, fontWeight: 'bold', color: 'var(--success)' }}>
                       {uploadResult.details.stats.notesInserees}
                     </div>
                     <Text type="secondary">Nouvelles notes</Text>
@@ -1274,7 +1295,7 @@ const NouvelleNote = () => {
                 </Col>
                 <Col span={6}>
                   <Card size="small" style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 24, fontWeight: 'bold', color: '#fa8c16' }}>
+                    <div style={{ fontSize: 24, fontWeight: 'bold', color: 'var(--warning)' }}>
                       {uploadResult.details.stats.notesMisesAJour}
                     </div>
                     <Text type="secondary">Notes mises à jour</Text>
@@ -1282,7 +1303,7 @@ const NouvelleNote = () => {
                 </Col>
                 <Col span={6}>
                   <Card size="small" style={{ textAlign: 'center' }}>
-                    <div style={{ fontSize: 24, fontWeight: 'bold', color: '#ff4d4f' }}>
+                    <div style={{ fontSize: 24, fontWeight: 'bold', color: 'var(--danger)' }}>
                       {uploadResult.details.stats.erreurs}
                     </div>
                     <Text type="secondary">Erreurs</Text>

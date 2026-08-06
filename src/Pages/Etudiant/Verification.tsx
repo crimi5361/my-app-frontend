@@ -2,13 +2,15 @@
 import { useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import {
-  Input, Button, List, Avatar, Card, Descriptions, Tag, Alert, Row, Col,
-  Divider, Form, message, Spin, Typography, Space, Radio, Select, Result, Table, DatePicker, Checkbox, Tabs
+  Input, Button, List, Avatar, Card, Descriptions, Alert, Row, Col,
+  Divider, Form, message, Spin, Typography, Space, Radio, Select, Result, DatePicker, Checkbox, Tabs
 } from 'antd';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag from '../../Components/ui/StatusTag';
 import { SearchOutlined, CheckCircleOutlined, ClockCircleOutlined, PrinterOutlined } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import { apiFetch, ApiError } from '../../lib/api';
-import AcademicCascadeSelect, { type AcademicSelection } from '../../Components/AcademicCascadeSelect/AcademicCascadeSelect';
+import FormationCascadeSelect, { type FormationSelection } from '../../Components/FormationCascadeSelect/FormationCascadeSelect';
 import WebcamCapture from '../../Components/WebcamCapture/WebcamCapture';
 import { getReferenceData, type ReferenceData } from '../../lib/referenceData';
 
@@ -128,7 +130,7 @@ const VerificationAdmission = () => {
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
 
-  const [cascadeSelection, setCascadeSelection] = useState<AcademicSelection>({});
+  const [cascadeSelection, setCascadeSelection] = useState<FormationSelection>({});
   const [formationInfo, setFormationInfo] = useState<{ typeFiliereLibelle: string | null; niveauLibelle: string | null }>({ typeFiliereLibelle: null, niveauLibelle: null });
   const [curcusId, setCurcusId] = useState<number | null>(null);
   const [documentsFourni, setDocumentsFourni] = useState<Record<string, boolean>>({});
@@ -213,8 +215,6 @@ const VerificationAdmission = () => {
       observation_verification: e.observation_verification,
     });
     setCascadeSelection({
-      ecole_id: e.ecole_id ?? undefined,
-      departement_id: e.departement_id ?? undefined,
       filiere_id: e.id_filiere,
       niveau_id: e.niveau_id,
     });
@@ -352,8 +352,8 @@ const VerificationAdmission = () => {
                   title={<>
                     {item.nom} {item.prenoms}{' '}
                     {item.valide_scolarite
-                      ? <Tag color="green" icon={<CheckCircleOutlined />}>Vérifié</Tag>
-                      : <Tag color="orange" icon={<ClockCircleOutlined />}>En attente</Tag>}
+                      ? <StatusTag tone="success" icon={<CheckCircleOutlined />} label="Vérifié" />
+                      : <StatusTag tone="warning" icon={<ClockCircleOutlined />} label="En attente" />}
                   </>}
                   description={`${item.matricule_iipea} — ${item.filiere} (${item.niveau})`}
                 />
@@ -413,8 +413,8 @@ const VerificationAdmission = () => {
                   <Descriptions.Item label="Code de paiement">{dossier.etudiant.code_paiement}</Descriptions.Item>
                   <Descriptions.Item label="Statut">
                     {dossier.etudiant.valide_scolarite
-                      ? <Tag color="green">Vérifié{dossier.etudiant.date_verification ? ` le ${new Date(dossier.etudiant.date_verification).toLocaleString('fr-FR')}` : ''}</Tag>
-                      : <Tag color="orange">En attente de vérification</Tag>}
+                      ? <StatusTag tone="success" label={`Vérifié${dossier.etudiant.date_verification ? ` le ${new Date(dossier.etudiant.date_verification).toLocaleString('fr-FR')}` : ''}`} />
+                      : <StatusTag tone="warning" label="En attente de vérification" />}
                   </Descriptions.Item>
                   <Descriptions.Item label="École">{dossier.hierarchie.ecole || 'Non défini'}</Descriptions.Item>
                   <Descriptions.Item label="Filière">{dossier.hierarchie.filiere}</Descriptions.Item>
@@ -440,11 +440,10 @@ const VerificationAdmission = () => {
           )}
 
           <Card title="Formation">
-            <AcademicCascadeSelect
+            <FormationCascadeSelect
               value={cascadeSelection}
               onChange={setCascadeSelection}
               onFormationInfo={setFormationInfo}
-              showFiliereNiveau
               disabled={dejaPaye}
             />
             {parcoursRequisAffiche && (
@@ -474,8 +473,7 @@ const VerificationAdmission = () => {
           <Divider />
 
           <Card title="Pièces justificatives" style={{ marginBottom: 24 }}>
-            <Table
-              size="small"
+            <DataTable
               pagination={false}
               rowKey="code"
               dataSource={dossier.documents}
@@ -484,7 +482,7 @@ const VerificationAdmission = () => {
                 {
                   title: 'Déclaré par le candidat',
                   dataIndex: 'declare_par_etudiant',
-                  render: (v: boolean) => v ? <Tag color="blue">Déclaré</Tag> : <Tag>Non déclaré</Tag>
+                  render: (v: boolean) => <StatusTag tone={v ? 'info' : 'neutral'} label={v ? 'Déclaré' : 'Non déclaré'} />
                 },
                 {
                   title: 'Fourni physiquement (contrôle agent)',
@@ -622,7 +620,7 @@ const VerificationAdmission = () => {
       )}
 
       {!dossier && !loadingDossier && results.length === 0 && !confirmResult && (
-        <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-soft)' }}>
           <Title level={5} type="secondary">Recherchez un dossier d'admission Web pour commencer la vérification</Title>
           <Text type="secondary">Par nom, prénom ou matricule IIPEA</Text>
         </div>
@@ -659,6 +657,7 @@ interface DocumentReinscriptionInfo {
 
 interface DossierReinscription {
   id: number;
+  etudiant_id: number;
   statut: string;
   decision_academique: string;
   moyenne_annuelle: string | null;
@@ -732,7 +731,7 @@ const VerificationReinscription = () => {
   const [form] = Form.useForm();
   const [submitting, setSubmitting] = useState(false);
 
-  const [cascadeSelection, setCascadeSelection] = useState<AcademicSelection>({});
+  const [cascadeSelection, setCascadeSelection] = useState<FormationSelection>({});
   const [formationInfo, setFormationInfo] = useState<{ typeFiliereLibelle: string | null; niveauLibelle: string | null }>({ typeFiliereLibelle: null, niveauLibelle: null });
   const [curcusId, setCurcusId] = useState<number | null>(null);
   const [documentsFourni, setDocumentsFourni] = useState<Record<string, boolean>>({});
@@ -807,13 +806,11 @@ const VerificationReinscription = () => {
       statut_scolaire: d.statut_scolaire,
       observation_verification: d.observation_verification,
     });
-    // ✅ Les 4 valeurs (école/département/filière/niveau) viennent toutes de la formation
-    // RETENUE pour la réinscription (r.niveau_retenu_id / r.id_filiere_retenu, cohérentes entre
-    // elles côté backend) — jamais un mélange avec la formation actuelle de l'étudiant, qui
-    // laissait les Select Filière/Niveau vides dès que les deux différaient (changement de cycle).
+    // ✅ Les 2 valeurs (filière/niveau) viennent toutes de la formation RETENUE pour la
+    // réinscription (r.niveau_retenu_id / r.id_filiere_retenu, cohérentes entre elles côté
+    // backend) — jamais un mélange avec la formation actuelle de l'étudiant, qui laissait les
+    // Select Filière/Niveau vides dès que les deux différaient (changement de cycle).
     setCascadeSelection({
-      ecole_id: d.ecole_id ?? undefined,
-      departement_id: d.departement_id ?? undefined,
       filiere_id: d.id_filiere_retenu ?? d.etudiant_id_filiere_actuel,
       niveau_id: d.niveau_retenu_id,
     });
@@ -884,6 +881,10 @@ const VerificationReinscription = () => {
         nom: dossierReponse.dossier.nom,
         prenoms: dossierReponse.dossier.prenoms,
       });
+      // Même comportement qu'une admission (voir handleConfirm ci-dessus) : ouverture immédiate
+      // de la fiche d'engagement pour impression/signature après confirmation du dossier.
+      const token = localStorage.getItem('token');
+      window.open(`${API_URL}/api/etudiants/${dossierReponse.dossier.etudiant_id}/fiche-engagement?token=${encodeURIComponent(token || '')}`, '_blank');
     } catch (e) {
       if (e instanceof ApiError) { message.error(e.message); return; }
       message.error('Erreur lors de la confirmation du dossier.');
@@ -937,8 +938,8 @@ const VerificationReinscription = () => {
                   title={<>
                     {item.nom} {item.prenoms}{' '}
                     {item.valide_scolarite
-                      ? <Tag color="green" icon={<CheckCircleOutlined />}>Vérifié</Tag>
-                      : <Tag color="orange" icon={<ClockCircleOutlined />}>En attente</Tag>}
+                      ? <StatusTag tone="success" icon={<CheckCircleOutlined />} label="Vérifié" />
+                      : <StatusTag tone="warning" icon={<ClockCircleOutlined />} label="En attente" />}
                   </>}
                   description={`${item.matricule_iipea} — ${item.filiere} (${item.niveau})`}
                 />
@@ -998,8 +999,8 @@ const VerificationReinscription = () => {
                   <Descriptions.Item label="Code de paiement">{dossierReponse.dossier.code_paiement || 'Non généré'}</Descriptions.Item>
                   <Descriptions.Item label="Statut">
                     {dossierReponse.dossier.valide_scolarite
-                      ? <Tag color="green">Vérifié{dossierReponse.dossier.date_verification ? ` le ${new Date(dossierReponse.dossier.date_verification).toLocaleString('fr-FR')}` : ''}</Tag>
-                      : <Tag color="orange">En attente de vérification</Tag>}
+                      ? <StatusTag tone="success" label={`Vérifié${dossierReponse.dossier.date_verification ? ` le ${new Date(dossierReponse.dossier.date_verification).toLocaleString('fr-FR')}` : ''}`} />
+                      : <StatusTag tone="warning" label="En attente de vérification" />}
                   </Descriptions.Item>
                   <Descriptions.Item label="École">{dossierReponse.dossier.ecole_nom || 'Non défini'}</Descriptions.Item>
                   <Descriptions.Item label="Filière retenue">{dossierReponse.dossier.filiere_retenu_nom}</Descriptions.Item>
@@ -1007,9 +1008,10 @@ const VerificationReinscription = () => {
                   <Descriptions.Item label="Site">{dossierReponse.dossier.site_nom}</Descriptions.Item>
                   <Descriptions.Item label="Parcours déclaré">{dossierReponse.dossier.parcours_actuel || 'Non applicable'}</Descriptions.Item>
                   <Descriptions.Item label="Statut scolaire">
-                    <Tag color={dossierReponse.dossier.statut_scolaire === 'Affecté' ? 'green' : 'default'}>
-                      {dossierReponse.dossier.statut_scolaire || 'Non défini'}
-                    </Tag>
+                    <StatusTag
+                      tone={dossierReponse.dossier.statut_scolaire === 'Affecté' ? 'success' : 'neutral'}
+                      label={dossierReponse.dossier.statut_scolaire || 'Non défini'}
+                    />
                   </Descriptions.Item>
                   <Descriptions.Item label="Montant scolarité">
                     {dossierReponse.dossier.montant_annuel_nouveau ? `${Number(dossierReponse.dossier.montant_annuel_nouveau).toLocaleString('fr-FR')} FCFA` : 'Non déterminé'}
@@ -1035,11 +1037,10 @@ const VerificationReinscription = () => {
           )}
 
           <Card title="Formation">
-            <AcademicCascadeSelect
+            <FormationCascadeSelect
               value={cascadeSelection}
               onChange={setCascadeSelection}
               onFormationInfo={setFormationInfo}
-              showFiliereNiveau
               disabled={dejaPaye}
             />
             {parcoursRequisAffiche && (
@@ -1076,8 +1077,7 @@ const VerificationReinscription = () => {
             {dossierReponse.documents.length === 0 ? (
               <Text type="secondary">Aucun type de document configuré.</Text>
             ) : (
-              <Table
-                size="small"
+              <DataTable
                 pagination={false}
                 rowKey="code"
                 dataSource={dossierReponse.documents}
@@ -1086,18 +1086,16 @@ const VerificationReinscription = () => {
                     title: 'Pièce',
                     dataIndex: 'libelle',
                     render: (libelle: string, doc: DocumentReinscriptionInfo) => (
-                      <>
+                      <Space>
                         {libelle}
-                        {doc.obligatoire
-                          ? <Tag color="red" style={{ marginLeft: 8 }}>Obligatoire</Tag>
-                          : <Tag style={{ marginLeft: 8 }}>Facultatif</Tag>}
-                      </>
+                        <StatusTag tone={doc.obligatoire ? 'danger' : 'neutral'} label={doc.obligatoire ? 'Obligatoire' : 'Facultatif'} />
+                      </Space>
                     )
                   },
                   {
                     title: 'Déclaré par le candidat',
                     dataIndex: 'declare_par_etudiant',
-                    render: (v: boolean) => v ? <Tag color="blue">Déclaré</Tag> : <Tag>Non déclaré</Tag>
+                    render: (v: boolean) => <StatusTag tone={v ? 'info' : 'neutral'} label={v ? 'Déclaré' : 'Non déclaré'} />
                   },
                   {
                     title: 'Fourni physiquement (contrôle agent)',
@@ -1234,7 +1232,7 @@ const VerificationReinscription = () => {
       )}
 
       {!dossierReponse && !loadingDossier && results.length === 0 && !confirmResult && (
-        <div style={{ textAlign: 'center', padding: 60, color: '#999' }}>
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text-soft)' }}>
           <Title level={5} type="secondary">Recherchez un dossier de réinscription Web pour commencer la vérification</Title>
           <Text type="secondary">Par nom, prénom ou matricule IIPEA</Text>
         </div>

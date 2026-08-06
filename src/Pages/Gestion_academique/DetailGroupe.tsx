@@ -3,12 +3,10 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  Card, 
-  Table, 
-  Typography, 
+import {
+  Card,
+  Typography,
   Button,
-  Tag,
   Spin,
   message,
   Descriptions,
@@ -21,6 +19,8 @@ import {
   Space,
   Tooltip
 } from 'antd';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag from '../../Components/ui/StatusTag';
 import { 
   TeamOutlined, 
   UserOutlined,
@@ -623,7 +623,7 @@ const DetailGroupe = () => {
       dataIndex: 'matricule_iipea',
       key: 'matricule',
       render: (matricule: string) => (
-        <Tag color="blue">{matricule}</Tag>
+        <StatusTag tone="info" label={matricule} />
       ),
       width: 100,
     },
@@ -647,7 +647,7 @@ const DetailGroupe = () => {
       render: () => (
         <div style={{ 
           height: '30px', 
-          border: '1px dashed #d9d9d9', 
+          border: '1px dashed var(--border)',
           borderRadius: '4px',
           display: 'flex',
           alignItems: 'center',
@@ -665,7 +665,7 @@ const DetailGroupe = () => {
       render: () => (
         <div style={{ 
           height: '30px', 
-          border: '1px dashed #d9d9d9', 
+          border: '1px dashed var(--border)',
           borderRadius: '4px',
           display: 'flex',
           alignItems: 'center',
@@ -683,7 +683,7 @@ const DetailGroupe = () => {
       render: () => (
         <div style={{ 
           height: '30px', 
-          border: '1px dashed #d9d9d9', 
+          border: '1px dashed var(--border)',
           borderRadius: '4px',
           display: 'flex',
           alignItems: 'center',
@@ -701,7 +701,7 @@ const DetailGroupe = () => {
       render: () => (
         <div style={{ 
           height: '30px', 
-          border: '1px dashed #d9d9d9', 
+          border: '1px dashed var(--border)',
           borderRadius: '4px',
           display: 'flex',
           alignItems: 'center',
@@ -729,9 +729,7 @@ const DetailGroupe = () => {
       dataIndex: 'statut_scolaire',
       key: 'statut',
       render: (statut: string) => (
-        <Tag color={statut === 'Regular' ? 'green' : 'orange'}>
-          {statut}
-        </Tag>
+        <StatusTag tone={statut === 'Regular' ? 'success' : 'warning'} label={statut} />
       ),
       width: 100,
       align: 'center' as const,
@@ -785,9 +783,9 @@ const DetailGroupe = () => {
                   icon={<FileTextOutlined />}
                   onClick={() => handleMassDownloadCertificats('scolarite')}
                   loading={loadingCertificats === 'scolarite'}
-                  style={{ 
-                    backgroundColor: '#1890ff', 
-                    borderColor: '#1890ff',
+                  style={{
+                    backgroundColor: 'var(--mod-scolarite)',
+                    borderColor: 'var(--mod-scolarite)',
                     fontSize: '12px'
                   }}
                 >
@@ -801,9 +799,9 @@ const DetailGroupe = () => {
                   icon={<FileDoneOutlined />}
                   onClick={() => handleMassDownloadCertificats('frequentation')}
                   loading={loadingCertificats === 'frequentation'}
-                  style={{ 
-                    backgroundColor: '#52c41a', 
-                    borderColor: '#52c41a',
+                  style={{
+                    backgroundColor: 'var(--success)',
+                    borderColor: 'var(--success)',
                     fontSize: '12px'
                   }}
                 >
@@ -816,10 +814,10 @@ const DetailGroupe = () => {
                 icon={<CalendarOutlined />}
                 onClick={generateListeAppelPDF}
                 size="large"
-                style={{ 
-                  marginRight: '6px', 
-                  backgroundColor: '#fa8c16', 
-                  borderColor: '#fa8c16',
+                style={{
+                  marginRight: '6px',
+                  backgroundColor: 'var(--warning)',
+                  borderColor: 'var(--warning)',
                   fontSize: '12px'
                 }}
               >
@@ -831,10 +829,10 @@ const DetailGroupe = () => {
                 icon={<DownloadOutlined />}
                 onClick={generateExportExcel}
                 size="large"
-                style={{ 
+                style={{
                   marginRight: '6px',
-                  backgroundColor: '#52c41a', 
-                  borderColor: '#52c41a',
+                  backgroundColor: 'var(--success)',
+                  borderColor: 'var(--success)',
                   fontSize: '12px'
                 }}
               >
@@ -860,15 +858,13 @@ const DetailGroupe = () => {
               <Text strong>{groupe.classe_nom}</Text>
             </Descriptions.Item>
             <Descriptions.Item label="Capacité">
-              <Tag color="blue">{groupe.capacite_max} places</Tag>
+              <StatusTag tone="info" label={`${groupe.capacite_max} places`} />
             </Descriptions.Item>
             <Descriptions.Item label="Effectif">
               <Text strong>{groupe.effectif} étudiants</Text>
             </Descriptions.Item>
             <Descriptions.Item label="Taux de remplissage">
-              <Tag color={groupe.taux_remplissage >= 90 ? 'red' : 'green'}>
-                {groupe.taux_remplissage}%
-              </Tag>
+              <StatusTag tone={groupe.taux_remplissage >= 90 ? 'danger' : 'success'} label={`${groupe.taux_remplissage}%`} />
             </Descriptions.Item>
           </Descriptions>
 
@@ -878,7 +874,7 @@ const DetailGroupe = () => {
               {emploiDuTemps ? (
                 <>
                   <Col>
-                    <FileOutlined style={{ fontSize: '24px', color: '#1890ff' }} />
+                    <FileOutlined style={{ fontSize: '24px', color: 'var(--mod-scolarite)' }} />
                   </Col>
                   <Col flex="auto">
                     <Text strong>{emploiDuTemps.original_name}</Text>
@@ -931,7 +927,7 @@ const DetailGroupe = () => {
                 type="inner" 
                 title={
                   <span>
-                    <FileTextOutlined style={{ color: '#fa8c16', marginRight: '8px' }} />
+                    <FileTextOutlined style={{ color: 'var(--warning)', marginRight: '8px' }} />
                     ÉVALUATION
                   </span>
                 }
@@ -940,14 +936,14 @@ const DetailGroupe = () => {
                 <Text type="secondary" style={{ display: 'block', marginBottom: '16px' }}>
                   Gérer les évaluations et les notes des étudiants
                 </Text>
-                <Button 
-                  type="primary" 
+                <Button
+                  type="primary"
                   icon={<FileTextOutlined />}
                   onClick={handleGoToEvaluation}
                   size="large"
-                  style={{ 
-                    backgroundColor: '#fa8c16', 
-                    borderColor: '#fa8c16',
+                  style={{
+                    backgroundColor: 'var(--warning)',
+                    borderColor: 'var(--warning)',
                     width: '100%'
                   }}
                 >
@@ -960,7 +956,7 @@ const DetailGroupe = () => {
                 type="inner" 
                 title={
                   <span>
-                    <BarChartOutlined style={{ color: '#52c41a', marginRight: '8px' }} />
+                    <BarChartOutlined style={{ color: 'var(--success)', marginRight: '8px' }} />
                     RÉSULTATS
                   </span>
                 }
@@ -969,14 +965,14 @@ const DetailGroupe = () => {
                 <Text type="secondary" style={{ display: 'block', marginBottom: '16px' }}>
                   Consulter les résultats et statistiques du groupe
                 </Text>
-                <Button 
-                  type="primary" 
+                <Button
+                  type="primary"
                   icon={<BarChartOutlined />}
                   onClick={handleGoToResultats}
                   size="large"
-                  style={{ 
-                    backgroundColor: '#52c41a', 
-                    borderColor: '#52c41a',
+                  style={{
+                    backgroundColor: 'var(--success)',
+                    borderColor: 'var(--success)',
                     width: '100%'
                   }}
                 >
@@ -992,14 +988,14 @@ const DetailGroupe = () => {
                 title="Total Étudiants"
                 value={groupe.effectif}
                 prefix={<UserOutlined />}
-                valueStyle={{ color: '#1890ff' }}
+                valueStyle={{ color: 'var(--mod-scolarite)' }}
               />
             </Col>
             <Col span={6}>
               <Statistic
                 title="Places disponibles"
                 value={groupe.capacite_max - groupe.effectif}
-                valueStyle={{ color: '#52c41a' }}
+                valueStyle={{ color: 'var(--success)' }}
               />
             </Col>
             <Col span={6}>
@@ -1007,7 +1003,7 @@ const DetailGroupe = () => {
                 title="Taux de remplissage"
                 value={groupe.taux_remplissage}
                 suffix="%"
-                valueStyle={{ color: groupe.taux_remplissage >= 90 ? '#f5222d' : '#52c41a' }}
+                valueStyle={{ color: groupe.taux_remplissage >= 90 ? 'var(--danger)' : 'var(--success)' }}
               />
             </Col>
             <Col span={6}>
@@ -1015,7 +1011,7 @@ const DetailGroupe = () => {
                 title="Certificats à générer"
                 value={groupe.effectif}
                 prefix={<FileTextOutlined />}
-                valueStyle={{ color: '#722ed1' }}
+                valueStyle={{ color: 'var(--mod-comptabilite)' }}
               />
             </Col>
           </Row>
@@ -1028,13 +1024,11 @@ const DetailGroupe = () => {
           </Title>
           
           <div ref={tableRef}>
-            <Table
+            <DataTable<Etudiant>
               columns={columns}
               dataSource={groupe.etudiants}
               rowKey="id"
               pagination={{ pageSize: 10 }}
-              bordered
-              size="middle"
               scroll={{ x: 1000 }}
               style={{ marginTop: '16px' }}
             />

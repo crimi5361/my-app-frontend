@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Card, Table, Input, Select, Space, Tag, Button, message, Avatar } from 'antd';
-import { SearchOutlined, PrinterOutlined } from '@ant-design/icons';
+import { Card, Select, Space, Button, message, Avatar } from 'antd';
+import { PrinterOutlined } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import DataTable from '../../Components/ui/DataTable';
+import StatusTag from '../../Components/ui/StatusTag';
 import { apiFetch, ApiError } from '../../lib/api';
 
 const API_URL = import.meta.env.VITE_API_URL_SERVER || '';
@@ -89,30 +91,27 @@ const InscriptionsEnAttente = () => {
       <PageHeader />
 
       <Card title="Inscriptions en attente de paiement" style={{ marginBottom: 24 }}>
-        <Space wrap style={{ marginBottom: 16 }}>
-          <Select
-            value={anneeId}
-            onChange={setAnneeId}
-            style={{ width: 180 }}
-            options={annees.map(a => ({ value: a.id, label: a.annee }))}
-            placeholder="Année académique"
-          />
-          <Input
-            placeholder="Nom, prénom ou matricule"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            onPressEnter={() => fetchDossiers(1, pagination.pageSize)}
-            style={{ width: 240 }}
-          />
-          <Button type="primary" icon={<SearchOutlined />} onClick={() => fetchDossiers(1, pagination.pageSize)}>
-            Rechercher
-          </Button>
-        </Space>
-
-        <Table
+        <DataTable<Dossier>
           dataSource={dossiers}
           rowKey={r => `${r.type}-${r.dossier_id}`}
           loading={loading}
+          searchValue={search}
+          searchPlaceholder="Nom, prénom ou matricule"
+          onSearchChange={setSearch}
+          filters={
+            <Select
+              value={anneeId}
+              onChange={setAnneeId}
+              style={{ width: 180 }}
+              options={annees.map(a => ({ value: a.id, label: a.annee }))}
+              placeholder="Année académique"
+            />
+          }
+          toolbarExtra={
+            <Button type="primary" onClick={() => fetchDossiers(1, pagination.pageSize)}>
+              Rechercher
+            </Button>
+          }
           pagination={{
             current: pagination.current,
             pageSize: pagination.pageSize,
@@ -135,12 +134,12 @@ const InscriptionsEnAttente = () => {
             {
               title: 'Type',
               dataIndex: 'type',
-              render: (t) => <Tag color={t === 'admission' ? 'orange' : 'purple'}>{t === 'admission' ? 'Inscription' : 'Réinscription'}</Tag>,
+              render: (t) => <StatusTag tone={t === 'admission' ? 'warning' : 'info'} label={t === 'admission' ? 'Inscription' : 'Réinscription'} />,
             },
             {
               title: 'Code de paiement',
               dataIndex: 'code_paiement',
-              render: (c) => c ? <Tag color="blue">{c}</Tag> : <span style={{ color: '#999' }}>Non généré</span>,
+              render: (c) => c ? <StatusTag tone="info" label={c} /> : <span style={{ color: 'var(--text-soft)' }}>Non généré</span>,
             },
             {
               title: 'Actions',

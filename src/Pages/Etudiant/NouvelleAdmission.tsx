@@ -455,8 +455,8 @@ const NouvelleAdmission = () => {
                 <Col span={8}>
                   <Form.Item name="numero_table" label="Numéro de table au BAC"
                     rules={[{ required: true, message: 'Veuillez saisir le numéro de table' },
-                            { pattern: /^[0-9]+$/, message: 'Numéro invalide' }]}>
-                    <Input placeholder="Numéro de table" />
+                            { pattern: /^[0-9A-Za-z]+$/, message: 'Numéro invalide' }]}>
+                    <Input placeholder="Ex: 35647G" />
                   </Form.Item>
                 </Col>
                 <Col span={8}>
@@ -479,7 +479,7 @@ const NouvelleAdmission = () => {
                         const active = isYearActive(a.etat);
                         return (
                           <Option key={a.id} value={a.id.toString()} disabled={!active}
-                            style={!active ? { color: '#ccc', backgroundColor: '#f5f5f5' } : {}}>
+                            style={!active ? { color: 'var(--text-soft)', backgroundColor: 'var(--paper)' } : {}}>
                             {a.annee}{active ? '  (En cours - Inscription autorisée)' : '  (Inscription non autorisée)'}
                           </Option>
                         );

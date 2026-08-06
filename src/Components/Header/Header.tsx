@@ -8,6 +8,7 @@ import { FiLogOut } from "react-icons/fi";
 import { RiLockPasswordLine } from "react-icons/ri";
 import { LayoutGrid } from "lucide-react";
 import { useChangePassword, ChangePasswordModal } from "../ChangePasswordModal";
+import { getDashboardRouteForRole } from "../../lib/access";
 
 interface HeaderProps {
   darkMode: boolean;
@@ -54,29 +55,29 @@ const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
-      <nav className="fixed top-0 z-50 w-full bg-white border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+      <nav className="fixed top-0 z-50 w-full bg-[var(--surface)] border-b border-[var(--border)] dark:bg-gray-800 dark:border-gray-700">
         <div className="px-3 py-4 lg:px-5 lg:pl-3">
           <div className="flex items-center justify-between">
 
             {/* Section gauche */}
             <div className="flex items-center">
               <button
-                className="p-2 text-gray-500 rounded-lg hover:bg-gray-100 focus:outline-none focus:ring-2
-                  focus:ring-gray-200 dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600"
+                className="p-2 text-[var(--text-soft)] rounded-lg hover:bg-[var(--paper)] focus:outline-none focus:ring-2
+                  focus:ring-[var(--mist)] dark:text-gray-400 dark:hover:bg-gray-700 dark:focus:ring-gray-600"
                 onClick={toggleSidemenu}
               >
                 <HiOutlineMenuAlt2 className="text-2xl" />
               </button>
 
-              <a href="/dashboard" className="flex items-center ms-4 space-x-3">
+              <button
+                onClick={() => navigate(getDashboardRouteForRole(userRole))}
+                className="flex items-center ms-4 space-x-3 bg-transparent border-none cursor-pointer p-0"
+              >
                 <img src="/logo.png" alt="Logo" className="w-14 h-14 object-contain" />
-                <span
-                  className="text-xl font-bold italic text-gray-800 dark:text-white"
-                  style={{ fontFamily: "'Playfair Display', serif" }}
-                >
+                <span className="font-display text-xl font-bold text-[var(--text)] dark:text-white">
                   {departementName}
                 </span>
-              </a>
+              </button>
             </div>
 
             {/* Section droite */}
@@ -85,7 +86,7 @@ const Header: React.FC<HeaderProps> = ({
                 onClick={() => navigate("/hub")}
                 title="Retour au Hub"
                 className="flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium
-                  text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
+                  text-[var(--text-soft)] hover:bg-[var(--paper)] dark:text-gray-300 dark:hover:bg-gray-700 transition-colors"
               >
                 <LayoutGrid size={16} />
                 <span className="hidden sm:inline">Hub</span>
@@ -106,14 +107,14 @@ const Header: React.FC<HeaderProps> = ({
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.2 }}
-                      className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-md
-                        shadow-lg dark:bg-gray-700 dark:border-gray-600 z-50"
+                      className="absolute right-0 mt-2 w-56 bg-[var(--surface)] border border-[var(--border)] rounded-md
+                        shadow-[var(--shadow-lift)] dark:bg-gray-700 dark:border-gray-600 z-50"
                     >
-                      <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 dark:border-gray-600">
-                        <FaUserCircle className="text-xl text-gray-500 dark:text-gray-300" />
+                      <div className="flex items-center gap-2 px-4 py-3 border-b border-[var(--border)] dark:border-gray-600">
+                        <FaUserCircle className="text-xl text-[var(--text-soft)] dark:text-gray-300" />
                         <div className="flex flex-col">
-                          <span className="text-sm font-medium text-gray-900 dark:text-white">{userName}</span>
-                          <span className="text-xs text-gray-500 dark:text-gray-400">{userRole}</span>
+                          <span className="text-sm font-medium text-[var(--text)] dark:text-white">{userName}</span>
+                          <span className="text-xs text-[var(--text-soft)] dark:text-gray-400">{userRole}</span>
                         </div>
                       </div>
 
@@ -121,19 +122,19 @@ const Header: React.FC<HeaderProps> = ({
                         <li>
                           <button
                             onClick={handleChangePassword}
-                            className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-gray-700
-                              hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
+                            className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-[var(--text)]
+                              hover:bg-[var(--paper)] dark:text-gray-300 dark:hover:bg-gray-600 transition-colors"
                           >
                             <RiLockPasswordLine className="text-base" />
                             Changer le mot de passe
                           </button>
                         </li>
-                        <li className="border-t border-gray-100 dark:border-gray-600 my-1" />
+                        <li className="border-t border-[var(--border)] dark:border-gray-600 my-1" />
                         <li>
                           <button
                             onClick={onLogout}
-                            className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-red-600
-                              hover:bg-gray-100 dark:text-red-400 dark:hover:bg-gray-600 transition-colors"
+                            className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-[var(--danger)]
+                              hover:bg-[var(--paper)] dark:text-red-400 dark:hover:bg-gray-600 transition-colors"
                           >
                             <FiLogOut className="text-base" />
                             Se déconnecter
