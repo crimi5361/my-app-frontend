@@ -356,6 +356,9 @@ const Reinscription = () => {
       setDemandeResult(result.data);
       // Ouverture automatique de la fiche : l'agent ne doit pas avoir à cliquer un bouton
       // supplémentaire pour l'imprimer (le bouton manuel reste en secours si le popup est bloqué).
+      // La fiche contient désormais la fiche de réinscription suivie de la fiche d'engagement
+      // dans le même document (même principe que la fiche d'inscription, sections ['fiche',
+      // 'engagement'] rendues ensemble côté backend) — un seul onglet, jamais deux popups.
       if (result.data?.reinscription_id) {
         ouvrirFiche(result.data.reinscription_id);
       }

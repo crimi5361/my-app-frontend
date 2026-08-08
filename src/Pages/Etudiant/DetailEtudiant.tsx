@@ -147,6 +147,15 @@ interface AnneePaiement {
   annee_academique_id: number;
   annee: string;
   is_current: boolean;
+  niveau?: string;
+  filiere?: string;
+  filiere_sigle?: string;
+  ecole?: string;
+  departement?: string;
+  cursus?: string;
+  classe?: string;
+  groupe?: string;
+  statut_scolaire?: string;
 }
 
 interface LignePaiement {
@@ -510,21 +519,21 @@ const DetailEtudiant = () => {
           </Col>
         </Row>
 
-        {/* ── Section Académique (année courante) ── */}
-        <Divider orientation="left"><BookOutlined /> Informations Académiques — Année en cours</Divider>
+        {/* ── Section Académique (historique complet, même source que l'historique financier) ── */}
+        <Divider orientation="left"><BookOutlined /> Informations Académiques</Divider>
         <DataTable
-          dataSource={[etudiant]}
-          rowKey="id"
+          dataSource={anneesFinance}
+          rowKey="annee_academique_id"
           columns={[
-            { title: 'Année Académique', dataIndex: 'annee_academique', key: 'annee_academique' },
-            { title: 'École', render: (_: any, r: EtudiantDetails) => r.ecole || '-', key: 'ecole' },
-            { title: 'Département', render: (_: any, r: EtudiantDetails) => r.departement || '-', key: 'dept' },
-            { title: 'Filière', render: (_: any, r: EtudiantDetails) => `${r.filiere} (${r.filiere_sigle})`, key: 'filiere' },
+            { title: 'Année', dataIndex: 'annee', key: 'annee' },
+            { title: 'Statut', render: (_: any, r: AnneePaiement) => <StatusTag tone={r.is_current ? 'success' : 'neutral'} label={r.is_current ? 'Année en cours' : 'Année antérieure'} />, key: 'statut' },
+            { title: 'École', render: (_: any, r: AnneePaiement) => r.ecole || '-', key: 'ecole' },
+            { title: 'Département', render: (_: any, r: AnneePaiement) => r.departement || '-', key: 'dept' },
+            { title: 'Filière', render: (_: any, r: AnneePaiement) => r.filiere ? `${r.filiere} (${r.filiere_sigle})` : '-', key: 'filiere' },
             { title: 'Niveau', dataIndex: 'niveau', key: 'niveau' },
-            { title: 'Cursus', render: (_: any, r: EtudiantDetails) => r.cursus || '-', key: 'cursus' },
-            { title: 'Classe', render: (_: any, r: EtudiantDetails) => r.groupe?.classe?.nom || '-', key: 'classe' },
-            { title: 'Groupe', render: (_: any, r: EtudiantDetails) => r.groupe?.nom || '-', key: 'groupe' },
-            { title: 'Statut', render: (_: any, r: EtudiantDetails) => <StatusTag tone={getStatutTone(r.statut_scolaire)} label={r.statut_scolaire} />, key: 'statut' },
+            { title: 'Cursus', render: (_: any, r: AnneePaiement) => r.cursus || '-', key: 'cursus' },
+            { title: 'Classe', render: (_: any, r: AnneePaiement) => r.classe || '-', key: 'classe' },
+            { title: 'Groupe', render: (_: any, r: AnneePaiement) => r.groupe || '-', key: 'groupe' },
           ]}
           pagination={false}
           style={{ marginBottom: 24 }}
