@@ -132,8 +132,8 @@ const Acceuille = () => {
    * (car la classe peut être comme: "SCIENCES JURIDIQUES ... LICENCE 3")
    */
   const canSeeMemoireButton = (): boolean => {
-    if (!studentInfo) return false;
-    const classe = studentInfo.classe?.toUpperCase();
+    if (!studentInfo?.classe) return false;
+    const classe = studentInfo.classe.toUpperCase();
     return classe.includes('LICENCE 3') || classe.includes('MASTER 2');
   };
 
