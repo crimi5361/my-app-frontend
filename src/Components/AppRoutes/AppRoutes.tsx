@@ -40,7 +40,7 @@ import NouvelleAdmission from "../../Pages/Etudiant/NouvelleAdmission";
 import Reinscription from "../../Pages/Etudiant/Reinscription";
 import Verification from "../../Pages/Etudiant/Verification";
 import Maquettes from "../../Pages/Gestion_academique/Maquettes";
-import Migrations from "../../Pages/Gestion_academique/Migrations";
+import GesEquivalences from "../../Pages/Gestion_academique/GesEquivalences";
 import Resultats from "../../Pages/Gestion_academique/Professeur";
 
 import Parametres from "../../Pages/Parametres/Parametres";
@@ -292,7 +292,7 @@ const AppRoutes = () => {
       
       <Route path="/Gestion_academique/Migrations" element={
         <ProtectedRoute requiredPermission={["admin", "Gestion_academique"]}>
-          <Migrations />
+          <GesEquivalences />
         </ProtectedRoute>
       } />
       

@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/exhaustive-deps */
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Input,
   Button,
@@ -13,6 +13,9 @@ import {
 } from 'antd';
 import DataTable from '../../Components/ui/DataTable';
 import StatusTag from '../../Components/ui/StatusTag';
+import { buildFiltersQuery, type EtudiantFiltersValue } from '../../lib/etudiantFilters';
+import { useEtudiantFilterOptions } from '../../lib/useEtudiantFilterOptions';
+import { getTextColumnFilterProps, getSelectColumnFilterProps } from '../../lib/tableColumnFilters';
 import { 
   SearchOutlined, 
   DownloadOutlined,
@@ -46,6 +49,8 @@ interface EtudiantData {
   filiere_sigle: string;
   niveau: string;
   type_parcours: string;
+  classe_nom?: string;
+  groupe_nom?: string;
   annee_academique: string;
   standing: string;
   statut_scolaire: string;
@@ -105,6 +110,8 @@ const Etudiant = () => {
   const [selectedYearInfo, setSelectedYearInfo] = useState<{annee: string; etat: string} | null>(null);
   const [currentUser, setCurrentUser] = useState<UserInfo | null>(null);
   const [initialYearSet, setInitialYearSet] = useState(false);
+  const [filters, setFilters] = useState<EtudiantFiltersValue>({});
+  const [exportLoading, setExportLoading] = useState(false);
   
   const navigate = useNavigate();
   const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
@@ -208,7 +215,7 @@ const Etudiant = () => {
     }
   };
 
-  const fetchData = useCallback(async (page: number, pageSize: number, searchTerm = '', yearId: number | null) => {
+  const fetchData = useCallback(async (page: number, pageSize: number, searchTerm = '', yearId: number | null, filtersValue: EtudiantFiltersValue = {}) => {
     if (!yearId) return;
     if (!currentUser?.departement_id) {
       message.warning('Aucun département associé à votre compte');
@@ -224,9 +231,9 @@ const Etudiant = () => {
         return;
       }
 
-      // Construction de l'URL avec recherche et année académique
-      let url = `${API_URL}/api/etudiants/EtudiantsByDepartement?departement_id=${currentUser.departement_id}&anneeAcademiqueId=${yearId}&page=${page}&limit=${pageSize}`;
-      
+      // Construction de l'URL avec recherche, filtres et année académique
+      let url = `${API_URL}/api/etudiants/EtudiantsByDepartement?departement_id=${currentUser.departement_id}&anneeAcademiqueId=${yearId}&page=${page}&limit=${pageSize}${buildFiltersQuery(filtersValue)}`;
+
       // Ajout du paramètre de recherche si fourni
       if (searchTerm.trim()) {
         url += `&search=${encodeURIComponent(searchTerm.trim())}`;
@@ -290,44 +297,29 @@ const Etudiant = () => {
   useEffect(() => {
     if (initialYearSet && selectedYearId) {
       const timeoutId = setTimeout(() => {
-        fetchData(1, pagination.pageSize, searchInput, selectedYearId);
+        fetchData(1, pagination.pageSize, searchInput, selectedYearId, filters);
       }, 500);
       return () => clearTimeout(timeoutId);
     }
-  }, [searchInput, selectedYearId, initialYearSet]);
+  }, [searchInput, selectedYearId, filters, initialYearSet]);
 
   // Chargement quand l'année change
   useEffect(() => {
     if (initialYearSet && selectedYearId) {
-      fetchData(1, pagination.pageSize, searchInput, selectedYearId);
+      fetchData(1, pagination.pageSize, searchInput, selectedYearId, filters);
     }
   }, [selectedYearId, initialYearSet]);
 
-  // Filtrage côté client uniquement si on charge toutes les données (pageSize >= 50)
-  const shouldFilterLocally = pagination.pageSize >= 50;
+  const { filieres, niveauLibelles, classes, loadingClasses, groupes, loadingGroupes, curcusListe } =
+    useEtudiantFilterOptions(selectedYearId);
 
-  const filteredData = useMemo(() => {
-    if (!shouldFilterLocally || !searchInput) return data;
-    
-    const searchTerms = searchInput.toLowerCase().split(' ').filter(term => term.length > 0);
-    
-    return data.filter(item => {
-      const nomPrenom = `${item.nom} ${item.prenoms}`.toLowerCase();
-      const prenomNom = `${item.prenoms} ${item.nom}`.toLowerCase();
-      
-      return searchTerms.every(term => 
-        nomPrenom.includes(term) ||
-        prenomNom.includes(term) ||
-        item.matricule?.toLowerCase().includes(term) ||
-        item.code_unique?.toLowerCase().includes(term) ||
-        item.matricule_iipea?.toLowerCase().includes(term) ||
-        item.filiere?.toLowerCase().includes(term) ||
-        item.filiere_sigle?.toLowerCase().includes(term) ||
-        item.telephone?.includes(term) ||
-        item.nationalite?.toLowerCase().includes(term)
-      );
-    });
-  }, [data, searchInput, shouldFilterLocally]);
+  const filiereOptions = filieres.map((f) => ({ label: `${f.nom} (${f.sigle})`, value: f.id }));
+  const niveauOptions = niveauLibelles.map((libelle) => ({ label: libelle, value: libelle }));
+  const classeOptions = classes.map((c) => ({ label: c.nom, value: c.id }));
+  const groupeOptions = groupes.map((g) => ({ label: `${g.nom} — ${g.classeNom}`, value: g.id }));
+  const cursusOptions = curcusListe.map((c) => ({ label: c.type_parcours, value: c.id }));
+  const genreOptions = [{ label: 'Masculin', value: 'Masculin' }, { label: 'Féminin', value: 'Féminin' }];
+  const statutScolaireOptions = [{ label: 'Affecté', value: 'Affecté' }, { label: 'Non affecté', value: 'Non affecté' }];
 
   const columns: ColumnsType<EtudiantData> = [
     {
@@ -335,7 +327,6 @@ const Etudiant = () => {
       dataIndex: 'matricule',
       key: 'matricule',
       width: 150,
-      fixed: 'left',
       sorter: (a, b) => (a.matricule || '').localeCompare(b.matricule || ''),
     },
     {
@@ -343,23 +334,22 @@ const Etudiant = () => {
       dataIndex: 'code_unique',
       key: 'code_unique',
       width: 150,
-      fixed: 'left',
     },
     {
       title: 'Nom',
       dataIndex: 'nom',
       key: 'nom',
       width: 150,
-      fixed: 'left',
       sorter: (a, b) => (a.nom || '').localeCompare(b.nom || ''),
+      ...getTextColumnFilterProps({ value: searchInput, onChange: setSearchInput, placeholder: 'Rechercher un nom...' }),
     },
     {
       title: 'Prénoms',
       dataIndex: 'prenoms',
       key: 'prenoms',
       width: 150,
-      fixed: 'left',
       sorter: (a, b) => (a.prenoms || '').localeCompare(b.prenoms || ''),
+      ...getTextColumnFilterProps({ value: searchInput, onChange: setSearchInput, placeholder: 'Rechercher un prénom...' }),
     },
     {
       title: 'Matricule IIPEA',
@@ -380,6 +370,12 @@ const Etudiant = () => {
           <StatusTag tone={isMale ? 'info' : 'neutral'} label={isMale ? 'Masculin' : 'Féminin'} />
         );
       },
+      ...getSelectColumnFilterProps({
+        value: filters.sexe,
+        onChange: (sexe) => setFilters((f) => ({ ...f, sexe: sexe as string | undefined })),
+        options: genreOptions,
+        placeholder: 'Filtrer par genre',
+      }),
     },
     {
       title: 'Filière',
@@ -391,6 +387,12 @@ const Etudiant = () => {
           {record.filiere} ({record.filiere_sigle})
         </Text>
       ),
+      ...getSelectColumnFilterProps({
+        value: filters.filiere_id,
+        onChange: (id) => setFilters((f) => ({ ...f, filiere_id: id as number | undefined })),
+        options: filiereOptions,
+        placeholder: 'Filtrer par filière',
+      }),
     },
     {
       title: 'Niveau',
@@ -398,12 +400,52 @@ const Etudiant = () => {
       key: 'niveau',
       width: 120,
       render: (text) => <StatusTag tone="info" label={text} />,
+      ...getSelectColumnFilterProps({
+        value: filters.niveau,
+        onChange: (niveau) => setFilters((f) => ({ ...f, niveau: niveau as string | undefined })),
+        options: niveauOptions,
+        placeholder: 'Filtrer par niveau',
+      }),
+    },
+    {
+      title: 'Classe',
+      dataIndex: 'classe_nom',
+      key: 'classe_nom',
+      width: 200,
+      render: (text) => text || '-',
+      ...getSelectColumnFilterProps({
+        value: filters.classe_id,
+        onChange: (id) => setFilters((f) => ({ ...f, classe_id: id as number | undefined })),
+        options: classeOptions,
+        placeholder: 'Filtrer par classe',
+        loading: loadingClasses,
+      }),
+    },
+    {
+      title: 'Groupe',
+      dataIndex: 'groupe_nom',
+      key: 'groupe_nom',
+      width: 200,
+      render: (text) => text || '-',
+      ...getSelectColumnFilterProps({
+        value: filters.groupe_id,
+        onChange: (id) => setFilters((f) => ({ ...f, groupe_id: id as number | undefined })),
+        options: groupeOptions,
+        placeholder: 'Filtrer par groupe',
+        loading: loadingGroupes,
+      }),
     },
     {
       title: 'Parcours',
       dataIndex: 'type_parcours',
       key: 'type_parcours',
       width: 150,
+      ...getSelectColumnFilterProps({
+        value: filters.curcus_id,
+        onChange: (id) => setFilters((f) => ({ ...f, curcus_id: id as number | undefined })),
+        options: cursusOptions,
+        placeholder: 'Filtrer par parcours',
+      }),
     },
     {
       title: 'Téléphone',
@@ -474,6 +516,12 @@ const Etudiant = () => {
         if (statut === 'exclu') tone = 'danger';
         return <StatusTag tone={tone} label={statut} />;
       },
+      ...getSelectColumnFilterProps({
+        value: filters.statut_scolaire,
+        onChange: (statut) => setFilters((f) => ({ ...f, statut_scolaire: statut as string | undefined })),
+        options: statutScolaireOptions,
+        placeholder: 'Filtrer par statut scolaire',
+      }),
     },
     {
       title: 'Date Inscription',
@@ -527,7 +575,6 @@ const Etudiant = () => {
       title: 'Actions',
       key: 'actions',
       width: 130,
-      fixed: 'right',
       render: (_, record) => (
         <Space size="small">
           <Tooltip title="Voir détails">
@@ -562,34 +609,59 @@ const Etudiant = () => {
   const handleTableChange = (newPagination: TablePaginationConfig) => {
     const newPage = newPagination.current || 1;
     const newPageSize = newPagination.pageSize || 10;
-    
-    if (newPageSize < 50 || newPageSize !== pagination.pageSize) {
-      fetchData(newPage, newPageSize, searchInput, selectedYearId);
-    } else {
-      setPagination(prev => ({
-        ...prev,
-        current: newPage,
-        pageSize: newPageSize
-      }));
-    }
+    fetchData(newPage, newPageSize, searchInput, selectedYearId, filters);
   };
 
-  const handleExport = () => {
+  // ✅ Export server-side, indépendant de la pagination affichée : redemande la liste avec
+  // limit = total réel de lignes correspondant aux filtres/recherche actuels (jamais seulement
+  // la page visible). Réutilise le même endpoint paginé que l'affichage — mêmes filtres, mêmes
+  // colonnes (dont les pièces justificatives, absentes de /api/etudiants/ExportEtudiants) —
+  // aucune divergence possible entre ce qui est affiché et ce qui est exporté.
+  const handleExport = async () => {
     if (!selectedYearId) {
       message.warning('Veuillez sélectionner une année académique avant d\'exporter');
       return;
     }
-
-    if (data.length === 0) {
-      message.warning('Aucune donnée à exporter');
+    if (!currentUser?.departement_id) return;
+    if (pagination.total === 0) {
+      message.warning('Aucune donnée à exporter pour les filtres sélectionnés');
       return;
     }
 
-    message.loading({ content: 'Préparation de l\'export...', key: 'export' });
-    
+    setExportLoading(true);
+    const hideLoading = message.loading({ content: 'Préparation de l\'export...', key: 'export', duration: 0 });
+
     try {
-      const dataToExport = shouldFilterLocally && searchInput ? filteredData : data;
-      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        message.error('Authentification requise');
+        navigate('/login');
+        return;
+      }
+
+      let url = `${API_URL}/api/etudiants/EtudiantsByDepartement?departement_id=${currentUser.departement_id}&anneeAcademiqueId=${selectedYearId}&page=1&limit=${pagination.total}${buildFiltersQuery(filters)}`;
+      if (searchInput.trim()) {
+        url += `&search=${encodeURIComponent(searchInput.trim())}`;
+      }
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+
+      if (response.status === 401) {
+        message.error('Session expirée, veuillez vous reconnecter');
+        localStorage.removeItem('token');
+        navigate('/login');
+        return;
+      }
+      if (!response.ok) throw new Error(`Erreur HTTP: ${response.status}`);
+
+      const result = await response.json();
+      if (!result.success) throw new Error(result.message || 'Erreur lors de l\'export');
+
+      const dataToExport: EtudiantData[] = result.data;
+
       const exportData = dataToExport.map(item => {
         const normalizedSexe = String(item.sexe || '').trim().toUpperCase();
         const sexeExport = normalizedSexe === 'M' || normalizedSexe === 'MASCULIN' ? 'Masculin' : 'Féminin';
@@ -638,11 +710,14 @@ const Etudiant = () => {
       const annee = selectedYearInfo?.annee?.replace(/\//g, '-') || 'annee';
       const fileName = `etudiants_${deptName}_${annee}_${new Date().toISOString().slice(0,10)}.xlsx`;
       XLSX.writeFile(wb, fileName);
-      
-      message.success({ content: 'Export réalisé avec succès', key: 'export' });
+
+      message.success({ content: `${exportData.length} étudiants exportés avec succès`, key: 'export', duration: 3 });
     } catch (error) {
       console.error('Erreur lors de l\'export:', error);
-      message.error({ content: 'Erreur lors de l\'export', key: 'export' });
+      message.error({ content: error instanceof Error ? error.message : 'Erreur lors de l\'export', key: 'export', duration: 5 });
+    } finally {
+      setExportLoading(false);
+      hideLoading();
     }
   };
 
@@ -727,11 +802,12 @@ const Etudiant = () => {
               style={{ width: 300 }}
               allowClear
             />
-            <Button 
-              type="primary" 
+            <Button
+              type="primary"
               icon={<DownloadOutlined />}
               onClick={handleExport}
-              disabled={loading || !selectedYearId || data.length === 0}
+              loading={exportLoading}
+              disabled={loading || !selectedYearId || pagination.total === 0}
             >
               Exporter Excel
             </Button>
@@ -759,19 +835,19 @@ const Etudiant = () => {
 
             <DataTable<EtudiantData>
               columns={columns}
-              dataSource={shouldFilterLocally ? filteredData : data}
+              dataSource={data}
               rowKey="id"
               loading={loading}
               pagination={{
                 current: pagination.current,
                 pageSize: pagination.pageSize,
-                total: shouldFilterLocally ? filteredData.length : pagination.total,
+                total: pagination.total,
                 pageSizeOptions: ['10', '50', '100', '500', '1000', '5000', '10000'],
                 showTotal: (total, range) =>
                   `${range[0]}-${range[1]} sur ${total} étudiants`,
               }}
               onChange={handleTableChange}
-              scroll={{ x: 2300 }}
+              scroll={{ x: 'max-content' }}
             />
           </>
         )}

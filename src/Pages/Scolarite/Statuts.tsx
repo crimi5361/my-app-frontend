@@ -12,6 +12,9 @@ import {
 } from 'antd';
 import DataTable from '../../Components/ui/DataTable';
 import StatusTag, { type StatusTone } from '../../Components/ui/StatusTag';
+import { buildFiltersQuery, type EtudiantFiltersValue } from '../../lib/etudiantFilters';
+import { useEtudiantFilterOptions } from '../../lib/useEtudiantFilterOptions';
+import { getTextColumnFilterProps, getSelectColumnFilterProps } from '../../lib/tableColumnFilters';
 import { 
   SearchOutlined, 
   DownloadOutlined,
@@ -52,6 +55,7 @@ interface EtudiantData {
   statut_scolaire: string;
   date_inscription: string;
   groupe_nom: string;
+  classe_nom?: string;
   extrait_naissance: string;
   justificatif_identite: string;
   dernier_diplome: string;
@@ -150,7 +154,8 @@ const Statuts = () => {
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [selectedYearId, setSelectedYearId] = useState<number | null>(null);
   const [selectedYearInfo, setSelectedYearInfo] = useState<{annee: string; etat: string} | null>(null);
-  
+  const [filters, setFilters] = useState<EtudiantFiltersValue>({});
+
   const navigate = useNavigate();
   const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
 
@@ -194,7 +199,7 @@ useEffect(() => {
   fetchAcademicYears();
 }, [API_URL, navigate]);
 
-  const fetchData = useCallback(async (page: number, pageSize: number, searchTerm = '', yearId: number | null) => {
+  const fetchData = useCallback(async (page: number, pageSize: number, searchTerm = '', yearId: number | null, filtersValue: EtudiantFiltersValue = {}) => {
     if (!yearId) {
       message.warning('Veuillez sélectionner une année académique');
       return;
@@ -204,15 +209,15 @@ useEffect(() => {
     try {
       const token = localStorage.getItem('token');
       const departement_id = localStorage.getItem('departement_id');
-      
+
       if (!token || !departement_id) {
         message.error('Authentification requise');
         navigate('/login');
         return;
       }
 
-      let url = `${API_URL}/api/etudiants/EtudiantsByDepartement?departement_id=${departement_id}&anneeAcademiqueId=${yearId}&page=${page}&limit=${pageSize}`;
-      
+      let url = `${API_URL}/api/etudiants/EtudiantsByDepartement?departement_id=${departement_id}&anneeAcademiqueId=${yearId}&page=${page}&limit=${pageSize}${buildFiltersQuery(filtersValue)}`;
+
       if (searchTerm.trim()) {
         url += `&search=${encodeURIComponent(searchTerm.trim())}`;
       }
@@ -267,18 +272,29 @@ useEffect(() => {
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (selectedYearId) {
-        fetchData(1, pagination.pageSize, searchInput, selectedYearId);
+        fetchData(1, pagination.pageSize, searchInput, selectedYearId, filters);
       }
     }, 500);
 
     return () => clearTimeout(timeoutId);
-  }, [searchInput, selectedYearId, pagination.pageSize, fetchData]);
+  }, [searchInput, selectedYearId, pagination.pageSize, filters, fetchData]);
 
   useEffect(() => {
     if (selectedYearId) {
-      fetchData(1, pagination.pageSize, searchInput, selectedYearId);
+      fetchData(1, pagination.pageSize, searchInput, selectedYearId, filters);
     }
   }, [selectedYearId, fetchData]);
+
+  const { filieres, niveauLibelles, classes, loadingClasses, groupes, loadingGroupes, curcusListe } =
+    useEtudiantFilterOptions(selectedYearId);
+
+  const filiereOptions = filieres.map((f) => ({ label: `${f.nom} (${f.sigle})`, value: f.id }));
+  const niveauOptions = niveauLibelles.map((libelle) => ({ label: libelle, value: libelle }));
+  const classeOptions = classes.map((c) => ({ label: c.nom, value: c.id }));
+  const groupeOptions = groupes.map((g) => ({ label: `${g.nom} — ${g.classeNom}`, value: g.id }));
+  const cursusOptions = curcusListe.map((c) => ({ label: c.type_parcours, value: c.id }));
+  const genreOptions = [{ label: 'Masculin', value: 'Masculin' }, { label: 'Féminin', value: 'Féminin' }];
+  const statutScolaireOptions = [{ label: 'Affecté', value: 'Affecté' }, { label: 'Non affecté', value: 'Non affecté' }];
 
   const columns: ColumnsType<EtudiantData> = [
     {
@@ -286,7 +302,6 @@ useEffect(() => {
       dataIndex: 'ip_ministere',
       key: 'ip_ministere',
       width: 150,
-      fixed: 'left',
       sorter: (a, b) => (a.ip_ministere || '').localeCompare(b.ip_ministere || ''),
     },
     {
@@ -294,7 +309,6 @@ useEffect(() => {
       dataIndex: 'matricule',
       key: 'matricule',
       width: 150,
-      fixed: 'left',
       sorter: (a, b) => (a.matricule || '').localeCompare(b.matricule || ''),
     },
     {
@@ -302,23 +316,22 @@ useEffect(() => {
       dataIndex: 'code_unique',
       key: 'code_unique',
       width: 150,
-      fixed: 'left',
     },
     {
       title: 'Nom',
       dataIndex: 'nom',
       key: 'nom',
       width: 150,
-      fixed: 'left',
       sorter: (a, b) => (a.nom || '').localeCompare(b.nom || ''),
+      ...getTextColumnFilterProps({ value: searchInput, onChange: setSearchInput, placeholder: 'Rechercher un nom...' }),
     },
     {
       title: 'Prénoms',
       dataIndex: 'prenoms',
       key: 'prenoms',
       width: 250,
-      fixed: 'left',
       sorter: (a, b) => (a.prenoms || '').localeCompare(b.prenoms || ''),
+      ...getTextColumnFilterProps({ value: searchInput, onChange: setSearchInput, placeholder: 'Rechercher un prénom...' }),
     },
     {
       title: 'Matricule IIPEA',
@@ -338,6 +351,12 @@ useEffect(() => {
 
         return <StatusTag tone={isMale ? 'info' : 'neutral'} label={isMale ? 'Masculin' : 'Féminin'} />;
       },
+      ...getSelectColumnFilterProps({
+        value: filters.sexe,
+        onChange: (sexe) => setFilters((f) => ({ ...f, sexe: sexe as string | undefined })),
+        options: genreOptions,
+        placeholder: 'Filtrer par genre',
+      }),
     },
     {
       title: 'Filière',
@@ -349,6 +368,12 @@ useEffect(() => {
           {record.filiere} ({record.filiere_sigle})
         </Text>
       ),
+      ...getSelectColumnFilterProps({
+        value: filters.filiere_id,
+        onChange: (id) => setFilters((f) => ({ ...f, filiere_id: id as number | undefined })),
+        options: filiereOptions,
+        placeholder: 'Filtrer par filière',
+      }),
     },
     {
       title: 'Niveau',
@@ -356,18 +381,51 @@ useEffect(() => {
       key: 'niveau',
       width: 120,
       render: (text) => <StatusTag tone="info" label={text} />,
+      ...getSelectColumnFilterProps({
+        value: filters.niveau,
+        onChange: (niveau) => setFilters((f) => ({ ...f, niveau: niveau as string | undefined })),
+        options: niveauOptions,
+        placeholder: 'Filtrer par niveau',
+      }),
+    },
+    {
+      title: 'Classe',
+      dataIndex: 'classe_nom',
+      key: 'classe_nom',
+      width: 200,
+      render: (text) => text || '-',
+      ...getSelectColumnFilterProps({
+        value: filters.classe_id,
+        onChange: (id) => setFilters((f) => ({ ...f, classe_id: id as number | undefined })),
+        options: classeOptions,
+        placeholder: 'Filtrer par classe',
+        loading: loadingClasses,
+      }),
     },
     {
       title: 'Groupe',
       dataIndex: 'groupe_nom',
       key: 'groupe_nom',
-      width: 340,
+      width: 220,
+      ...getSelectColumnFilterProps({
+        value: filters.groupe_id,
+        onChange: (id) => setFilters((f) => ({ ...f, groupe_id: id as number | undefined })),
+        options: groupeOptions,
+        placeholder: 'Filtrer par groupe',
+        loading: loadingGroupes,
+      }),
     },
     {
       title: 'Parcours',
       dataIndex: 'type_parcours',
       key: 'type_parcours',
       width: 150,
+      ...getSelectColumnFilterProps({
+        value: filters.curcus_id,
+        onChange: (id) => setFilters((f) => ({ ...f, curcus_id: id as number | undefined })),
+        options: cursusOptions,
+        placeholder: 'Filtrer par parcours',
+      }),
     },
     {
       title: 'Téléphone',
@@ -429,6 +487,12 @@ useEffect(() => {
 
         return <StatusTag tone={tone} label={statut} />;
       },
+      ...getSelectColumnFilterProps({
+        value: filters.statut_scolaire,
+        onChange: (statut) => setFilters((f) => ({ ...f, statut_scolaire: statut as string | undefined })),
+        options: statutScolaireOptions,
+        placeholder: 'Filtrer par statut scolaire',
+      }),
     },
     {
       title: 'Date Inscription',
@@ -519,10 +583,9 @@ useEffect(() => {
       title: 'Actions',
       key: 'actions',
       width: 120,
-      fixed: 'right',
       render: (_, record) => (
         <Space size="small">
-          <Button 
+          <Button
             icon={<EyeOutlined />} 
             onClick={() => navigate(`/Etudiant/Details_Etudiant/${record.id}`)}
             title="Voir détails"
@@ -543,7 +606,7 @@ useEffect(() => {
     const newPage = newPagination.current || 1;
     const newPageSize = newPagination.pageSize || 10;
     
-    fetchData(newPage, newPageSize, searchInput, selectedYearId);
+    fetchData(newPage, newPageSize, searchInput, selectedYearId, filters);
   };
 
   const handleExport = async () => {
@@ -569,8 +632,8 @@ useEffect(() => {
         return;
       }
 
-      let url = `${API_URL}/api/etudiants/ExportEtudiants?departement_id=${departement_id}&anneeAcademiqueId=${selectedYearId}`;
-      
+      let url = `${API_URL}/api/etudiants/ExportEtudiants?departement_id=${departement_id}&anneeAcademiqueId=${selectedYearId}${buildFiltersQuery(filters)}`;
+
       if (searchInput.trim()) {
         url += `&search=${encodeURIComponent(searchInput.trim())}`;
       }
@@ -700,7 +763,7 @@ useEffect(() => {
 
   const handleRefresh = () => {
     if (selectedYearId) {
-      fetchData(1, pagination.pageSize, searchInput, selectedYearId);
+      fetchData(1, pagination.pageSize, searchInput, selectedYearId, filters);
     }
   };
 
@@ -778,7 +841,7 @@ useEffect(() => {
                 </Text>
               </div>
             )}
-            
+
             <DataTable
               columns={columns}
               dataSource={data}
@@ -793,7 +856,7 @@ useEffect(() => {
                   `${range[0]}-${range[1]} sur ${total} étudiants`,
               }}
               onChange={handleTableChange}
-              scroll={{ x: 3500, y: 600 }}
+              scroll={{ x: 'max-content', y: 600 }}
               sticky={{ offsetHeader: 0 }}
               emptyTitle={loading ? 'Chargement...' : 'Aucun étudiant trouvé'}
             />

@@ -22,6 +22,8 @@ import {
   MenuProps,
   Upload,
   DatePicker,
+  Statistic,
+  Empty,
 } from 'antd';
 import DataTable from '../../Components/ui/DataTable';
 import StatusTag, { type StatusTone } from '../../Components/ui/StatusTag';
@@ -40,12 +42,19 @@ import {
   CheckSquare,
   XSquare,
   Upload as UploadIcon,
+  FileText,
+  Users,
+  Calendar,
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import type { ColumnsType } from 'antd/es/table';
 import type { UploadFile, UploadProps } from 'antd/es/upload/interface';
 import { RcFile } from 'antd/es/upload';
 import { FilePdfOutlined } from '@ant-design/icons';
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+  PieChart, Pie, Cell, Legend,
+} from 'recharts';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -374,6 +383,69 @@ const GesMemoire: React.FC = () => {
     };
     return statusMap[statut] || statut;
   };
+
+  // ==================== DASHBOARD DE PILOTAGE ====================
+  // Couleurs alignées sur les tons déjà utilisés par StatusTag (voir getStatusTag plus bas) —
+  // même palette pour le badge de statut dans le tableau et pour les KPI/graphiques ci-dessus.
+  const STATUT_COLORS: Record<Memoire['statut'], string> = {
+    en_attente: '#b7791f',
+    encours: '#101a33',
+    valide: '#1e8e5a',
+    rejete: '#c0392b'
+  };
+
+  // KPI et répartitions calculés côté client à partir des mémoires déjà chargées pour l'année
+  // académique sélectionnée (mêmes données que le tableau, avant application des filtres de
+  // recherche/niveau/filière/statut/dates — le dashboard reflète le périmètre "année", au même
+  // titre que les autres dashboards de l'application qui scopent leurs KPI par année académique,
+  // indépendamment des filtres locaux d'un tableau). Aucun nouvel appel réseau nécessaire.
+  const dashboardStats = useMemo(() => {
+    const total = memoires.length;
+    const etudiantsUniques = new Set(memoires.map(m => m.etudiant_id)).size;
+
+    const compteStatut: Record<Memoire['statut'], number> = { en_attente: 0, encours: 0, valide: 0, rejete: 0 };
+    const niveauMap = new Map<string, number>();
+
+    memoires.forEach(m => {
+      compteStatut[m.statut] = (compteStatut[m.statut] || 0) + 1;
+      const niveau = m.nom_niveau || 'Non renseigné';
+      niveauMap.set(niveau, (niveauMap.get(niveau) || 0) + 1);
+    });
+
+    const parNiveau = Array.from(niveauMap, ([niveau, total]) => ({ niveau, total }))
+      .sort((a, b) => b.total - a.total);
+
+    const parStatut = (Object.keys(compteStatut) as Memoire['statut'][])
+      .map(statut => ({ statut, label: getStatusLabel(statut), total: compteStatut[statut], color: STATUT_COLORS[statut] }))
+      .filter(s => s.total > 0);
+
+    return { total, etudiantsUniques, compteStatut, parNiveau, parStatut };
+  }, [memoires]);
+
+  // "Mémoires de l'année académique en cours" — indicateur fixe, indépendant du sélecteur
+  // d'année de la page (qui peut être positionné sur une année passée). Réutilise le même
+  // endpoint GET /api/memoire?anneeacademique_id=, sans appel supplémentaire quand l'année
+  // sélectionnée EST déjà l'année en cours (les données sont alors déjà en mémoire).
+  const anneeEnCours = annees.find(a => a.etat === 'en cour') || null;
+  const [anneeEnCoursCount, setAnneeEnCoursCount] = useState<number | null>(null);
+  const [loadingAnneeEnCours, setLoadingAnneeEnCours] = useState<boolean>(false);
+
+  useEffect(() => {
+    if (!anneeEnCours) {
+      setAnneeEnCoursCount(null);
+      return;
+    }
+    if (anneeEnCours.id === selectedAnneeId) {
+      setAnneeEnCoursCount(memoires.length);
+      return;
+    }
+    setLoadingAnneeEnCours(true);
+    fetch(`${API_URL}/api/memoire?anneeacademique_id=${anneeEnCours.id}`, { headers: getHeaders() })
+      .then(res => res.json())
+      .then((data: ApiResponse) => setAnneeEnCoursCount((data.memoires || []).length))
+      .catch(() => setAnneeEnCoursCount(null))
+      .finally(() => setLoadingAnneeEnCours(false));
+  }, [anneeEnCours?.id, selectedAnneeId, memoires]);
 
   // Vérifier si l'utilisateur est l'agent assigné au mémoire
   const isAssignedToMe = (memoire: Memoire): boolean => {
@@ -833,6 +905,105 @@ const GesMemoire: React.FC = () => {
           </Col>
         </Row>
       </Card>
+
+      {/* Dashboard de pilotage — KPI + répartitions, calculés sur l'année académique sélectionnée */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={12} md={8}>
+          <Card loading={loading} style={{ borderRadius: 8 }}>
+            <Statistic
+              title="Total des mémoires"
+              value={dashboardStats.total}
+              prefix={<FileText size={18} style={{ color: 'var(--mod-scolarite)' }} />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <Card loading={loading} style={{ borderRadius: 8 }}>
+            <Statistic
+              title="Étudiants ayant déposé"
+              value={dashboardStats.etudiantsUniques}
+              prefix={<Users size={18} style={{ color: 'var(--mod-scolarite)' }} />}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <Card loading={loading || loadingAnneeEnCours} style={{ borderRadius: 8 }}>
+            <Statistic
+              title={anneeEnCours ? `Année en cours — ${anneeEnCours.annee}` : 'Année académique en cours'}
+              value={anneeEnCoursCount ?? 0}
+              prefix={<Calendar size={18} style={{ color: 'var(--mod-scolarite)' }} />}
+            />
+            {!anneeEnCours && (
+              <Text type="secondary" style={{ fontSize: 12 }}>Aucune année en cours pour ce site</Text>
+            )}
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <Card loading={loading} style={{ borderRadius: 8 }}>
+            <Statistic
+              title="En attente"
+              value={dashboardStats.compteStatut.en_attente}
+              prefix={<AlertCircle size={18} style={{ color: 'var(--warning)' }} />}
+              valueStyle={{ color: 'var(--warning)' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <Card loading={loading} style={{ borderRadius: 8 }}>
+            <Statistic
+              title="Validés"
+              value={dashboardStats.compteStatut.valide}
+              prefix={<CheckCircle size={18} style={{ color: 'var(--success)' }} />}
+              valueStyle={{ color: 'var(--success)' }}
+            />
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} md={8}>
+          <Card loading={loading} style={{ borderRadius: 8 }}>
+            <Statistic
+              title="Rejetés"
+              value={dashboardStats.compteStatut.rejete}
+              prefix={<XCircle size={18} style={{ color: 'var(--danger)' }} />}
+              valueStyle={{ color: 'var(--danger)' }}
+            />
+          </Card>
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} lg={14}>
+          <Card title="Répartition par niveau" loading={loading} style={{ borderRadius: 8, height: 340 }}>
+            {dashboardStats.parNiveau.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={dashboardStats.parNiveau}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                  <XAxis dataKey="niveau" tick={{ fontSize: 10 }} interval={0} angle={-25} textAnchor="end" height={60} />
+                  <YAxis allowDecimals={false} />
+                  <RechartsTooltip />
+                  <Bar dataKey="total" name="Mémoires" fill="var(--mod-scolarite)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <Empty description="Aucune donnée" style={{ marginTop: 60 }} />}
+          </Card>
+        </Col>
+        <Col xs={24} lg={10}>
+          <Card title="Répartition par statut" loading={loading} style={{ borderRadius: 8, height: 340 }}>
+            {dashboardStats.parStatut.length > 0 ? (
+              <ResponsiveContainer width="100%" height={260}>
+                <PieChart>
+                  <Pie data={dashboardStats.parStatut} dataKey="total" nameKey="label" innerRadius={55} outerRadius={85} paddingAngle={2}>
+                    {dashboardStats.parStatut.map((entry) => (
+                      <Cell key={entry.statut} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <RechartsTooltip />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : <Empty description="Aucune donnée" style={{ marginTop: 60 }} />}
+          </Card>
+        </Col>
+      </Row>
 
       {/* Filtres */}
       <Card style={{ marginBottom: 16, borderRadius: 8 }}>
