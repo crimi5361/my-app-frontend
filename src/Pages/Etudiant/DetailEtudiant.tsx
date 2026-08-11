@@ -742,9 +742,9 @@ const DetailEtudiant = () => {
 
           <Text strong style={{ display: 'block', margin: '16px 0 12px' }}>Contacts</Text>
           <Row gutter={16}>
-            <Col span={8}><Form.Item name="telephone" label="Téléphone" rules={[{ required: true, message: 'Requis' }, { pattern: /^[0-9]{10,15}$/, message: 'Numéro invalide' }]}><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="email_personnel" label="E-mail personnel" rules={[{ required: true, message: 'Requis' }, { type: 'email', message: 'E-mail invalide' }]}><Input /></Form.Item></Col>
-            <Col span={8}><Form.Item name="contact_parent" label="Contact parent 1" rules={[{ required: true, message: 'Requis' }, { pattern: /^[0-9]{10,15}$/, message: 'Numéro invalide' }]}><Input /></Form.Item></Col>
+            <Col span={8}><Form.Item name="telephone" label="Téléphone" rules={[{ pattern: /^[0-9]{10,15}$/, message: 'Numéro invalide' }]}><Input /></Form.Item></Col>
+            <Col span={8}><Form.Item name="email_personnel" label="E-mail personnel" rules={[{ type: 'email', message: 'E-mail invalide' }]}><Input /></Form.Item></Col>
+            <Col span={8}><Form.Item name="contact_parent" label="Contact parent 1" rules={[{ pattern: /^[0-9]{10,15}$/, message: 'Numéro invalide' }]}><Input /></Form.Item></Col>
           </Row>
           <Row gutter={16}>
             <Col span={8}><Form.Item name="contact_parent_2" label="Contact parent 2" rules={[{ pattern: /^[0-9]{10,15}$/, message: 'Numéro invalide' }]}><Input /></Form.Item></Col>
