@@ -151,6 +151,9 @@ export class LecteurAudio {
   private sources = new Set<AudioBufferSourceNode>();
   /** Instant (horloge audio) où le prochain paquet doit commencer. */
   private prochainDebut = 0;
+  /** Instant où a commencé la plage sonore en cours. Avec prochainDebut, il
+   *  borne le tour de parole et permet d'en connaître l'avancement. */
+  private debutPlage = 0;
   private animation = 0;
 
   constructor(private surNiveau: (niveau: number) => void) {}
@@ -200,7 +203,11 @@ export class LecteurAudio {
     // enchaîne exactement à la fin du paquet précédent — c'est ce calage qui
     // évite les micro-coupures entre paquets.
     const maintenant = ctx.currentTime;
+    const fileVide = this.prochainDebut <= maintenant;
     const debut = Math.max(this.prochainDebut, maintenant + 0.02);
+    // Nouvelle plage de parole : c'est ici que commence le tour dont on mesurera
+    // l'avancement pour derouler le texte au rythme de la voix.
+    if (fileVide) this.debutPlage = debut;
     source.start(debut);
     this.prochainDebut = debut + tampon.duration;
 
@@ -208,11 +215,27 @@ export class LecteurAudio {
     source.onended = () => this.sources.delete(source);
   }
 
+  /**
+   * Part du tour de parole deja prononcee, entre 0 et 1.
+   *
+   * Sert a n'afficher que les mots deja dits : la transcription arrive du modele
+   * bien avant que l'audio correspondant ne soit joue, donc l'afficher telle
+   * quelle ferait apparaitre la phrase entiere avant la premiere syllabe.
+   */
+  avancement(): number {
+    if (!this.contexte || this.prochainDebut === 0) return 1;
+    const duree = this.prochainDebut - this.debutPlage;
+    if (duree <= 0) return 1;
+    const ecoule = this.contexte.currentTime - this.debutPlage;
+    return Math.min(Math.max(ecoule / duree, 0), 1);
+  }
+
   /** Interruption : coupe tout ce qui est planifié et repart de zéro. */
   vider(): void {
     this.sources.forEach((s) => { try { s.stop(); } catch { /* déjà terminée */ } });
     this.sources.clear();
     this.prochainDebut = 0;
+    this.debutPlage = 0;
     this.surNiveau(0);
   }
 

@@ -15,7 +15,7 @@ import {
   PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
 import { useAssistantVocal, StatutVocal } from '../../lib/useAssistantVocal';
-import BlobVocal from './BlobVocal';
+import BlobVocal, { NomForme } from './BlobVocal';
 import { telechargerFichier, FichierAssistant } from '../../lib/assistantFichiers';
 import './ModeVocal.css';
 
@@ -57,7 +57,7 @@ const formatteurs = {
 // ───────────────────────────────────────────────────────────────────────────
 //  L'orbe : cœur visuel de l'écran
 // ───────────────────────────────────────────────────────────────────────────
-const Orbe = ({ statut }: { statut: StatutVocal }) => {
+const Orbe = ({ statut, forme }: { statut: StatutVocal; forme: NomForme }) => {
   const etat = ETATS[statut];
 
   return (
@@ -65,10 +65,10 @@ const Orbe = ({ statut }: { statut: StatutVocal }) => {
       {/* La forme EST l'orbe : cylindre à bourrelets quand le modèle interroge la
           base, histogramme en gradins quand il assemble un graphique, sphère le
           reste du temps — la couleur suivant l'état dans tous les cas. */}
-      <BlobVocal statut={statut} />
+      <BlobVocal statut={statut} forme={forme} />
 
-      {/* Icône posée au centre. Blanche et non teintée : elle se détache du cœur
-          sombre quelle que soit la couleur de l'état en cours. */}
+      {/* Icone d'etat au centre. Blanche et non teintee : elle se detache du
+          coeur sombre quelle que soit la couleur de l'etat en cours. */}
       <div className="mv-icone">
         <AnimatePresence mode="wait">
           <motion.div
@@ -90,6 +90,80 @@ const Orbe = ({ statut }: { statut: StatutVocal }) => {
     </div>
   );
 };
+
+// ───────────────────────────────────────────────────────────────────────────
+//  Texte devoile au rythme de la voix
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Affiche le texte au fur et a mesure qu'il est prononce.
+ *
+ * Le decoupage se fait par MOT et non par caractere : une coupure au milieu d'un
+ * mot se lit comme une faute de frappe, et le mot a moitie forme saute a la ligne
+ * des qu'il s'allonge, ce qui fait tressauter tout le paragraphe.
+ */
+/**
+ * Texte revele au rythme de la voix.
+ *
+ * Tous les mots sont rendus des le depart et ne bougent plus : ce qui change,
+ * c'est une seule variable CSS `--p` ecrite sur le conteneur a chaque image.
+ * Chaque mot en deduit lui-meme son opacite et sa position, ce qui produit une
+ * onde continue plutot qu'une succession d'apparitions.
+ *
+ * C'est la difference entre les deux approches qui fait toute la fluidite : en
+ * montant les mots un par un, le navigateur relayoute le paragraphe a chaque
+ * ajout et React re-rend le fil, d'ou l'effet saccade. Ici rien n'est monte ni
+ * demonte pendant la parole, et aucun rendu React n'a lieu.
+ */
+const TexteParle = ({
+  texte, enCours, avancementRef,
+}: {
+  texte: string;
+  enCours: boolean;
+  avancementRef: React.RefObject<number>;
+}) => {
+  const hote = useRef<HTMLSpanElement>(null);
+  const morceaux = useMemo(() => texte.split(/(\s+)/), [texte]);
+  const total = useMemo(() => morceaux.filter((m) => m.trim()).length, [morceaux]);
+
+  useEffect(() => {
+    const el = hote.current;
+    if (!el) return undefined;
+
+    // Tour clos : tout est allume, plus rien a animer.
+    if (!enCours) {
+      el.style.setProperty('--p', String(total + 6));
+      return undefined;
+    }
+
+    let image = 0;
+    const boucle = () => {
+      // Le +0.6 fait devancer legerement la voix : un mot pleinement lisible au
+      // moment ou il est prononce se lit mieux qu'un mot qui s'allume apres.
+      el.style.setProperty('--p', ((avancementRef.current || 0) * total + 0.6).toFixed(2));
+      image = requestAnimationFrame(boucle);
+    };
+    image = requestAnimationFrame(boucle);
+    return () => cancelAnimationFrame(image);
+  }, [enCours, total, avancementRef]);
+
+  let indice = -1;
+  return (
+    <span ref={hote} className="mv-flux">
+      {morceaux.map((m, i) => {
+        if (!m.trim()) return <span key={i}>{m}</span>;
+        indice += 1;
+        return (
+          <span key={i} className="mv-mot" style={{ '--i': indice } as React.CSSProperties}>
+            {m}
+          </span>
+        );
+      })}
+      {enCours && <span className="mv-curseur" />}
+    </span>
+  );
+};
+
 
 // ───────────────────────────────────────────────────────────────────────────
 //  Fichiers annonces a l'oral
@@ -301,7 +375,7 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
 
       {/* Orbe + état */}
       <div className="mv-scene">
-        <Orbe statut={v.statut} />
+        <Orbe statut={v.statut} forme={v.forme as NomForme} />
 
         <AnimatePresence mode="wait">
           <motion.div
@@ -337,15 +411,34 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
       <div className="mv-fil" ref={filRef}>
         <AnimatePresence initial={false}>
           {v.tours.map((t) => (
-            <motion.div
-              key={t.id}
-              className={`mv-bulle mv-bulle-${t.rôle}`}
-              initial={{ opacity: 0, y: 14, scale: 0.97 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ type: 'spring', stiffness: 300, damping: 26 }}
-            >
-              {t.texte}
-            </motion.div>
+            t.rôle === 'fondateur' ? (
+              // Ce que dit le fondateur reste une bulle : c'est un message envoye.
+              <motion.div
+                key={t.id}
+                className="mv-bulle mv-bulle-fondateur"
+                initial={{ opacity: 0, y: 14, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 300, damping: 26 }}
+              >
+                {t.texte}
+              </motion.div>
+            ) : (
+              // La reponse, elle, n'est pas un message : c'est une parole. Elle
+              // s'inscrit a meme la page, sans cadre, comme un texte qu'on lit.
+              <motion.p
+                key={t.id}
+                className="mv-dit"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.4 }}
+              >
+                <TexteParle
+                  texte={t.texte}
+                  enCours={!!t.enCours}
+                  avancementRef={v.avancementRef}
+                />
+              </motion.p>
+            )
           ))}
         </AnimatePresence>
 

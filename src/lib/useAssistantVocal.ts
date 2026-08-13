@@ -37,6 +37,9 @@ export interface TourConversation {
   id: string;
   rôle: 'fondateur' | 'assistant';
   texte: string;
+  /** Vrai tant que l'assistante est en train de prononcer ce tour : l'écran
+   *  n'affiche alors que la part deja dite. */
+  enCours?: boolean;
 }
 
 export interface BudgetVocal {
@@ -83,6 +86,18 @@ export function useAssistantVocal() {
   const [niveauSortie, setNiveauSortie] = useState(0);
   const [micCoupe, setMicCoupe] = useState(false);
   const [fichiers, setFichiers] = useState<FichierAssistant[]>([]);
+  // Forme 3D a afficher. Emise par le serveur d'apres l'outil appele et la vue
+  // interrogee : elle suit ce que l'assistante FAIT, pas ce qui a ete dit.
+  const [forme, setForme] = useState('sphere');
+  // Part du tour de parole en cours deja prononcee. La transcription arrive du
+  // modele bien avant l'audio correspondant : sans ce reglage, la phrase entiere
+  // s'affichait avant la premiere syllabe.
+  //
+  // Volontairement une REF et non un etat : l'ecran la lit a 60 images par
+  // seconde pour animer le texte. En passer par un etat React declencherait un
+  // rendu complet du fil a chaque image, ce qui saccade precisement l'animation
+  // qu'on cherche a rendre fluide.
+  const avancementRef = useRef(0);
 
   const wsRef = useRef<WebSocket | null>(null);
   const microRef = useRef<CaptureMicro | null>(null);
@@ -117,9 +132,20 @@ export function useAssistantVocal() {
       }
       const id = uid();
       tourEnCoursRef.current[rôle] = id;
-      return [...precedents, { id, rôle, texte }];
+      return [...precedents, { id, rôle, texte, enCours: rôle === 'assistant' }];
     });
   }, []);
+
+  /** Clot le tour de l'assistante : plus de decoupage, le texte est complet. */
+  const cloreTourAssistant = useCallback(() => {
+    const id = tourEnCoursRef.current.assistant;
+    tourEnCoursRef.current.assistant = null;
+    if (id) setTours((t) => t.map((x) => (x.id === id ? { ...x, enCours: false } : x)));
+    avancementRef.current = 0;
+  }, []);
+
+  /** Vrai quand le modele n'emet plus : il ne reste que l'audio a ecouler. */
+  const finEmissionRef = useRef(false);
 
   const arreter = useCallback(() => {
     microRef.current?.arreter();
@@ -132,6 +158,7 @@ export function useAssistantVocal() {
     finConstructionRef.current = 0;
     statutDiffereRef.current = null;
     setStatut('inactif');
+    setForme('sphere');
     setNiveauEntree(0);
     setNiveauSortie(0);
     setMicCoupe(false);
@@ -174,6 +201,22 @@ export function useAssistantVocal() {
 
     const lecteur = new LecteurAudio(limiterCadence(setNiveauSortie));
     lecteurRef.current = lecteur;
+    finEmissionRef.current = false;
+
+    // Suivi de l'avancement de la parole, a chaque image. Aucun rendu React n'en
+    // decoule : l'ecran lit la reference et n'anime que des proprietes CSS.
+    const suivre = () => {
+      if (wsRef.current !== ws) return;              // session remplacee
+      const a = lecteur.avancement();
+      avancementRef.current = a;
+      // La derniere syllabe est passee et le modele a fini : on figes le tour.
+      if (a >= 1 && finEmissionRef.current) {
+        finEmissionRef.current = false;
+        cloreTourAssistant();
+      }
+      requestAnimationFrame(suivre);
+    };
+    requestAnimationFrame(suivre);
 
     // Une socket remplacée continue de délivrer ses événements en attente. Sans
     // ce filtre, le `onclose` de la session précédente coupait le micro de la
@@ -209,8 +252,8 @@ export function useAssistantVocal() {
         }
 
         case 'transcription_fondateur':
-          // Le fondateur reprend la parole : le tour de l'assistant est clos.
-          tourEnCoursRef.current.assistant = null;
+          // Le fondateur reprend la parole : le tour de l'assistante est clos.
+          cloreTourAssistant();
           ajouterFragment('fondateur', m.texte);
           break;
 
@@ -249,13 +292,20 @@ export function useAssistantVocal() {
           // Coupe net ce qui était planifié : sans ça on entend la fin d'une
           // phrase que le modèle a lui-même abandonnée.
           lecteur.vider();
-          tourEnCoursRef.current.assistant = null;
+          cloreTourAssistant();
           majStatut('ecoute');
           break;
 
         case 'tour_termine':
-          tourEnCoursRef.current.assistant = null;
+          // Le modele a fini d'emettre, mais l'audio deja planifie continue de
+          // jouer : la cloture est differee jusqu'a la derniere syllabe, sinon
+          // le texte se completerait d'un coup avant la fin de la phrase.
+          finEmissionRef.current = true;
           majStatut('ecoute');
+          break;
+
+        case 'forme':
+          setForme(m.forme || 'sphere');
           break;
 
         case 'fichier':
@@ -297,7 +347,7 @@ export function useAssistantVocal() {
       setNiveauEntree(0);
       setStatut((s) => (s === 'erreur' ? s : 'inactif'));
     };
-  }, [ajouterFragment, arreter, majStatut]);
+  }, [ajouterFragment, arreter, majStatut, cloreTourAssistant]);
 
   /** Permet de poser une question au clavier sans couper la session vocale. */
   const envoyerTexte = useCallback((texte: string) => {
@@ -314,6 +364,7 @@ export function useAssistantVocal() {
     setRequetes([]);
     setVisuel(null);
     setFichiers([]);
+    setForme('sphere');
     setErreur(null);
     tourEnCoursRef.current = { fondateur: null, assistant: null };
   }, []);
@@ -322,8 +373,8 @@ export function useAssistantVocal() {
   useEffect(() => () => arreter(), [arreter]);
 
   return {
-    statut, erreur, tours, requetes, visuel, budget, fichiers,
-    niveauEntree, niveauSortie, micCoupe,
+    statut, erreur, tours, requetes, visuel, budget, fichiers, forme,
+    niveauEntree, niveauSortie, micCoupe, avancementRef,
     demarrer, arreter, envoyerTexte, reinitialiser, basculerMicro,
   };
 }

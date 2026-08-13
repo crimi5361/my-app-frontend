@@ -881,3 +881,127 @@
 }
 
 .afx-google button:hover { opacity: 1; }
+
+/* ── Prénom de l'assistante ─────────────────────────────────────────────────
+   Le champ et son bouton sur une ligne : c'est un réglage court, pas un
+   formulaire. Le bouton reste inactif tant que rien n'a changé, pour qu'on voie
+   d'un coup d'œil si la saisie est déjà enregistrée. */
+.afx-set-nom {
+  display: flex;
+  gap: 6px;
+}
+
+.afx-set-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--afx-border, rgba(16, 26, 51, 0.10));
+  border-radius: 9px;
+  background: var(--afx-panel, #fff);
+  color: var(--afx-text, #101a33);
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.afx-set-input:focus {
+  outline: none;
+  border-color: rgba(169, 119, 35, 0.55);
+}
+
+.afx-set-nom button {
+  padding: 0 12px;
+  border: 1px solid rgba(169, 119, 35, 0.45);
+  border-radius: 9px;
+  background: rgba(169, 119, 35, 0.12);
+  color: var(--afx-gold, #a97723);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.16s ease;
+}
+
+.afx-set-nom button:hover:not(:disabled) { background: rgba(169, 119, 35, 0.22); }
+.afx-set-nom button:disabled { opacity: 0.4; cursor: default; }
+
+.afx-set-aide {
+  margin-top: 6px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--afx-text-dim, #7b8499);
+}
+
+/* ── Interrupteur de réglage ───────────────────────────────────────────────── */
+.afx-bascule {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 2px;
+  border: none;
+  background: none;
+  color: var(--afx-text-soft, #55607a);
+  font-size: 12.5px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.afx-bascule-piste {
+  position: relative;
+  width: 34px;
+  height: 19px;
+  flex-shrink: 0;
+  border-radius: 99px;
+  background: rgba(16, 26, 51, 0.16);
+  transition: background 0.2s ease;
+}
+
+.afx-bascule-pastille {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(16, 26, 51, 0.35);
+  transition: transform 0.2s ease;
+}
+
+.afx-bascule.est-active { color: var(--afx-gold, #a97723); font-weight: 600; }
+.afx-bascule.est-active .afx-bascule-piste { background: rgba(169, 119, 35, 0.75); }
+.afx-bascule.est-active .afx-bascule-pastille { transform: translateX(15px); }
+
+/* ── Point du jour ─────────────────────────────────────────────────────────
+   Affiché sans avoir été demandé : c'est ce qui distingue un outil qu'on
+   interroge d'un outil qui alerte. Discret par construction — il ne doit pas
+   concurrencer la question posée juste au-dessus. */
+.afx-point {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: -6px 0 18px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.afx-point-fait { color: var(--afx-text-dim, #7b8499); }
+
+.afx-point-alerte {
+  color: #8a5f1a;
+  padding-left: 15px;
+  position: relative;
+}
+
+/* Pastille ambrée : une alerte doit se distinguer d'un simple constat au premier
+   coup d'œil, sans pour autant crier. */
+.afx-point-alerte::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #b7791f;
+}

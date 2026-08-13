@@ -88,7 +88,6 @@ interface AssistantChatResponse {
 }
 
 const STORAGE_KEY = 'fdt_assistant_conversations';
-const VOICE_KEY = 'fdt_assistant_voice';
 
 // Recharts ne lit pas les variables CSS : les couleurs des axes/grilles doivent être fournies en
 // dur. L'or est volontairement assombri par rapport au jeton de marque, pour rester lisible sur
@@ -341,9 +340,6 @@ const AssistantFondateur = () => {
 
   const [conversations, setConversations] = useState<Conversation[]>(() => loadConversations());
   const [activeId, setActiveId] = useState<string>(() => conversations[0]?.id ?? '');
-  const [voice, setVoice] = useState<string>(() => {
-    try { return localStorage.getItem(VOICE_KEY) || 'standard'; } catch { return 'standard'; }
-  });
   const [input, setInput] = useState('');
   const [typing, setTyping] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -353,6 +349,13 @@ const AssistantFondateur = () => {
   // Rattachement du compte Google du fondateur : sans lui, l'assistante ne peut
   // ni consulter l'agenda, ni programmer de Meet, ni toucher a la messagerie.
   const [google, setGoogle] = useState<{ configure: boolean; connecte: boolean; email?: string } | null>(null);
+  // Prénom donné à l'assistante. Il est propre au site : sur un même site, tous
+  // les agents doivent la voir porter le même nom.
+  const [nomAssistante, setNomAssistante] = useState('');
+  const [nomEnregistre, setNomEnregistre] = useState('');
+  const [msgNom, setMsgNom] = useState<string | null>(null);
+  const [rechercheWeb, setRechercheWeb] = useState(false);
+  const [point, setPoint] = useState<{ phrases: string[]; alertes: string[]; fenetre_jours: number } | null>(null);
   const [speechSupported] = useState(() => Boolean(getSpeechRecognitionCtor()));
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -369,10 +372,52 @@ const AssistantFondateur = () => {
   const firstName = (user?.nom || '').split(' ')[0] || '';
 
   useEffect(() => {
+    apiFetch<{ reglages: { nom_assistant: string | null; recherche_web: boolean } }>('/api/assistant/reglages')
+      .then((r) => {
+        setNomAssistante(r.reglages.nom_assistant || '');
+        setNomEnregistre(r.reglages.nom_assistant || '');
+        setRechercheWeb(!!r.reglages.recherche_web);
+      })
+      .catch(() => { /* l'assistante reste utilisable sans prénom */ });
+
+    apiFetch<{ point: { ok: boolean; phrases: string[]; alertes: string[]; fenetre_jours: number } }>(
+      '/api/assistant/point-du-jour',
+    )
+      .then((r) => { if (r.point?.ok) setPoint(r.point); })
+      .catch(() => { /* un point du jour absent n'empêche rien */ });
+
     apiFetch<{ google: { configure: boolean; connecte: boolean; email?: string } }>('/api/assistant/google/statut')
       .then((r) => setGoogle(r.google))
       .catch(() => setGoogle(null));   // l'assistante reste utilisable sans Google
   }, []);
+
+  const enregistrerNom = async () => {
+    setMsgNom(null);
+    try {
+      const r = await apiFetch<{ reglages: { nom_assistant: string | null }; message?: string }>(
+        '/api/assistant/reglages',
+        { method: 'PUT', body: JSON.stringify({ nom_assistant: nomAssistante }) },
+      );
+      const retenu = r.reglages.nom_assistant || '';
+      setNomAssistante(retenu);
+      setNomEnregistre(retenu);
+      setMsgNom(r.message || (retenu ? `Elle répondra désormais au nom de ${retenu}.` : 'Prénom retiré.'));
+    } catch (e) {
+      setMsgNom(e instanceof ApiError ? e.message : "Enregistrement impossible.");
+    }
+  };
+
+  const basculerWeb = async () => {
+    const suivant = !rechercheWeb;
+    setRechercheWeb(suivant);
+    try {
+      await apiFetch('/api/assistant/reglages', {
+        method: 'PUT', body: JSON.stringify({ recherche_web: suivant }),
+      });
+    } catch {
+      setRechercheWeb(!suivant);   // le serveur n'a pas suivi : on revient en arrière
+    }
+  };
 
   const connecterGoogle = async () => {
     try {
@@ -405,8 +450,8 @@ const AssistantFondateur = () => {
   }, [conversations]);
 
   useEffect(() => {
-    try { localStorage.setItem(VOICE_KEY, voice); } catch { /* stockage indisponible */ }
-  }, [voice]);
+    /* la voix vit desormais en base, pas dans le navigateur */
+  }, []);
 
   useEffect(() => {
     if (!conversations.some((c) => c.id === activeId)) {
@@ -623,8 +668,26 @@ const AssistantFondateur = () => {
                 doublon avec celle du header de l'application, mais elle portait ces réglages. */}
             <div className="afx-drawer-foot">
               <div>
-                <span className="afx-set-label">Assistant</span>
-                <div className="afx-set-value">Assistant IIPEA v1</div>
+                <span className="afx-set-label">Son prénom</span>
+                <div className="afx-set-nom">
+                  <input
+                    className="afx-set-input"
+                    value={nomAssistante}
+                    onChange={(e) => { setNomAssistante(e.target.value); setMsgNom(null); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') enregistrerNom(); }}
+                    placeholder="Aïcha, Sarah…"
+                    maxLength={24}
+                    aria-label="Prénom de l'assistante"
+                  />
+                  <button
+                    type="button"
+                    onClick={enregistrerNom}
+                    disabled={nomAssistante.trim() === nomEnregistre.trim()}
+                  >
+                    Valider
+                  </button>
+                </div>
+                {msgNom && <div className="afx-set-aide">{msgNom}</div>}
               </div>
               {google?.configure && (
                 <div>
@@ -646,12 +709,21 @@ const AssistantFondateur = () => {
               )}
 
               <div>
-                <span className="afx-set-label">Voix de l'assistant</span>
-                <select className="afx-set-select" value={voice} onChange={(e) => setVoice(e.target.value)}>
-                  <option value="standard">Standard</option>
-                  <option value="chaleureuse">Chaleureuse</option>
-                  <option value="professionnelle">Professionnelle</option>
-                </select>
+                <span className="afx-set-label">Recherche sur internet</span>
+                <button
+                  type="button"
+                  className={`afx-bascule${rechercheWeb ? ' est-active' : ''}`}
+                  onClick={basculerWeb}
+                  role="switch"
+                  aria-checked={rechercheWeb}
+                >
+                  <span className="afx-bascule-piste"><span className="afx-bascule-pastille" /></span>
+                  <span>{rechercheWeb ? 'Autorisée' : 'Désactivée'}</span>
+                </button>
+                <div className="afx-set-aide">
+                  Lui permet de consulter le web quand la réponse n'est pas dans vos
+                  données. Elle précise toujours ce qui vient du web.
+                </div>
               </div>
             </div>
           </aside>
@@ -691,6 +763,24 @@ const AssistantFondateur = () => {
               </div>
               <p className="afx-hero-eyebrow">{firstName ? `Bonjour ${firstName},` : 'Bonjour,'}</p>
               <h1 className="afx-hero-title">Sur quoi travaillons-nous aujourd'hui ?</h1>
+
+              {point && (point.phrases.length > 0 || point.alertes.length > 0) && (
+                <motion.div
+                  className="afx-point"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25 }}
+                >
+                  {point.phrases.length > 0 && (
+                    <span className="afx-point-fait">
+                      Ces {point.fenetre_jours} derniers jours : {point.phrases.join(', ')}.
+                    </span>
+                  )}
+                  {point.alertes.map((a) => (
+                    <span key={a} className="afx-point-alerte">{a}</span>
+                  ))}
+                </motion.div>
+              )}
 
               {composer}
 
