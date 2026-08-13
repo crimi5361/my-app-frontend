@@ -31,6 +31,9 @@
   --mod-comptabilite: #7b5fbe;
   --mod-fondateur: var(--gold);
   --mod-administration: #4c7a93;
+  --mod-moyens-generaux: #8a6d3b;
+  --mod-charge-pedagogique: #2f7d8f;
+  --mod-rh: #a4515f;
 
   color-scheme: light;
 }
@@ -54,6 +57,9 @@
   --mod-comptabilite: #cfd6ea;
   --mod-fondateur: var(--accent);
   --mod-administration: #cfd6ea;
+  --mod-moyens-generaux: #cfd6ea;
+  --mod-charge-pedagogique: #cfd6ea;
+  --mod-rh: #cfd6ea;
 
   color-scheme: dark;
 }

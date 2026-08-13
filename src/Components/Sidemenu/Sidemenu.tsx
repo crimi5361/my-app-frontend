@@ -21,11 +21,16 @@ import {
   GiftOutlined,
   DatabaseOutlined,
   UsergroupAddOutlined,
+  ScheduleOutlined,
+  CalendarOutlined,
+  InboxOutlined,
+  ApartmentOutlined,
+  AuditOutlined,
 } from "@ant-design/icons";
 
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
-import { BookDashedIcon } from "lucide-react";
+import { BookDashedIcon, Sparkles } from "lucide-react";
 import { PAGE_PERMISSIONS, getDashboardRouteForRole } from "../../lib/access";
 
 interface SidemenuProps {
@@ -123,6 +128,15 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
     ],
   };
 
+  // Page dédiée à l'Assistant Fondateur (remplace le widget flottant) — lien direct,
+  // pas de sous-menu, même principe que les autres entrées "chez soi" (caissier, moyens_generaux).
+  const fondateurAssistantItem: { key: string; icon: React.ReactNode; label: string; children?: undefined } = {
+    key: "/dashboard/fondateur/assistant",
+    icon: <Sparkles size={14} />,
+    label: "Assistant IA",
+    children: undefined,
+  };
+
   const menuItems = [
     {
       key: "scolarite",
@@ -201,6 +215,32 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
       ],
     },
     {
+      key: "charge_pedagogique",
+      icon: <ScheduleOutlined />,
+      label: "Chargé Pédagogique",
+      children: [
+        { key: "/charge-pedagogique/dashboard", label: "Tableau de bord", icon: <DashboardOutlined />, permission: ["admin", "charge_pedagogique"] },
+        { key: "/charge-pedagogique/besoins", label: "Besoins en enseignants", icon: <SolutionOutlined />, permission: ["admin", "charge_pedagogique"] },
+        { key: "/charge-pedagogique/candidatures", label: "Bannette candidatures", icon: <InboxOutlined />, permission: ["admin", "charge_pedagogique"] },
+        { key: "/charge-pedagogique/emploi-du-temps", label: "Emploi du temps", icon: <CalendarOutlined />, permission: ["admin", "charge_pedagogique"] },
+        { key: "/charge-pedagogique/allocation-salles", label: "Allocation des salles", icon: <BankOutlined />, permission: ["admin", "charge_pedagogique"] },
+        { key: "/charge-pedagogique/salles", label: "Référentiel des salles", icon: <ApartmentOutlined />, permission: ["admin", "charge_pedagogique"] },
+      ],
+    },
+    {
+      key: "rh",
+      icon: <IdcardOutlined />,
+      label: "Ressources Humaines",
+      children: [
+        { key: "/rh/dashboard", label: "Tableau de bord", icon: <DashboardOutlined />, permission: ["admin", "rh"] },
+        { key: "/rh/offres", label: "Offres d'emploi", icon: <FileTextOutlined />, permission: ["admin", "rh"] },
+        { key: "/rh/candidatures", label: "Candidatures", icon: <InboxOutlined />, permission: ["admin", "rh"] },
+        { key: "/rh/enseignants", label: "Enseignants", icon: <TeamOutlined />, permission: ["admin", "rh"] },
+        { key: "/rh/contrats", label: "Contrats", icon: <AuditOutlined />, permission: ["admin", "rh"] },
+        { key: "/rh/charges-pedagogiques", label: "Chargés Pédagogiques", icon: <UserSwitchOutlined />, permission: ["admin", "rh"] },
+      ],
+    },
+    {
       key: "Parametres",
       icon: <SettingOutlined />,
       label: "Paramètres",
@@ -214,7 +254,7 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
 
   const filteredMenuItems = [
     ...(allowedKeys.includes("dashboard") ? [dashboardMenuItem] : []),
-    ...(currentUserRole === "fondateur" ? [fondateurStatsItem] : []),
+    ...(currentUserRole === "fondateur" ? [fondateurAssistantItem, fondateurStatsItem] : []),
     ...menuItems
       .filter((item) => allowedKeys.includes(item.key))
       .map((item) => ({ ...item, children: filterChildren(item.children) }))

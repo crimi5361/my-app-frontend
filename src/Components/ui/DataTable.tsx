@@ -32,6 +32,8 @@ interface DataTableProps<T extends object> {
   onChange?: TableProps<T>["onChange"];
   /** En-tête collant — grands tableaux avec défilement vertical. */
   sticky?: TableProps<T>["sticky"];
+  /** Sélection de lignes — écrans avec action groupée (ex. allocation des salles en lot). */
+  rowSelection?: TableProps<T>["rowSelection"];
 }
 
 const DEFAULT_PAGE_SIZE_OPTIONS = ["10", "20", "50", "100"];
@@ -61,6 +63,7 @@ function DataTable<T extends object>({
   style,
   onChange,
   sticky,
+  rowSelection,
 }: DataTableProps<T>) {
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => onSearchChange?.(e.target.value),
@@ -123,6 +126,7 @@ function DataTable<T extends object>({
           style={style}
           onChange={onChange}
           sticky={sticky}
+          rowSelection={rowSelection}
           locale={{
             emptyText: <EmptyState title={emptyTitle} description={emptyDescription} />,
           }}

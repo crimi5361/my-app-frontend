@@ -1,4 +1,4 @@
-import { GraduationCap, Coins, Landmark, Award, Settings2, Package, type LucideIcon } from 'lucide-react';
+import { GraduationCap, Coins, Landmark, Award, Settings2, Package, CalendarRange, BriefcaseBusiness, type LucideIcon } from 'lucide-react';
 
 /**
  * Source unique de vérité pour les accès par rôle.
@@ -23,6 +23,14 @@ export const PAGE_PERMISSIONS: Record<string, string[]> = {
   // Moyens Généraux (Chantier 10) — chez lui dans son propre module, même principe que caissier :
   // pas de lien vers le Dashboard générique.
   moyens_generaux: ['moyens_generaux'],
+  // Module Gestion des Enseignants (2026-08-11). Deux métiers distincts, deux applications :
+  //   • le Chargé Pédagogique planifie et pré-évalue, dans le seul périmètre de ses filières ;
+  //   • les RH publient, valident et contractualisent.
+  // "Gestion_academique" est volontairement absent des deux : ni l'un ni l'autre n'a à
+  // toucher au référentiel académique (filières, niveaux, maquettes), qui reste à la
+  // scolarité et à l'administration.
+  charge_pedagogique: ['charge_pedagogique', 'planning'],
+  rh: ['rh'],
 };
 
 /**
@@ -40,6 +48,8 @@ export const ROLE_DASHBOARD_ROUTE: Record<string, string> = {
   comptabilite: '/dashboard/comptabilite',
   caissier: '/caisse/dashboard',
   moyens_generaux: '/dashboard/moyensgeneraux',
+  charge_pedagogique: '/charge-pedagogique/dashboard',
+  rh: '/rh/dashboard',
 };
 
 export function getDashboardRouteForRole(role?: string | null): string {
@@ -104,5 +114,21 @@ export const HUB_APPS: HubApp[] = [
     icon: Package,
     landingRoute: '/dashboard/moyensgeneraux',
     roles: ['admin', 'moyens_generaux'],
+  },
+  {
+    slug: 'charge-pedagogique',
+    label: 'Chargé Pédagogique',
+    description: 'Besoins en enseignants, emploi du temps et allocation des salles',
+    icon: CalendarRange,
+    landingRoute: '/charge-pedagogique/dashboard',
+    roles: ['admin', 'charge_pedagogique'],
+  },
+  {
+    slug: 'rh',
+    label: 'Ressources Humaines',
+    description: 'Offres, candidatures enseignants, accès et contractualisation',
+    icon: BriefcaseBusiness,
+    landingRoute: '/rh/dashboard',
+    roles: ['admin', 'rh'],
   },
 ];

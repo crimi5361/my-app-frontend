@@ -3,3 +3,7 @@ dist/
 .env
 .env.*
 !.env.example
+
+# Outils de developpement locaux
+CLAUDE.md
+.claude/

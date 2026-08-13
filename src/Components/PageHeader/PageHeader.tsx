@@ -82,6 +82,22 @@ const titles: Record<string, string> = {
   "/Moyens_Generaux/Reception_Commande": "Réception des commandes",
   "/Moyens_Generaux/Kit_et_Accessoires": "Kits et accessoires disponibles",
 
+  // Chargé Pédagogique
+  "/charge-pedagogique/dashboard": "Tableau de bord pédagogique",
+  "/charge-pedagogique/besoins": "Catalogue des besoins en enseignants",
+  "/charge-pedagogique/candidatures": "Bannette des candidatures",
+  "/charge-pedagogique/emploi-du-temps": "Conception de l'emploi du temps",
+  "/charge-pedagogique/allocation-salles": "Allocation des salles",
+  "/charge-pedagogique/salles": "Référentiel des salles",
+
+  // Ressources Humaines
+  "/rh/dashboard": "Tableau de bord RH",
+  "/rh/offres": "Offres d'emploi enseignants",
+  "/rh/candidatures": "Traitement des candidatures",
+  "/rh/enseignants": "Enseignants recrutés",
+  "/rh/contrats": "Contrats enseignants",
+  "/rh/charges-pedagogiques": "Affectation des Chargés Pédagogiques",
+
   // Parametre
   "/Parametres/gestion_utilisateur": "Gestion utilisateur",
   "/Parametres/gestion_permission": "Gestion permission utilisateur",

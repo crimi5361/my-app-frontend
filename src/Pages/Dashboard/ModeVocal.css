@@ -1,0 +1,399 @@
+/* Assistant Fondateur — mode vocal (2026-08-12).
+   Thème clair aligné sur les jetons --afx-* de la page assistant : le mode vocal
+   est une couche par-dessus la même application, un basculement en sombre à
+   l'ouverture donnerait l'impression de changer de produit. */
+
+.mv-fond {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(1100px 620px at 50% 6%, rgba(169, 119, 35, 0.07), transparent 62%),
+    radial-gradient(900px 560px at 84% 94%, rgba(30, 77, 130, 0.08), transparent 60%),
+    #f4f6fc;
+  color: #101a33;
+  font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
+  overflow: hidden;
+}
+
+/* ── En-tête ─────────────────────────────────────────────────────────────── */
+.mv-entete {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 26px;
+  border-bottom: 1px solid rgba(16, 26, 51, 0.08);
+  background: rgba(255, 255, 255, 0.6);
+  backdrop-filter: blur(10px);
+}
+
+.mv-titre {
+  /* Pousse budget, micro et fermeture à droite — y compris avant l'arrivée du
+     budget, qui n'est connu qu'au message « pret ». */
+  margin-right: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.mv-pastille {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  animation: mv-battement 2s ease-in-out infinite;
+}
+
+@keyframes mv-battement {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%      { opacity: 0.35; transform: scale(0.72); }
+}
+
+.mv-budget {
+  display: flex;
+  align-items: center;
+}
+
+/* Jauge à trois niveaux. Le fond porte les trois zones en très pale : on voit
+   d'un coup d'œil où sont les seuils, même quand la barre est presque vide. */
+.mv-budget-barre {
+  position: relative;
+  width: 132px;
+  height: 7px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: linear-gradient(
+    to right,
+    rgba(47, 145, 102, 0.16) 0%, rgba(47, 145, 102, 0.16) 60%,
+    rgba(183, 121, 31, 0.16) 60%, rgba(183, 121, 31, 0.16) 85%,
+    rgba(176, 58, 43, 0.16) 85%, rgba(176, 58, 43, 0.16) 100%
+  );
+}
+
+.mv-budget-remplissage {
+  height: 100%;
+  border-radius: 99px;
+  /* La couleur suit le niveau atteint ; la transition évite un saut brutal au
+     franchissement d'un seuil. */
+  transition: background-color 0.5s ease;
+}
+
+.mv-budget.niveau-vert   .mv-budget-remplissage { background-color: #2f9166; }
+.mv-budget.niveau-orange .mv-budget-remplissage { background-color: #b7791f; }
+.mv-budget.niveau-rouge  .mv-budget-remplissage { background-color: #b03a2b; }
+
+/* Au rouge seulement, la jauge respire : c'est le moment où il faut la remarquer. */
+.mv-budget.niveau-rouge .mv-budget-remplissage {
+  animation: mv-jauge-alerte 1.8s ease-in-out infinite;
+}
+
+@keyframes mv-jauge-alerte {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+/* Coupure du micro — même gabarit que la fermeture, posé juste avant elle.
+   À l'état coupé, le rouge est franc : c'est une information qu'il ne faut pas
+   rater, sous peine de parler dans le vide. */
+.mv-micro {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(16, 26, 51, 0.12);
+  border-radius: 50%;
+  background: #ffffff;
+  color: #55607a;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, border-color 0.18s;
+}
+
+.mv-micro:hover {
+  background: rgba(16, 26, 51, 0.06);
+  color: #101a33;
+}
+
+.mv-micro.est-coupe {
+  background: rgba(176, 58, 43, 0.10);
+  border-color: rgba(176, 58, 43, 0.42);
+  color: #b03a2b;
+}
+
+.mv-micro.est-coupe:hover { background: rgba(176, 58, 43, 0.18); }
+
+.mv-fermer {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(16, 26, 51, 0.12);
+  border-radius: 50%;
+  background: #ffffff;
+  color: #55607a;
+  cursor: pointer;
+  transition: background 0.18s, color 0.18s, transform 0.18s;
+}
+
+.mv-fermer:hover {
+  background: rgba(16, 26, 51, 0.06);
+  color: #101a33;
+  transform: rotate(90deg);
+}
+
+/* ── Scène centrale ────────────────────────────────────────────── */
+.mv-scene {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 20px 4px;
+  flex-shrink: 0;
+}
+
+.mv-orbe-zone {
+  position: relative;
+  width: 360px;
+  height: 360px;
+  display: grid;
+  place-items: center;
+}
+
+/* La sphère WebGL occupe toute la zone. Aucun flou ni masque : c'est le shader
+   qui produit le volume, un traitement CSS par-dessus l'écraserait. */
+.mv-blob {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* L'icône flotte au centre, au-dessus du cœur sombre. L'ombre portée la détache
+   des crêtes claires qui passent dessous au fil de la rotation. */
+.mv-icone {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.55));
+  pointer-events: none;
+}
+
+.mv-tourne {
+  animation: mv-rotation 1s linear infinite;
+}
+
+@keyframes mv-rotation {
+  to { transform: rotate(360deg); }
+}
+
+.mv-etat {
+  margin-top: 2px;
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.mv-intention {
+  margin-top: 8px;
+  max-width: 460px;
+  text-align: center;
+  font-size: 12.5px;
+  color: #7b8499;
+  font-style: italic;
+}
+
+/* ── Fil de conversation ─────────────────────────────────────────────────── */
+.mv-fil {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(16, 26, 51, 0.18) transparent;
+}
+
+.mv-fil::-webkit-scrollbar { width: 7px; }
+.mv-fil::-webkit-scrollbar-thumb {
+  background: rgba(16, 26, 51, 0.18);
+  border-radius: 99px;
+}
+
+.mv-bulle {
+  max-width: min(660px, 92%);
+  width: fit-content;
+  padding: 12px 17px;
+  border-radius: 17px;
+  font-size: 14.5px;
+  line-height: 1.62;
+  white-space: pre-wrap;
+}
+
+.mv-bulle-fondateur {
+  align-self: flex-end;
+  margin-right: max(0px, calc(50% - 330px));
+  background: linear-gradient(135deg, rgba(169, 119, 35, 0.16), rgba(169, 119, 35, 0.07));
+  border: 1px solid rgba(169, 119, 35, 0.28);
+  border-bottom-right-radius: 6px;
+  color: #101a33;
+}
+
+.mv-bulle-assistant {
+  align-self: flex-start;
+  margin-left: max(0px, calc(50% - 330px));
+  background: #ffffff;
+  border: 1px solid rgba(16, 26, 51, 0.09);
+  border-bottom-left-radius: 6px;
+  box-shadow: 0 6px 18px -12px rgba(16, 26, 51, 0.45);
+  color: #2a3348;
+}
+
+.mv-invite {
+  margin-top: 20px;
+  text-align: center;
+  font-size: 14px;
+  color: #7b8499;
+  line-height: 2;
+}
+
+.mv-invite span {
+  display: block;
+  font-size: 13px;
+  color: #9aa2b4;
+  font-style: italic;
+}
+
+/* ── Graphique ───────────────────────────────────────────────────────────── */
+.mv-graphique {
+  width: min(720px, 96%);
+  margin-top: 8px;
+  padding: 20px 20px 12px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(16, 26, 51, 0.09);
+  box-shadow: 0 22px 55px -28px rgba(16, 26, 51, 0.5);
+}
+
+.mv-graphique-titre {
+  margin-bottom: 14px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #101a33;
+}
+
+/* ── Erreur ──────────────────────────────────────────────────────────────── */
+.mv-erreur {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 92vw;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(176, 58, 43, 0.32);
+  box-shadow: 0 16px 40px -20px rgba(176, 58, 43, 0.6);
+  color: #8f2f22;
+  font-size: 13.5px;
+}
+
+.mv-erreur button {
+  padding: 5px 13px;
+  border: 1px solid rgba(176, 58, 43, 0.35);
+  border-radius: 9px;
+  background: rgba(176, 58, 43, 0.08);
+  color: #8f2f22;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.18s;
+}
+
+.mv-erreur button:hover { background: rgba(176, 58, 43, 0.18); }
+
+/* ── Écrans étroits ──────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .mv-orbe-zone { width: 264px; height: 264px; }
+  .mv-budget-barre { width: 84px; }
+  .mv-bulle-fondateur, .mv-bulle-assistant { margin: 0; }
+}
+
+/* Certains fondateurs coupent les animations au niveau système : on respecte.
+   La sphère gère son propre cas (elle fige son horloge et sa rotation). */
+@media (prefers-reduced-motion: reduce) {
+  .mv-fond *:not(.mv-blob) {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* ── Fichiers annoncés à l'oral ─────────────────────────────────────────────
+   Un classeur dont l'assistante parle mais qu'on ne voit pas n'existe pas :
+   il apparaît dans le fil, au même titre qu'un graphique. */
+.mv-fichier {
+  width: min(560px, 92%);
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px 16px;
+  border: 1px solid rgba(16, 26, 51, 0.09);
+  border-radius: 16px;
+  background: #ffffff;
+  color: #101a33;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 10px 28px -20px rgba(16, 26, 51, 0.5);
+  transition: transform 0.16s ease, border-color 0.16s ease;
+}
+
+.mv-fichier:hover {
+  transform: translateY(-1px);
+  border-color: rgba(169, 119, 35, 0.45);
+}
+
+.mv-fichier-icone {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+  flex-shrink: 0;
+}
+
+.mv-fichier-icone.est-tableur  { background: rgba(33, 115, 70, 0.10); color: #217346; }
+.mv-fichier-icone.est-document { background: rgba(43, 87, 154, 0.10); color: #2b579a; }
+
+.mv-fichier-corps { flex: 1; min-width: 0; }
+
+.mv-fichier-nom {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mv-fichier-meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: #7b8499;
+}
