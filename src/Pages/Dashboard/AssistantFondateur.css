@@ -482,6 +482,35 @@
    provisoire, la reconnaissance peut encore le réviser entièrement. Le mettre
    dans le champ empêchait de le corriger au clavier — il se réécrivait sous les
    doigts. Il disparaît dès que le résultat définitif est connu. */
+/* Civilité de l'accueil — trois choix fermés plutôt qu'une saisie libre : la
+   valeur est prononcée par l'assistante. */
+.afx-set-civilites {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.afx-set-civilite {
+  flex: 1;
+  padding: 7px 10px;
+  border: 1px solid rgba(16, 26, 51, 0.14);
+  border-radius: 9px;
+  background: #ffffff;
+  color: #55607a;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.16s, color 0.16s, border-color 0.16s;
+}
+
+.afx-set-civilite:hover { background: rgba(16, 26, 51, 0.04); }
+
+.afx-set-civilite.est-active {
+  background: rgba(169, 119, 35, 0.12);
+  border-color: rgba(169, 119, 35, 0.45);
+  color: #7d570f;
+  font-weight: 600;
+}
+
 .afx-dictee-provisoire {
   margin: 0 0 8px;
   padding: 0 14px;

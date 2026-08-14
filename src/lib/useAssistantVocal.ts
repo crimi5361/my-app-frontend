@@ -48,6 +48,16 @@ export interface TourConversation {
   texteFinal?: string;
 }
 
+/** Débriefing de la veille : résumé lu à voix haute + visuels poussés à l'écran. */
+export interface DebriefingVocal {
+  date: string | null;
+  phrases: string[];
+  graphiques: {
+    visualisation: VisualisationVocale;
+    donnees: Record<string, string | number | null>[];
+  }[];
+}
+
 export interface BudgetVocal {
   fcfa: number;
   budget_fcfa: number;
@@ -57,6 +67,35 @@ export interface BudgetVocal {
 }
 
 const uid = () => Math.random().toString(36).slice(2, 10);
+
+/**
+ * L'accueil nominatif a-t-il déjà été joué depuis la connexion ?
+ *
+ * Le serveur ne peut pas répondre : il voit une nouvelle session Live à chaque
+ * ouverture de l'écran vocal, et rejouerait donc la phrase à chaque fois. Le
+ * navigateur, lui, connaît la connexion.
+ *
+ * `sessionStorage` et non `localStorage` : la marque disparaît à la fermeture de
+ * l'onglet, ce qui correspond à la durée d'une session de travail. La clé porte
+ * l'identifiant de l'utilisateur pour qu'un changement de compte sur le même
+ * poste soit bien accueilli.
+ */
+const CLE_ACCUEIL = 'assistant_accueil_joue';
+
+function accueilDejaJoue(): boolean {
+  try {
+    const brut = localStorage.getItem('user');
+    const id = brut ? (JSON.parse(brut)?.id ?? 'anonyme') : 'anonyme';
+    const cle = `${CLE_ACCUEIL}:${id}`;
+    if (sessionStorage.getItem(cle)) return true;
+    sessionStorage.setItem(cle, '1');
+    return false;
+  } catch {
+    // Stockage indisponible (navigation privée stricte) : on préfère accueillir
+    // une fois de trop que de laisser le fondateur devant un écran muet.
+    return false;
+  }
+}
 
 // Le worklet émet un niveau toutes les ~8 ms (128 échantillons à 16 kHz) et
 // l'analyseur de lecture à 60 Hz. Répercuter ça tel quel dans un état React
@@ -92,6 +131,7 @@ export function useAssistantVocal() {
   const [niveauSortie, setNiveauSortie] = useState(0);
   const [micCoupe, setMicCoupe] = useState(false);
   const [fichiers, setFichiers] = useState<FichierAssistant[]>([]);
+  const [debriefing, setDebriefing] = useState<DebriefingVocal | null>(null);
   // Forme 3D a afficher. Emise par le serveur d'apres l'outil appele et la vue
   // interrogee : elle suit ce que l'assistante FAIT, pas ce qui a ete dit.
   const [forme, setForme] = useState('sphere');
@@ -335,6 +375,11 @@ export function useAssistantVocal() {
               ws.send(JSON.stringify({ type: 'micro', coupe: true }));
             }
             setStatut('ecoute');
+
+            // L'accueil est demandé APRÈS l'ouverture du micro : l'assistante
+            // pose une question, elle doit pouvoir entendre la réponse. Demandé
+            // avant, le début du « oui » tombait dans le vide.
+            if (!accueilDejaJoue()) ws.send(JSON.stringify({ type: 'accueil' }));
           } catch {
             setErreur("Micro inaccessible. Autorisez l'accès au microphone puis réessayez.");
             setStatut('erreur');
@@ -406,6 +451,10 @@ export function useAssistantVocal() {
           setForme(m.forme || 'sphere');
           break;
 
+        case 'debriefing':
+          setDebriefing({ date: m.date, phrases: m.phrases, graphiques: m.graphiques });
+          break;
+
         case 'fichier':
           // Un classeur annonce a l'oral sans bouton visible n'existe pas pour
           // le fondateur : il doit apparaitre dans le fil.
@@ -474,6 +523,7 @@ export function useAssistantVocal() {
     setRequetes([]);
     setVisuel(null);
     setFichiers([]);
+    setDebriefing(null);
     setForme('sphere');
     setErreur(null);
     tourEnCoursRef.current = { fondateur: null, assistant: null };
@@ -483,7 +533,7 @@ export function useAssistantVocal() {
   useEffect(() => () => arreter(), [arreter]);
 
   return {
-    statut, erreur, tours, requetes, visuel, budget, fichiers, forme,
+    statut, erreur, tours, requetes, visuel, budget, fichiers, forme, debriefing,
     niveauEntree, niveauSortie, micCoupe, avancementRef,
     demarrer, arreter, envoyerTexte, reinitialiser, basculerMicro,
   };

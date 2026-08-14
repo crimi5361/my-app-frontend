@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Mic, MicOff, Database, BarChart3, Volume2, Loader2, AlertTriangle,
-  FileSpreadsheet, FileText, Download,
+  FileSpreadsheet, FileText, Download, CalendarClock,
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area,
@@ -198,7 +198,9 @@ const FichierVocal = ({ fichier }: { fichier: FichierAssistant }) => {
 // ───────────────────────────────────────────────────────────────────────────
 //  Graphique poussé en direct par le modèle
 // ───────────────────────────────────────────────────────────────────────────
-const GraphiqueVocal = ({ visuel }: { visuel: NonNullable<ReturnType<typeof useAssistantVocal>['visuel']> }) => {
+type Visuel = NonNullable<ReturnType<typeof useAssistantVocal>['visuel']>;
+
+const GraphiqueVocal = ({ visuel }: { visuel: Visuel }) => {
   const { visualisation: v, donnees } = visuel;
 
   // PostgreSQL renvoie numeric/bigint en chaîne : sans conversion, Recharts
@@ -294,6 +296,53 @@ const GraphiqueVocal = ({ visuel }: { visuel: NonNullable<ReturnType<typeof useA
     </motion.div>
   );
 };
+
+// ───────────────────────────────────────────────────────────────────────────
+//  Débriefing de la veille
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Ce que l'assistante vient de dire, mis par écrit et en graphiques.
+ *
+ * Les chiffres affichés sont EXACTEMENT ceux qu'elle prononce : le serveur les
+ * calcule une seule fois, en SQL, et envoie le même jeu aux deux. Le modèle ne
+ * les voit jamais autrement que sous forme de phrases toutes faites.
+ *
+ * Les visuels réutilisent le composant du graphique poussé par le modèle. Il est
+ * éprouvé, il gère déjà les conversions numériques de PostgreSQL : en écrire un
+ * second n'aurait servi qu'à dupliquer ses défauts.
+ */
+const DebriefingVocal = ({ debriefing }: { debriefing: NonNullable<ReturnType<typeof useAssistantVocal>['debriefing']> }) => (
+  <motion.div
+    className="mv-debriefing"
+    initial={{ opacity: 0, y: 22 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ type: 'spring', stiffness: 210, damping: 26 }}
+  >
+    <div className="mv-debriefing-entete">
+      <CalendarClock size={17} />
+      <span>Mouvements de la veille{debriefing.date ? ` — ${debriefing.date}` : ''}</span>
+    </div>
+
+    <ul className="mv-debriefing-faits">
+      {debriefing.phrases.map((p) => <li key={p}>{p}</li>)}
+    </ul>
+
+    {debriefing.graphiques.map((g) => (
+      <GraphiqueVocal key={g.visualisation.titre} visuel={g as Visuel} />
+    ))}
+
+    {/* Dit à l'écrit ce que l'assistante dit à l'oral. Un rapport d'activité
+        qu'on croit exhaustif alors qu'il ne couvre que les créations conduirait
+        à des conclusions fausses sur le travail des agents. */}
+    <p className="mv-debriefing-limite">
+      Ne couvre que les actes de création tracés dans la base : inscriptions,
+      encaissements, prises en charge, sessions de caisse, mouvements de stock.
+      Les connexions, consultations, modifications et suppressions ne sont
+      enregistrées nulle part.
+    </p>
+  </motion.div>
+);
 
 // ───────────────────────────────────────────────────────────────────────────
 //  Écran principal
@@ -452,6 +501,10 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
               </motion.p>
             )
           ))}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {v.debriefing && <DebriefingVocal key="debriefing" debriefing={v.debriefing} />}
         </AnimatePresence>
 
         <AnimatePresence>

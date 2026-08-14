@@ -91,6 +91,15 @@ interface AssistantChatResponse {
 
 const STORAGE_KEY = 'fdt_assistant_conversations';
 
+/** Civilités proposées. Liste fermée, identique à celle du serveur
+ *  (services/assistantReglages.service.js) : la valeur est prononcée par
+ *  l'assistante, elle ne peut pas être une saisie libre. */
+const CIVILITES = [
+  { valeur: 'Monsieur', libelle: 'Monsieur' },
+  { valeur: 'Madame', libelle: 'Madame' },
+  { valeur: '', libelle: 'Sans civilité' },
+];
+
 // Recharts ne lit pas les variables CSS : les couleurs des axes/grilles doivent être fournies en
 // dur. L'or est volontairement assombri par rapport au jeton de marque, pour rester lisible sur
 // fond clair (règle "accent adjusted for WCAG 3:1" de la base de design).
@@ -357,6 +366,9 @@ const AssistantFondateur = () => {
   const [nomEnregistre, setNomEnregistre] = useState('');
   const [msgNom, setMsgNom] = useState<string | null>(null);
   const [rechercheWeb, setRechercheWeb] = useState(false);
+  // Civilité employée à l'accueil. Réglage de SITE et non de personne : la table
+  // utilisateur ne porte aucun genre — voir migration 2026-08-14_assistant_civilite.
+  const [civilite, setCivilite] = useState('Monsieur');
   const [point, setPoint] = useState<{ phrases: string[]; alertes: string[]; fenetre_jours: number } | null>(null);
   const [speechSupported] = useState(() => Boolean(getSpeechRecognitionCtor()));
   // Dictée en cours, pas encore arrêtée par la reconnaissance. Volontairement
@@ -382,11 +394,12 @@ const AssistantFondateur = () => {
   const firstName = (user?.nom || '').split(' ')[0] || '';
 
   useEffect(() => {
-    apiFetch<{ reglages: { nom_assistant: string | null; recherche_web: boolean } }>('/api/assistant/reglages')
+    apiFetch<{ reglages: { nom_assistant: string | null; recherche_web: boolean; civilite?: string } }>('/api/assistant/reglages')
       .then((r) => {
         setNomAssistante(r.reglages.nom_assistant || '');
         setNomEnregistre(r.reglages.nom_assistant || '');
         setRechercheWeb(!!r.reglages.recherche_web);
+        setCivilite(r.reglages.civilite ?? 'Monsieur');
       })
       .catch(() => { /* l'assistante reste utilisable sans prénom */ });
 
@@ -414,6 +427,18 @@ const AssistantFondateur = () => {
       setMsgNom(r.message || (retenu ? `Elle répondra désormais au nom de ${retenu}.` : 'Prénom retiré.'));
     } catch (e) {
       setMsgNom(e instanceof ApiError ? e.message : "Enregistrement impossible.");
+    }
+  };
+
+  const enregistrerCivilite = async (valeur: string) => {
+    const precedent = civilite;
+    setCivilite(valeur);
+    try {
+      await apiFetch('/api/assistant/reglages', {
+        method: 'PUT', body: JSON.stringify({ civilite: valeur }),
+      });
+    } catch {
+      setCivilite(precedent);   // le serveur n'a pas suivi : on revient en arrière
     }
   };
 
@@ -769,6 +794,31 @@ const AssistantFondateur = () => {
                 <div className="afx-set-aide">
                   Lui permet de consulter le web quand la réponse n'est pas dans vos
                   données. Elle précise toujours ce qui vient du web.
+                </div>
+              </div>
+
+              {/* La table des utilisateurs ne porte aucun genre : sans ce
+                  réglage, il faudrait écrire « Monsieur » en dur et redéployer
+                  le jour où une femme occupe le poste. */}
+              <div>
+                <span className="afx-set-label">Comment elle vous salue</span>
+                <div className="afx-set-civilites">
+                  {CIVILITES.map((c) => (
+                    <button
+                      key={c.valeur}
+                      type="button"
+                      className={`afx-set-civilite${civilite === c.valeur ? ' est-active' : ''}`}
+                      onClick={() => enregistrerCivilite(c.valeur)}
+                      aria-pressed={civilite === c.valeur}
+                    >
+                      {c.libelle}
+                    </button>
+                  ))}
+                </div>
+                <div className="afx-set-aide">
+                  « Bonjour{civilite ? ` ${civilite}` : ''}
+                  {firstName ? ` ${firstName}` : ''}, j'espère que vous allez bien. »
+                  Votre nom est lu dans la base à chaque ouverture.
                 </div>
               </div>
             </div>
