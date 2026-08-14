@@ -72,6 +72,8 @@ import RechercheEtudiantCaisse from "../../Pages/CAISSE/RechercheEtudiantCaisse"
 import PaiementsJour from "../../Pages/CAISSE/PaiementsJour";
 import FermerCaisse from "../../Pages/CAISSE/FermerCaisse";
 import SituationEtudiant from "../../Pages/CAISSE/SituationEtudiant";
+import SupervisionCaisses from "../../Pages/Comptabilite/SupervisionCaisses";
+import Depenses from "../../Pages/Comptabilite/Depenses";
 import StatsResultat from "../../Pages/Gestion_academique/StatsResultat";
 import UiKit from "../../Pages/Kit/UiKit";
 
@@ -469,6 +471,19 @@ const AppRoutes = () => {
       <Route path="/caisse/fermer" element={
         <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
           <FermerCaisse />
+        </ProtectedRoute>
+      } />
+
+      {/* Chantier Comptabilité — Priorité 1, points 2 et 3 : réservées à la comptabilité/admin
+          (supervision et sorties d'argent, jamais le caissier). */}
+      <Route path="/comptabilite/supervision-caisses" element={
+        <ProtectedRoute requiredPermission={["admin", "comptabilite"]}>
+          <SupervisionCaisses />
+        </ProtectedRoute>
+      } />
+      <Route path="/comptabilite/depenses" element={
+        <ProtectedRoute requiredPermission={["admin", "comptabilite"]}>
+          <Depenses />
         </ProtectedRoute>
       } />
 

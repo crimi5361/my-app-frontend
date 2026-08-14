@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import {
   Table, Button, Modal, Form, Input, Tag, Spin,
-  message, Descriptions, Row, Col, Statistic, Space, Alert, Select, Dropdown
+  message, Descriptions, Row, Col, Statistic, Space, Alert, Select, Dropdown, InputNumber
 } from 'antd';
 import {
   EyeOutlined, CheckCircleOutlined, CloseCircleOutlined,
@@ -22,7 +22,7 @@ const { TextArea } = Input;
 const { Option } = Select;
 
 interface PECEnAttente {
-  pec_id: number; type_pec: string; pourcentage_reduction: number;
+  pec_id: number; type_pec: string; nature_pec: string; pourcentage_reduction: number;
   reference: string; date_demande: string; etudiant_id: number;
   matricule_iipea: string; nom: string; prenoms: string;
   telephone: string; email: string; filiere: string; filiere_sigle: string;
@@ -173,12 +173,20 @@ const ListePEC = () => {
     setActionLoading(true);
     try {
       let motif_refus = null;
+      let pourcentage_accorde: number | null = null;
       if (action === 'refuser') {
-        try { const v = await form.validateFields(); motif_refus = v.motif_refus || null; } catch { motif_refus = null; }
+        try { const v = await form.validateFields(['motif_refus']); motif_refus = v.motif_refus || null; } catch { motif_refus = null; }
+      } else if (action === 'valider' && selectedPEC.nature_pec === 'institutionnelle') {
+        // Chantier 2 : le Fondateur peut ramener une PEC institutionnelle de 100 % à un
+        // pourcentage inférieur au moment de la confirmer — jamais pour une PEC classique.
+        try {
+          const v = await form.validateFields(['pourcentage_accorde']);
+          pourcentage_accorde = v.pourcentage_accorde ?? selectedPEC.pourcentage_reduction;
+        } catch { setActionLoading(false); return; }
       }
       const data = await apiFetch('/api/paiements/valider-pec', {
         method: 'POST',
-        body: JSON.stringify({ pec_id: selectedPEC.pec_id, action, motif_refus }),
+        body: JSON.stringify({ pec_id: selectedPEC.pec_id, action, motif_refus, pourcentage_accorde }),
       });
       if (data.success) {
         message.success(data.message);
@@ -217,10 +225,17 @@ const ListePEC = () => {
       ), width: 200,
     },
     {
-      title: 'Type PEC', dataIndex: 'type_pec', key: 'type_pec', align: 'center' as const,
+      title: 'Type PEC', key: 'type_pec', align: 'center' as const,
       onHeaderCell: () => ({ style: thS }),
-      render: (t: string) => <Tag color="purple" style={{ fontWeight: 600 }}>{t?.toUpperCase()}</Tag>,
-      width: 110,
+      render: (r: PECEnAttente) => (
+        <div>
+          <Tag color="purple" style={{ fontWeight: 600 }}>{r.type_pec?.toUpperCase()}</Tag>
+          {r.nature_pec === 'institutionnelle' && (
+            <Tag color="gold" style={{ marginTop: 4 }}>Institutionnelle 100%</Tag>
+          )}
+        </div>
+      ),
+      width: 130,
     },
     {
       title: 'Réduction', key: 'reduction', align: 'center' as const,
@@ -262,7 +277,11 @@ const ListePEC = () => {
         <Button
           size="small"
           icon={<EyeOutlined />}
-          onClick={() => { setSelectedPEC(r); setModalVisible(true); }}
+          onClick={() => {
+            setSelectedPEC(r);
+            setModalVisible(true);
+            form.setFieldsValue({ pourcentage_accorde: r.pourcentage_reduction, motif_refus: undefined });
+          }}
           style={{ background: '#0f5252', borderColor: '#0f5252', color: '#fff', borderRadius: 8, fontFamily: 'Plus Jakarta Sans' }}
         >
           Examiner
@@ -405,9 +424,24 @@ const ListePEC = () => {
         >
           {selectedPEC && (
             <div>
+              {selectedPEC.nature_pec === 'institutionnelle' && (
+                <Alert
+                  style={{ marginBottom: 16 }}
+                  type="warning"
+                  showIcon
+                  message="Prise en charge institutionnelle — décision provisoire"
+                  description="Cette PEC a été initiée à la Caisse (étudiant inscrit à 0 FCFA). Votre décision est définitive : confirmez à 100 %, réduisez le pourcentage (le reste redeviendra automatiquement dû), ou refusez (la scolarité complète redevient due)."
+                />
+              )}
+
               <Descriptions bordered column={1} size="small" style={{ marginBottom: 20 }}>
-                <Descriptions.Item label="Type PEC"><Tag color="purple">{selectedPEC.type_pec?.toUpperCase()}</Tag></Descriptions.Item>
-                <Descriptions.Item label="Réduction"><span style={{ color: '#0d9488', fontWeight: 800, fontSize: 16 }}>{fmt(selectedPEC.pourcentage_reduction)}%</span></Descriptions.Item>
+                <Descriptions.Item label="Type PEC">
+                  <Tag color="purple">{selectedPEC.type_pec?.toUpperCase()}</Tag>
+                  {selectedPEC.nature_pec === 'institutionnelle' && <Tag color="gold">Institutionnelle 100%</Tag>}
+                </Descriptions.Item>
+                <Descriptions.Item label={selectedPEC.nature_pec === 'institutionnelle' ? 'Pourcentage demandé' : 'Réduction'}>
+                  <span style={{ color: '#0d9488', fontWeight: 800, fontSize: 16 }}>{fmt(selectedPEC.pourcentage_reduction)}%</span>
+                </Descriptions.Item>
                 <Descriptions.Item label="Montant réduction"><b>{fmt(selectedPEC.reduction_calculee).toLocaleString('fr-FR')} FCFA</b></Descriptions.Item>
                 <Descriptions.Item label="Référence">{selectedPEC.reference || '—'}</Descriptions.Item>
                 <Descriptions.Item label="Date demande">{selectedPEC.date_demande ? moment(selectedPEC.date_demande).format('DD/MM/YYYY') : '-'}</Descriptions.Item>
@@ -421,6 +455,19 @@ const ListePEC = () => {
               </Row>
 
               <Form form={form} layout="vertical">
+                {selectedPEC.nature_pec === 'institutionnelle' && (
+                  <Form.Item
+                    name="pourcentage_accorde"
+                    label="Pourcentage définitivement accordé (0 à 100)"
+                    rules={[
+                      { required: true, message: 'Pourcentage requis' },
+                      { type: 'number', min: 0, max: 100, message: 'Entre 0 et 100' },
+                    ]}
+                    extra="100 = confirmation totale. Une valeur inférieure fait automatiquement redevenir la différence due par l'étudiant."
+                  >
+                    <InputNumber style={{ width: '100%' }} min={0} max={100} addonAfter="%" />
+                  </Form.Item>
+                )}
                 <Form.Item name="motif_refus" label="Motif de refus (optionnel)" rules={[{ max: 500, message: '500 caractères max' }]}>
                   <TextArea placeholder="Laisser vide pour motif par défaut" rows={3} maxLength={500} />
                 </Form.Item>

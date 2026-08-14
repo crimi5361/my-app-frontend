@@ -21,6 +21,7 @@ import {
   GiftOutlined,
   DatabaseOutlined,
   UsergroupAddOutlined,
+  FundOutlined,
 } from "@ant-design/icons";
 
 import { useLocation, useNavigate } from "react-router-dom";
@@ -131,6 +132,12 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
       children: [
         { key: "/scolarite/statuts", label: "Statuts", icon: <FileTextOutlined />, permission: ["admin", "comptabilite", "scolarite"] },
         { key: "/scolarite/paiements", label: "Historique Paiement", icon: <CreditCardOutlined />, permission: ["admin", "comptabilite", "scolarite"] },
+        // Chantier Comptabilité — Priorité 1, points 2 et 3 (2026-08-13) : ajoutées au groupe
+        // "Comptabilité" existant plutôt qu'un nouveau groupe — la clé "scolarite" est déjà
+        // autorisée pour comptabilite/admin dans PAGE_PERMISSIONS (lib/access.ts), pas besoin
+        // d'y toucher. Jamais le caissier (à la différence du groupe "Caisse" ci-dessous).
+        { key: "/comptabilite/supervision-caisses", label: "Supervision des caisses", icon: <BankOutlined />, permission: ["admin", "comptabilite"] },
+        { key: "/comptabilite/depenses", label: "Dépenses", icon: <FundOutlined />, permission: ["admin", "comptabilite"] },
       ],
     },
     {

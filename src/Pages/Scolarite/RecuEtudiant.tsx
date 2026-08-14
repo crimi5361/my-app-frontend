@@ -50,6 +50,7 @@ interface KitDetails {
 
 interface PriseEnChargeDetails {
   type_pec: string;
+  nature_pec?: string;
   pourcentage_reduction: number;
   montant_reduction: number;
   statut: string;
@@ -101,6 +102,9 @@ interface EtudiantDetails {
   };
   kit?: KitDetails;
   prise_en_charge?: PriseEnChargeDetails;
+  // Chantier 2 TER : mention frais de soutenance — présente uniquement pour Licence 3 / Licence 3
+  // Pro, année académique concernée (calculée côté backend, cf. mentionSoutenance.service.js).
+  mention_soutenance?: string | null;
 }
 
 const RecuEtudiant = () => {
@@ -388,8 +392,13 @@ const RecuEtudiant = () => {
   }
 
   const isSolde = etudiant.scolarite.statut_etudiant === 'SOLDE';
-  const montantScolariteAvecReduction = etudiant.prise_en_charge?.statut === 'valide' 
-    ? etudiant.scolarite.montant_scolarite 
+  // Correction (Chantier 2) : les deux branches renvoyaient la même valeur, la réduction PEC
+  // n'apparaissait donc jamais dans le montant total affiché en tête de reçu — seulement dans la
+  // section PEC dédiée plus bas. Nécessaire pour que la PEC institutionnelle 100 % (dont la
+  // réduction peut être intégrale) reste cohérente ici : Total Scolarité doit refléter le montant
+  // réellement dû après prise en charge, l'original restant affiché en dessous à titre indicatif.
+  const montantScolariteAvecReduction = etudiant.prise_en_charge?.statut === 'valide'
+    ? etudiant.scolarite.montant_scolarite - (etudiant.prise_en_charge.montant_reduction || 0)
     : etudiant.scolarite.montant_scolarite;
 
   const qrData = JSON.stringify({
@@ -798,10 +807,11 @@ const RecuEtudiant = () => {
         {/* Section Prise en Charge */}
         {etudiant.prise_en_charge && (
           <>
-            {/* En attente */}
-            {etudiant.prise_en_charge.statut === 'en_attente' && (
-              <Card 
-                title="Prise en Charge" 
+            {/* En attente (classique) ou initiée à la Caisse (institutionnelle, Chantier 2) —
+                même carte, décision Fondateur encore ouverte dans les deux cas. */}
+            {(etudiant.prise_en_charge.statut === 'en_attente' || etudiant.prise_en_charge.statut === 'initiee') && (
+              <Card
+                title={etudiant.prise_en_charge.nature_pec === 'institutionnelle' ? 'Prise en Charge Institutionnelle' : 'Prise en Charge'}
                 style={{ marginBottom: '15px' }}
                 headStyle={{ 
                   backgroundColor: '#fffbe6',
@@ -856,12 +866,12 @@ const RecuEtudiant = () => {
                       }}
                     >
                       <Descriptions.Item label="Statut">
-                        <Tag 
-                          color="gold" 
+                        <Tag
+                          color="gold"
                           icon={<SafetyCertificateOutlined />}
                           style={{ fontSize: '9px' }}
                         >
-                          En attente de validation
+                          {etudiant.prise_en_charge.statut === 'initiee' ? 'En attente de confirmation du Fondateur' : 'En attente de validation'}
                         </Tag>
                       </Descriptions.Item>
                       <Descriptions.Item label="Date Demande">
@@ -1145,6 +1155,21 @@ const RecuEtudiant = () => {
             )}
           />
         </Card>
+
+        {/* Mention frais de soutenance — Licence 3 / Licence 3 Pro, année académique concernée uniquement */}
+        {etudiant.mention_soutenance && (
+          <div style={{
+            marginTop: '10px',
+            padding: '8px',
+            backgroundColor: '#fffbe6',
+            border: '1px solid #ffe58f',
+            borderRadius: '3px'
+          }}>
+            <Text style={{ fontSize: '9px', color: '#874d00' }}>
+              {etudiant.mention_soutenance}
+            </Text>
+          </div>
+        )}
 
         {/* Pied de page */}
         <div style={{ 

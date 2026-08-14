@@ -22,7 +22,7 @@ import { apiFetch, ApiError } from '../../lib/api';
 const { Option } = Select;
 
 interface PECData {
-  pec_id: number; type_pec: string; pourcentage_reduction: number;
+  pec_id: number; type_pec: string; nature_pec: string; pourcentage_reduction: number;
   montant_reduction: number; reference: string; date_demande: string;
   date_validation: string; statut: string; motif_refus?: string;
   etudiant_id: number; matricule_iipea: string; nom: string; prenoms: string;
@@ -244,10 +244,15 @@ const PriseEnchargeTraiter = () => {
       ), width: 220,
     },
     {
-      title: 'Type PEC', dataIndex: 'type_pec', key: 'type_pec', align: 'center' as const,
+      title: 'Type PEC', key: 'type_pec', align: 'center' as const,
       onHeaderCell: () => ({ style: thS }),
-      render: (t: string) => <Tag color={typePecColor(t)} style={{ fontWeight: 600, padding: '2px 10px' }}>{t}</Tag>,
-      width: 120,
+      render: (r: PECData) => (
+        <div>
+          <Tag color={typePecColor(r.type_pec)} style={{ fontWeight: 600, padding: '2px 10px' }}>{r.type_pec}</Tag>
+          {r.nature_pec === 'institutionnelle' && <Tag color="gold" style={{ marginTop: 4 }}>Institutionnelle 100%</Tag>}
+        </div>
+      ),
+      width: 140,
     },
     {
       title: 'Réduction', key: 'reduction', align: 'center' as const,
@@ -506,7 +511,10 @@ const PriseEnchargeTraiter = () => {
                     <Alert message={selectedPec.motif_refus} type="error" showIcon icon={<ExclamationCircleOutlined />} />
                   </Descriptions.Item>
                 )}
-                <Descriptions.Item label="Type"><Tag color={typePecColor(selectedPec.type_pec)}>{selectedPec.type_pec}</Tag></Descriptions.Item>
+                <Descriptions.Item label="Type">
+                  <Tag color={typePecColor(selectedPec.type_pec)}>{selectedPec.type_pec}</Tag>
+                  {selectedPec.nature_pec === 'institutionnelle' && <Tag color="gold">Institutionnelle 100%</Tag>}
+                </Descriptions.Item>
                 <Descriptions.Item label="Référence">{selectedPec.reference || '—'}</Descriptions.Item>
                 <Descriptions.Item label="Réduction">
                   <span style={{ color: '#22c55e', fontWeight: 800, fontSize: 16 }}>{fmt(selectedPec.pourcentage_reduction)}%</span>

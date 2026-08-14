@@ -180,6 +180,18 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
     }
   };
 
+  // ✅ Même règle que côté serveur (services/parcoursProfessionnel.service.js::requiertChoixParcours)
+  // et que Reinscription.tsx/Verification.tsx (requiertChoixParcoursClient) — dupliquée ici en JS pur
+  // faute de code partagé entre front et back. Le choix Jour/Soir n'est demandé qu'à partir de
+  // Licence 3 Pro / Master 1 Pro / Master 2 Pro (niveau "PRO" hors Licence 1/2 Pro) — Licence 1 Pro,
+  // Licence 2 Pro et BTS restent toujours en Professionnel jour par défaut, sans qu'on le demande.
+  const requiertChoixParcours = (typeFiliereLibelle: string | null, niveauLibelle: string | null) => {
+    const lib = (niveauLibelle || '').trim().toUpperCase();
+    const contientPro = lib.includes('PRO');
+    const estL1OuL2 = /^LICENCE\s*[12]\b/.test(lib);
+    return typeFiliereLibelle === 'Professionnelles' && contientPro && !estL1OuL2;
+  };
+
   const handleFormationInfo = (info: FormationInfo) => {
     const { typeFiliereLibelle, niveauLibelle } = info;
 
@@ -196,7 +208,7 @@ const ResumeFinalisation: React.FC<ResumeFinalisationProps> = ({
     }
 
     // Professionnelles
-    if (niveauLibelle?.toUpperCase().startsWith('BTS')) {
+    if (!requiertChoixParcours(typeFiliereLibelle, niveauLibelle)) {
       setCurcusMode('auto');
       form.setFieldsValue({ parcours: 2 }); // Professionnel jour
       return;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Select, Table, Spin, Empty, Typography, Alert } from 'antd';
-import { DollarCircleOutlined, ClockCircleOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Statistic, Select, Table, Spin, Empty, Typography, Alert, Progress } from 'antd';
+import { DollarCircleOutlined, ClockCircleOutlined, GiftOutlined } from '@ant-design/icons';
 import {
   ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
@@ -27,6 +27,9 @@ interface DashboardComptabiliteData {
   repartitionMethode: { methode: string; total: number }[];
   parCaisse: { caisse: string; aujourd_hui: number; ce_mois: number }[];
   enAttente: { admissions: number; reinscriptions: number };
+  finance: {
+    total_scolarite: number; total_verse: number; total_restant: number; total_pec: number; nombre_pec: number;
+  };
 }
 
 const getUserInfo = () => {
@@ -136,6 +139,41 @@ const DashboardComptabilite = () => {
         <div style={{ textAlign: 'center', padding: 60 }}><Spin size="large" /></div>
       ) : (
         <>
+          {/* ✅ Chantier Comptabilité, priorité 1, point 1 : mêmes indicateurs que le Dashboard
+              Fondateur (Scolarité totale / Versé / Restant / PEC), même style, même source de
+              données (dashboardComptabilite.controller.js réutilise la requête de
+              dashboardFondateur.controller.js à l'identique). */}
+          <Card title="Situation financière globale" style={{ marginBottom: 24 }}>
+            <Row gutter={16} style={{ marginBottom: 20 }}>
+              <Col span={6}>
+                <Statistic title="Scolarité totale" value={data.finance.total_scolarite} formatter={(v) => formatFcfa(Number(v))} prefix={<DollarCircleOutlined style={{ color: 'var(--mod-comptabilite)' }} />} />
+              </Col>
+              <Col span={6}>
+                <Statistic title="Montant versé" value={data.finance.total_verse} formatter={(v) => formatFcfa(Number(v))} valueStyle={{ color: 'var(--success)' }} />
+              </Col>
+              <Col span={6}>
+                <Statistic title="Montant restant" value={data.finance.total_restant} formatter={(v) => formatFcfa(Number(v))} valueStyle={{ color: 'var(--warning)' }} />
+              </Col>
+              <Col span={6}>
+                <Statistic title="Prises en charge" value={data.finance.total_pec} formatter={(v) => formatFcfa(Number(v))} prefix={<GiftOutlined />} />
+                <Text type="secondary">{data.finance.nombre_pec} prise(s) en charge validée(s)</Text>
+              </Col>
+            </Row>
+            {data.finance.total_scolarite > 0 && (
+              <div>
+                <Text type="secondary" style={{ fontSize: 13 }}>
+                  Taux de paiement — {Math.round((data.finance.total_verse / data.finance.total_scolarite) * 100)}% de la scolarité totale déjà versée
+                </Text>
+                <Progress
+                  percent={Math.round((data.finance.total_verse / data.finance.total_scolarite) * 100)}
+                  size="small"
+                  status="active"
+                  strokeColor={{ '0%': 'var(--ink)', '100%': 'var(--success)' }}
+                />
+              </div>
+            )}
+          </Card>
+
           <Row gutter={16} style={{ marginBottom: 24 }}>
             <Col span={6}>
               <Card>

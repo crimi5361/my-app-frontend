@@ -524,7 +524,10 @@ const VerificationAdmission = () => {
                 <Col span={8}>
                   <Form.Item name="nationalite" label="Nationalité" rules={[{ required: true, message: 'Champ requis' }]}>
                     <Select showSearch placeholder="Sélectionnez la nationalité" filterOption={optionsFilter}>
-                      {referentiel?.pays.map(p => <Option key={p.id} value={p.nationalite}>{p.nationalite}</Option>)}
+                      {/* Correctif (2026-08-14) : value doit être pays.code_iso, pas pays.nationalite — c'est
+                          ce que stocke réellement etudiant.nationalite (même convention que NouvelleAdmission.tsx/
+                          DetailEtudiant.tsx), et ce que valide services/referentielIdentite.service.js. */}
+                      {referentiel?.pays.map(p => <Option key={p.id} value={p.code_iso}>{p.nationalite}</Option>)}
                     </Select>
                   </Form.Item>
                 </Col>
@@ -1131,7 +1134,10 @@ const VerificationReinscription = () => {
                 <Col span={8}>
                   <Form.Item name="nationalite" label="Nationalité">
                     <Select showSearch allowClear placeholder="Sélectionnez la nationalité" filterOption={optionsFilter}>
-                      {referentiel?.pays.map(p => <Option key={p.id} value={p.nationalite}>{p.nationalite}</Option>)}
+                      {/* Correctif (2026-08-14) : value doit être pays.code_iso, pas pays.nationalite — c'est
+                          ce que stocke réellement etudiant.nationalite (même convention que NouvelleAdmission.tsx/
+                          DetailEtudiant.tsx), et ce que valide services/referentielIdentite.service.js. */}
+                      {referentiel?.pays.map(p => <Option key={p.id} value={p.code_iso}>{p.nationalite}</Option>)}
                     </Select>
                   </Form.Item>
                 </Col>

@@ -3,9 +3,9 @@ import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Input, Button, Card, Descriptions, Alert, Row, Col, Form, message,
-  Spin, Typography, Space, Select, InputNumber, Result, Avatar
+  Spin, Typography, Space, Select, InputNumber, Result, Avatar, Checkbox
 } from 'antd';
-import { SearchOutlined, CheckCircleOutlined, LockOutlined } from '@ant-design/icons';
+import { SearchOutlined, CheckCircleOutlined, LockOutlined, BankOutlined } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import { apiFetch, ApiError } from '../../lib/api';
 
@@ -39,6 +39,8 @@ interface ValidationResultat {
   scolarite_verse: number;
   scolarite_restante: number;
   statut_etudiant: string;
+  pec_institutionnelle?: boolean;
+  reference_pec?: string;
 }
 
 const Encaisser = () => {
@@ -53,6 +55,9 @@ const Encaisser = () => {
   const [form] = Form.useForm();
   const [validating, setValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResultat | null>(null);
+  // Chantier 2 : PEC institutionnelle 100 % initiée à la Caisse — case à cocher qui remplace
+  // montant/méthode par une référence obligatoire, le paiement étant forcé à 0 FCFA côté backend.
+  const [pecInstitutionnelle, setPecInstitutionnelle] = useState(false);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -78,13 +83,14 @@ const Encaisser = () => {
     setDossier(null);
     setNotFoundMessage(null);
     setValidationResult(null);
+    setPecInstitutionnelle(false);
     try {
       const data = await apiFetch(`/api/caisse/recherche?code=${encodeURIComponent(codeRecherche)}`);
       setDossier(data.data);
       // Le champ de saisie démarre toujours à 150 000 FCFA (premier versement le plus courant),
       // quel que soit le montant total de la scolarité — celui-ci reste affiché séparément
       // dans les Descriptions ci-dessous. L'agent modifie le champ si un autre montant est reçu.
-      form.setFieldsValue({ montant: 150000, methode: undefined });
+      form.setFieldsValue({ montant: 150000, methode: undefined, reference_pec: undefined });
     } catch (e) {
       if (e instanceof ApiError) {
         if (e.status === 401) return;
@@ -111,9 +117,12 @@ const Encaisser = () => {
     if (!dossier) return;
     setValidating(true);
     try {
+      const payload = pecInstitutionnelle
+        ? { pec_institutionnelle: true, reference_pec: values.reference_pec }
+        : { montant: values.montant, methode: values.methode };
       const result = await apiFetch(`/api/caisse/${dossier.code_paiement}/valider`, {
         method: 'POST',
-        body: JSON.stringify({ montant: values.montant, methode: values.methode }),
+        body: JSON.stringify(payload),
       });
       message.success(result.message || 'Paiement validé');
       setValidationResult(result.data);
@@ -141,6 +150,7 @@ const Encaisser = () => {
     setDossier(null);
     setNotFoundMessage(null);
     setValidationResult(null);
+    setPecInstitutionnelle(false);
     form.resetFields();
   };
 
@@ -210,9 +220,22 @@ const Encaisser = () => {
           <Result
             status="success"
             icon={<CheckCircleOutlined />}
-            title={`Paiement validé — ${dossier?.reinscription_id ? 'Réinscription' : 'Admission'} finalisée`}
-            subTitle={`Reçu N° ${validationResult.numero_recu} — l'étudiant est désormais officiellement inscrit.`}
+            title={`${validationResult.pec_institutionnelle ? 'Prise en charge institutionnelle initiée' : 'Paiement validé'} — ${dossier?.reinscription_id ? 'Réinscription' : 'Admission'} finalisée`}
+            subTitle={
+              validationResult.pec_institutionnelle
+                ? `Réf. ${validationResult.reference_pec} — 0 FCFA encaissé, en attente de confirmation du Fondateur. L'étudiant est officiellement inscrit.`
+                : `Reçu N° ${validationResult.numero_recu} — l'étudiant est désormais officiellement inscrit.`
+            }
           >
+            {validationResult.pec_institutionnelle && (
+              <Alert
+                style={{ maxWidth: 500, margin: '0 auto 16px auto' }}
+                type="warning"
+                showIcon
+                message="Décision provisoire"
+                description="Cette prise en charge n'est pas encore définitive : le Fondateur doit la confirmer, la réduire ou la refuser."
+              />
+            )}
             <Descriptions column={1} bordered size="small" style={{ maxWidth: 500, margin: '0 auto 24px auto' }}>
               <Descriptions.Item label="Montant versé">{validationResult.scolarite_verse.toLocaleString('fr-FR')} FCFA</Descriptions.Item>
               <Descriptions.Item label="Reste à payer">{validationResult.scolarite_restante.toLocaleString('fr-FR')} FCFA</Descriptions.Item>
@@ -255,32 +278,67 @@ const Encaisser = () => {
           </Row>
 
           <Title level={5}>Enregistrer le paiement</Title>
+          <Checkbox
+            checked={pecInstitutionnelle}
+            onChange={(e) => {
+              setPecInstitutionnelle(e.target.checked);
+              form.setFieldsValue({ montant: undefined, methode: undefined, reference_pec: undefined });
+            }}
+            style={{ marginBottom: 16 }}
+          >
+            <BankOutlined /> Prise en charge institutionnelle 100 % (mairie, ministère, organisme partenaire)
+          </Checkbox>
+
+          {pecInstitutionnelle && (
+            <Alert
+              style={{ marginBottom: 16 }}
+              type="info"
+              showIcon
+              message="Inscription à 0 FCFA, sous réserve de confirmation du Fondateur"
+              description="L'étudiant sera inscrit immédiatement sans encaissement. La prise en charge reste provisoire tant que le Fondateur ne l'a pas définitivement confirmée, réduite ou refusée."
+            />
+          )}
+
           <Form form={form} layout="vertical" onFinish={handleValider}>
-            <Row gutter={16}>
-              <Col span={8}>
-                <Form.Item
-                  name="montant"
-                  label="Montant reçu (FCFA)"
-                  rules={[{ required: true, message: 'Montant requis' }]}
-                >
-                  <InputNumber style={{ width: '100%' }} min={1} />
-                </Form.Item>
-              </Col>
-              <Col span={8}>
-                <Form.Item
-                  name="methode"
-                  label="Méthode de paiement"
-                  rules={[{ required: true, message: 'Méthode requise' }]}
-                >
-                  <Select placeholder="Sélectionnez la méthode">
-                    {METHODES_PAIEMENT.map(m => <Option key={m} value={m}>{m}</Option>)}
-                  </Select>
-                </Form.Item>
-              </Col>
-            </Row>
+            {!pecInstitutionnelle ? (
+              <Row gutter={16}>
+                <Col span={8}>
+                  <Form.Item
+                    name="montant"
+                    label="Montant reçu (FCFA)"
+                    rules={[{ required: true, message: 'Montant requis' }]}
+                  >
+                    <InputNumber style={{ width: '100%' }} min={1} />
+                  </Form.Item>
+                </Col>
+                <Col span={8}>
+                  <Form.Item
+                    name="methode"
+                    label="Méthode de paiement"
+                    rules={[{ required: true, message: 'Méthode requise' }]}
+                  >
+                    <Select placeholder="Sélectionnez la méthode">
+                      {METHODES_PAIEMENT.map(m => <Option key={m} value={m}>{m}</Option>)}
+                    </Select>
+                  </Form.Item>
+                </Col>
+              </Row>
+            ) : (
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item
+                    name="reference_pec"
+                    label="Référence de la prise en charge"
+                    rules={[{ required: true, message: 'Référence obligatoire (ex : convention, courrier)' }]}
+                  >
+                    <Input placeholder="Ex : Convention Mairie de X, Réf. Ministère Y..." />
+                  </Form.Item>
+                </Col>
+              </Row>
+            )}
             <Form.Item>
               <Button type="primary" htmlType="submit" size="large" loading={validating}>
-                Valider le paiement
+                {pecInstitutionnelle ? 'Initier la prise en charge et finaliser' : 'Valider le paiement'}
               </Button>
             </Form.Item>
           </Form>
