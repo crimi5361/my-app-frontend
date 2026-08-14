@@ -67,20 +67,71 @@ export class CaptureMicro {
   private contexte: AudioContext | null = null;
   private flux: MediaStream | null = null;
   private noeud: AudioWorkletNode | null = null;
+  private source: MediaStreamAudioSourceNode | null = null;
   private sourdine = false;
+  /** Le nœud d'entrée est-il relié au worklet ? C'est cette liaison, et non un
+   *  drapeau, qui détermine si une trame peut seulement être captée. */
+  private branchee = false;
 
+  private surPcm: (base64: string) => void;
+  private surNiveau: (niveau: number) => void;
+
+  // Champs déclarés puis affectés, plutôt que des propriétés de paramètre : ces
+  // dernières ne sont pas du JavaScript et empêchent d'exécuter ce fichier hors
+  // du bundler, donc de le tester.
   constructor(
-    private surPcm: (base64: string) => void,
-    private surNiveau: (niveau: number) => void,
-  ) {}
+    surPcm: (base64: string) => void,
+    surNiveau: (niveau: number) => void,
+  ) {
+    this.surPcm = surPcm;
+    this.surNiveau = surNiveau;
+  }
 
-  /** Coupe le micro sans fermer la session : la piste est désactivée (le
-   *  navigateur affiche le micro comme muet) et surtout plus rien n'est envoyé,
-   *  ce qui économise aussi les jetons audio. */
+  /**
+   * Coupe le micro sans fermer la session.
+   *
+   * TROIS BARRIÈRES, et non une seule. Une version précédente se contentait de
+   * `enabled = false` plus un test dans le gestionnaire de trames : le graphe
+   * audio continuait de tourner et la moindre régression sur le drapeau
+   * rouvrait le micro sans que rien ne le signale.
+   *
+   *   1. la piste est désactivée — le navigateur affiche le micro comme muet ;
+   *   2. le nœud d'entrée est DÉBRANCHÉ du worklet — plus une seule trame
+   *      n'atteint le code de capture, quoi qu'il arrive ensuite ;
+   *   3. le drapeau `sourdine` bloque l'envoi en dernier recours.
+   *
+   * Le flux et le contexte audio sont conservés : le rétablissement ne redemande
+   * aucune permission, ne crée aucun écouteur en double et ne fuit rien.
+   */
   couper(muet: boolean): void {
     this.sourdine = muet;
     this.flux?.getAudioTracks().forEach((piste) => { piste.enabled = !muet; });
-    if (muet) this.surNiveau(0);
+
+    if (muet) {
+      if (this.branchee && this.source && this.noeud) {
+        try { this.source.disconnect(this.noeud); } catch { /* déjà détaché */ }
+        this.branchee = false;
+      }
+      this.surNiveau(0);
+      return;
+    }
+
+    if (!this.branchee && this.source && this.noeud) {
+      this.source.connect(this.noeud);
+      this.branchee = true;
+    }
+  }
+
+  /**
+   * État RÉEL de la capture, lu sur le flux — jamais sur une intention mémorisée.
+   *
+   * C'est ce que l'écran doit afficher : si le périphérique est débranché ou la
+   * permission révoquée, le micro est effectivement coupé, même si personne n'a
+   * cliqué sur le bouton.
+   */
+  estActif(): boolean {
+    if (!this.flux || !this.branchee || this.sourdine) return false;
+    return this.flux.getAudioTracks().some((p) => p.enabled && p.readyState === 'live');
   }
 
   async demarrer(): Promise<void> {
@@ -99,7 +150,7 @@ export class CaptureMicro {
     await this.contexte.audioWorklet.addModule(urlWorklet);
     URL.revokeObjectURL(urlWorklet);
 
-    const source = this.contexte.createMediaStreamSource(this.flux);
+    this.source = this.contexte.createMediaStreamSource(this.flux);
     this.noeud = new AudioWorkletNode(this.contexte, 'capture-processeur');
 
     const freqReelle = this.contexte.sampleRate;
@@ -122,7 +173,13 @@ export class CaptureMicro {
       this.surPcm(base64DepuisInt16(pcm));
     };
 
-    source.connect(this.noeud);
+    // Une capture démarrée alors que la sourdine est déjà demandée reste
+    // débranchée : ouvrir le micro pour le refermer aussitôt laisserait passer
+    // les trames de l'intervalle.
+    if (!this.sourdine) {
+      this.source.connect(this.noeud);
+      this.branchee = true;
+    }
     // Le worklet doit être relié à la destination pour que le graphe tourne, mais
     // via un gain nul : sans ça, le fondateur s'entend lui-même en retour.
     const muet = this.contexte.createGain();
@@ -133,10 +190,13 @@ export class CaptureMicro {
 
   arreter(): void {
     this.noeud?.port.close();
+    this.source?.disconnect();
     this.noeud?.disconnect();
     this.flux?.getTracks().forEach((t) => t.stop());
     this.contexte?.close();
+    this.branchee = false;
     this.noeud = null;
+    this.source = null;
     this.flux = null;
     this.contexte = null;
   }
@@ -155,8 +215,11 @@ export class LecteurAudio {
    *  borne le tour de parole et permet d'en connaître l'avancement. */
   private debutPlage = 0;
   private animation = 0;
+  private surNiveau: (niveau: number) => void;
 
-  constructor(private surNiveau: (niveau: number) => void) {}
+  constructor(surNiveau: (niveau: number) => void) {
+    this.surNiveau = surNiveau;
+  }
 
   private assurerContexte(): AudioContext {
     if (!this.contexte) {

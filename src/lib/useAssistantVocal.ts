@@ -102,6 +102,10 @@ export function useAssistantVocal() {
   const wsRef = useRef<WebSocket | null>(null);
   const microRef = useRef<CaptureMicro | null>(null);
   const lecteurRef = useRef<LecteurAudio | null>(null);
+  // Intention de coupure, lisible SYNCHRONEMENT. L'état React, lui, décrit ce que
+  // fait réellement le flux et peut en différer (périphérique débranché) : il
+  // arrive trop tard pour décider du sort d'une transcription qui entre.
+  const micCoupeRef = useRef(false);
   // Les transcriptions arrivent par fragments : on les accumule dans le dernier
   // tour du bon locuteur plutôt que de créer une bulle par fragment.
   const tourEnCoursRef = useRef<{ fondateur: string | null; assistant: string | null }>({ fondateur: null, assistant: null });
@@ -161,16 +165,51 @@ export function useAssistantVocal() {
     setForme('sphere');
     setNiveauEntree(0);
     setNiveauSortie(0);
+    micCoupeRef.current = false;
     setMicCoupe(false);
   }, []);
 
-  /** Coupe ou rétablit le micro sans interrompre la session en cours. */
+  /**
+   * Coupe ou rétablit le micro sans interrompre la session en cours.
+   *
+   * L'effet de bord est ICI et non dans un `setState` : un updater React doit
+   * être pur, et StrictMode l'invoque deux fois. Couper un périphérique depuis
+   * un updater est un pari sur l'idempotence du pilote audio.
+   *
+   * La coupure est ensuite ANNONCÉE AU SERVEUR. C'est ce qui la rend réelle : le
+   * serveur cesse de relayer les trames à Google et de renvoyer les
+   * transcriptions. Sans cet avis, l'audio déjà parti — celui du réseau et celui
+   * bufferisé chez Google — continuait d'être transcrit après le clic.
+   */
   const basculerMicro = useCallback(() => {
-    setMicCoupe((coupe) => {
-      const suivant = !coupe;
-      microRef.current?.couper(suivant);
-      return suivant;
-    });
+    const micro = microRef.current;
+    // On bascule par rapport à ce que le fondateur VOIT. Si la piste s'est
+    // arrêtée d'elle-même, l'écran affiche « coupé » et un clic doit rallumer.
+    const coupeMaintenant = micro ? !micro.estActif() : micCoupeRef.current;
+    const suivant = !coupeMaintenant;
+
+    micCoupeRef.current = suivant;
+    micro?.couper(suivant);
+
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'micro', coupe: suivant }));
+    }
+
+    // Ce qui s'affiche est relu sur le flux, pas déduit de l'intention.
+    setMicCoupe(micro ? !micro.estActif() : suivant);
+  }, []);
+
+  // L'indicateur suit le FLUX. Un périphérique débranché ou une permission
+  // révoquée coupent le micro sans que personne ait cliqué : l'écran doit le
+  // dire, sinon le fondateur croit être entendu alors qu'il ne l'est plus.
+  useEffect(() => {
+    const suivi = setInterval(() => {
+      const micro = microRef.current;
+      if (!micro) return;
+      const coupe = !micro.estActif();
+      setMicCoupe((precedent) => (precedent === coupe ? precedent : coupe));
+    }, 500);
+    return () => clearInterval(suivi);
   }, []);
 
   const demarrer = useCallback(async () => {
@@ -242,6 +281,13 @@ export function useAssistantVocal() {
             // ouvert sans propriétaire.
             if (!estCourante()) { micro.arreter(); return; }
             microRef.current = micro;
+            // Le fondateur a pu couper le micro pendant que l'autorisation était
+            // demandée : la nouvelle capture doit naître déjà muette, sinon elle
+            // s'ouvre en grand pendant l'instant qui sépare ces deux lignes.
+            if (micCoupeRef.current) {
+              micro.couper(true);
+              ws.send(JSON.stringify({ type: 'micro', coupe: true }));
+            }
             setStatut('ecoute');
           } catch {
             setErreur("Micro inaccessible. Autorisez l'accès au microphone puis réessayez.");
@@ -252,6 +298,10 @@ export function useAssistantVocal() {
         }
 
         case 'transcription_fondateur':
+          // Micro coupé : ce fragment vient d'un audio parti AVANT le clic, que
+          // le serveur n'a pas eu le temps d'intercepter. Il ne doit pas
+          // s'inscrire au fil — sinon la coupure paraît sans effet.
+          if (micCoupeRef.current) break;
           // Le fondateur reprend la parole : le tour de l'assistante est clos.
           cloreTourAssistant();
           ajouterFragment('fondateur', m.texte);
@@ -345,6 +395,10 @@ export function useAssistantVocal() {
       microRef.current?.arreter();
       microRef.current = null;
       setNiveauEntree(0);
+      // Sans cette remise à zéro, le bouton restait figé sur « coupé » après une
+      // reconnexion alors que le micro de la nouvelle session était bien ouvert.
+      micCoupeRef.current = false;
+      setMicCoupe(false);
       setStatut((s) => (s === 'erreur' ? s : 'inactif'));
     };
   }, [ajouterFragment, arreter, majStatut, cloreTourAssistant]);

@@ -102,12 +102,17 @@
    À l'état coupé, le rouge est franc : c'est une information qu'il ne faut pas
    rater, sous peine de parler dans le vide. */
 .mv-micro {
-  display: grid;
-  place-items: center;
-  width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   height: 36px;
+  /* Rond tant qu'il n'y a que l'icône ; la pastille s'allonge d'elle-même quand
+     le libellé « Micro coupé » apparaît. */
+  min-width: 36px;
+  padding: 0 9px;
   border: 1px solid rgba(16, 26, 51, 0.12);
-  border-radius: 50%;
+  border-radius: 999px;
   background: #ffffff;
   color: #55607a;
   cursor: pointer;
@@ -126,6 +131,19 @@
 }
 
 .mv-micro.est-coupe:hover { background: rgba(176, 58, 43, 0.18); }
+
+.mv-micro-libelle {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+/* Le libellé se retire sur écran étroit : la pastille rouge et l'icône barrée
+   suffisent alors, et la barre haute reste tenable. */
+@media (max-width: 560px) {
+  .mv-micro-libelle { display: none; }
+}
 
 .mv-fermer {
   display: grid;

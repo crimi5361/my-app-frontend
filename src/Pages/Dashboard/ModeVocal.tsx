@@ -57,9 +57,9 @@ const formatteurs = {
 // ───────────────────────────────────────────────────────────────────────────
 //  L'orbe : cœur visuel de l'écran
 // ───────────────────────────────────────────────────────────────────────────
-const Orbe = ({ statut, forme }: { statut: StatutVocal; forme: NomForme }) => {
-  const etat = ETATS[statut];
+type Etat = { libelle: string; teinte: string; icone: any };
 
+const Orbe = ({ statut, forme, etat }: { statut: StatutVocal; forme: NomForme; etat: Etat }) => {
   return (
     <div className="mv-orbe-zone">
       {/* La forme EST l'orbe : cylindre à bourrelets quand le modèle interroge la
@@ -72,7 +72,7 @@ const Orbe = ({ statut, forme }: { statut: StatutVocal; forme: NomForme }) => {
       <div className="mv-icone">
         <AnimatePresence mode="wait">
           <motion.div
-            key={statut}
+            key={etat.libelle}
             initial={{ scale: 0.4, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.4, opacity: 0 }}
@@ -319,7 +319,13 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
     return () => window.removeEventListener('keydown', surTouche);
   });
 
-  const etat = ETATS[v.statut];
+  // Micro coupé, l'écran doit le dire AVANT tout le reste : afficher « Je vous
+  // écoute » alors que rien n'est capté est exactement ce qui rendait la coupure
+  // ambiguë. L'état vient de `micCoupe`, lui-même relu sur le flux réel — pas
+  // sur l'intention du dernier clic.
+  const etat: Etat = v.micCoupe && v.statut !== 'erreur' && v.statut !== 'parle'
+    ? { libelle: "Micro coupé — je n'entends rien", teinte: '#b03a2b', icone: MicOff }
+    : ETATS[v.statut];
   const derniereRequete = v.requetes[v.requetes.length - 1];
 
   return (
@@ -366,6 +372,10 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
           aria-pressed={v.micCoupe}
         >
           {v.micCoupe ? <MicOff size={17} /> : <Mic size={17} />}
+          {/* Le libellé n'apparaît QUE coupé : une icône barrée seule se
+              confond avec un bouton désactivé, et c'est l'état dangereux —
+              celui où l'on croit être entendu — qui doit être écrit. */}
+          {v.micCoupe && <span className="mv-micro-libelle">Micro coupé</span>}
         </button>
 
         <button className="mv-fermer" onClick={fermer} aria-label="Fermer le mode vocal">
@@ -375,11 +385,11 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
 
       {/* Orbe + état */}
       <div className="mv-scene">
-        <Orbe statut={v.statut} forme={v.forme as NomForme} />
+        <Orbe statut={v.statut} forme={v.forme as NomForme} etat={etat} />
 
         <AnimatePresence mode="wait">
           <motion.div
-            key={v.statut}
+            key={etat.libelle}
             className="mv-etat"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
