@@ -10,10 +10,12 @@ import {
 } from 'recharts';
 import { apiFetch, ApiError } from '../../lib/api';
 import { telechargerFichier, FichierAssistant } from '../../lib/assistantFichiers';
+import { corrigerTranscription, CONFIG_VIDE, ConfigTranscription } from '../../lib/transcription';
+import './AssistantFondateur.css';
+
 // Chargé à la demande : l'écran vocal embarque three.js et ses shaders, inutiles
 // tant que le fondateur écrit ses questions au clavier.
 const ModeVocal = lazy(() => import('./ModeVocal'));
-import './AssistantFondateur.css';
 
 // Dictée vocale — Web Speech API du navigateur, 100% front-end.
 interface SpeechRecognitionResultLike { 0: { transcript: string }; isFinal: boolean }
@@ -357,12 +359,20 @@ const AssistantFondateur = () => {
   const [rechercheWeb, setRechercheWeb] = useState(false);
   const [point, setPoint] = useState<{ phrases: string[]; alertes: string[]; fenetre_jours: number } | null>(null);
   const [speechSupported] = useState(() => Boolean(getSpeechRecognitionCtor()));
+  // Dictée en cours, pas encore arrêtée par la reconnaissance. Volontairement
+  // HORS du champ de saisie : un texte qui se réécrit sous les doigts empêche de
+  // corriger quoi que ce soit, et rien ne distingue le provisoire du définitif.
+  const [dicteeProvisoire, setDicteeProvisoire] = useState('');
+  const [erreurDictee, setErreurDictee] = useState<string | null>(null);
 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const baseTextRef = useRef('');
   const finalTranscriptRef = useRef('');
+  // Sigles et corrections, servis par le serveur : mêmes données que le mode
+  // vocal. Absents, la dictée fonctionne — simplement sans correction.
+  const configDicteeRef = useRef<ConfigTranscription>(CONFIG_VIDE);
 
   const activeConversation = useMemo(() => conversations.find((c) => c.id === activeId), [conversations, activeId]);
   const messages = useMemo(() => activeConversation?.messages ?? [], [activeConversation]);
@@ -467,6 +477,14 @@ const AssistantFondateur = () => {
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
+  // Sigles et corrections de dictée. Un échec ici est sans gravité : la dictée
+  // marche, le texte est simplement moins bien mis en forme.
+  useEffect(() => {
+    apiFetch<ConfigTranscription>('/api/assistant/vocabulaire')
+      .then((r) => { configDicteeRef.current = r; })
+      .catch(() => { /* on garde CONFIG_VIDE */ });
+  }, []);
+
   useEffect(() => {
     const Ctor = getSpeechRecognitionCtor();
     if (!Ctor) return;
@@ -474,8 +492,13 @@ const AssistantFondateur = () => {
     recognition.lang = 'fr-FR';
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.onend = () => setListening(false);
-    recognition.onerror = () => setListening(false);
+    recognition.onend = () => { setListening(false); setDicteeProvisoire(''); };
+    recognition.onerror = () => {
+      setListening(false);
+      setDicteeProvisoire('');
+      // Un échec muet laissait le fondateur parler dans le vide, bouton allumé.
+      setErreurDictee("La dictée s'est interrompue. Vérifiez le micro, puis reprenez.");
+    };
     recognitionRef.current = recognition;
     return () => recognition.stop();
   }, []);
@@ -484,18 +507,32 @@ const AssistantFondateur = () => {
     const recognition = recognitionRef.current;
     if (!recognition) return;
     if (listening) { recognition.stop(); return; }
+
     baseTextRef.current = input.trim();
     finalTranscriptRef.current = '';
+    setErreurDictee(null);
+    setDicteeProvisoire('');
+
     recognition.onresult = (event) => {
-      let interim = '';
+      let provisoire = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const chunk = event.results[i][0].transcript;
-        if (event.results[i].isFinal) finalTranscriptRef.current += `${chunk} `;
-        else interim += chunk;
+        const morceau = event.results[i][0].transcript;
+        // La correction ne s'applique qu'aux résultats DÉFINITIFS : sur un
+        // résultat provisoire, la majuscule et le point sauteraient à chaque
+        // mot ajouté, et le texte clignoterait.
+        if (event.results[i].isFinal) {
+          finalTranscriptRef.current += `${corrigerTranscription(morceau, configDicteeRef.current)} `;
+        } else {
+          provisoire += morceau;
+        }
       }
-      const combined = `${finalTranscriptRef.current}${interim}`.trim();
-      setInput(baseTextRef.current ? `${baseTextRef.current} ${combined}` : combined);
+      // Seul le définitif entre dans le champ de saisie : le fondateur peut donc
+      // corriger au clavier sans être écrasé par la phrase suivante.
+      const acquis = finalTranscriptRef.current.trim();
+      setInput(baseTextRef.current && acquis ? `${baseTextRef.current} ${acquis}` : (acquis || baseTextRef.current));
+      setDicteeProvisoire(provisoire.trim());
     };
+
     recognition.start();
     setListening(true);
   };
@@ -582,6 +619,15 @@ const AssistantFondateur = () => {
 
   const composer = (
     <div className="afx-composer">
+      {/* Ce que la reconnaissance entend sans l'avoir encore arrêté. En gris et
+          en italique, hors du champ : c'est provisoire, ça ne se corrige pas au
+          clavier, et ça disparaîtra dès que le texte définitif sera connu. */}
+      {dicteeProvisoire && (
+        <div className="afx-dictee-provisoire" aria-live="polite">{dicteeProvisoire}</div>
+      )}
+      {erreurDictee && (
+        <div className="afx-dictee-erreur" role="alert">{erreurDictee}</div>
+      )}
       <div className={`afx-inputcard${listening ? ' is-recording' : ''}`}>
         <textarea
           ref={inputRef}

@@ -478,6 +478,30 @@
 .afx-composer-dock { position: relative; z-index: 3; flex-shrink: 0; padding: 10px 24px 16px; }
 .afx-composer { width: 100%; max-width: 720px; margin: 0 auto; }
 
+/* Dictée en cours. Gris et italique, hors du champ de saisie : ce texte est
+   provisoire, la reconnaissance peut encore le réviser entièrement. Le mettre
+   dans le champ empêchait de le corriger au clavier — il se réécrivait sous les
+   doigts. Il disparaît dès que le résultat définitif est connu. */
+.afx-dictee-provisoire {
+  margin: 0 0 8px;
+  padding: 0 14px;
+  color: #7b8499;
+  font-style: italic;
+  font-size: 14px;
+  line-height: 1.45;
+  min-height: 20px;
+}
+
+.afx-dictee-erreur {
+  margin: 0 0 8px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(176, 58, 43, 0.08);
+  border: 1px solid rgba(176, 58, 43, 0.28);
+  color: #b03a2b;
+  font-size: 13px;
+}
+
 /* Angle enregistré pour pouvoir animer le conic-gradient du liseré néon : sans @property, un
    dégradé conique n'est pas interpolable et l'anneau resterait figé. */
 @property --afx-angle {

@@ -342,6 +342,17 @@
     0 8px 26px -14px rgba(140, 100, 20, 0.55);
 }
 
+/* Transcription provisoire : la reconnaissance n'a pas encore tranché, le texte
+   peut encore changer. Il s'affiche donc en retrait — gris, italique, bulle
+   atténuée — pour qu'on ne le lise pas comme un acquis. La bulle reprend sa
+   couleur pleine dès que le texte est définitif. */
+.mv-bulle-fondateur.est-partiel {
+  color: #7b8499;
+  font-style: italic;
+  background: linear-gradient(135deg, rgba(214, 176, 96, 0.13), rgba(214, 176, 96, 0.06));
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.6);
+}
+
 .mv-invite {
   margin-top: 20px;
   text-align: center;

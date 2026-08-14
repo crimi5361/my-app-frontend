@@ -423,9 +423,11 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
           {v.tours.map((t) => (
             t.rôle === 'fondateur' ? (
               // Ce que dit le fondateur reste une bulle : c'est un message envoye.
+              // Tant que la reconnaissance n'a pas tranche, la bulle est grise et
+              // en italique : le texte est provisoire, il changera peut-etre.
               <motion.div
                 key={t.id}
-                className="mv-bulle mv-bulle-fondateur"
+                className={`mv-bulle mv-bulle-fondateur${t.partiel ? ' est-partiel' : ''}`}
                 initial={{ opacity: 0, y: 14, scale: 0.97 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 26 }}

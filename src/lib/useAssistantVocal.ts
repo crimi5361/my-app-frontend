@@ -40,6 +40,12 @@ export interface TourConversation {
   /** Vrai tant que l'assistante est en train de prononcer ce tour : l'écran
    *  n'affiche alors que la part deja dite. */
   enCours?: boolean;
+  /** Vrai tant que la reconnaissance n'a pas arrêté son choix. Le texte est
+   *  alors provisoire — il s'affiche en gris, et rien n'en est déduit. */
+  partiel?: boolean;
+  /** Texte complet et corrigé, mis de côté le temps que la voix finisse de le
+   *  prononcer. Le remonter pendant l'animation ferait clignoter le paragraphe. */
+  texteFinal?: string;
 }
 
 export interface BudgetVocal {
@@ -106,6 +112,10 @@ export function useAssistantVocal() {
   // fait réellement le flux et peut en différer (périphérique débranché) : il
   // arrive trop tard pour décider du sort d'une transcription qui entre.
   const micCoupeRef = useRef(false);
+  // La session a-t-elle été fermée volontairement ? Sans cette distinction, une
+  // coupure réseau ramenait l'écran à « Prêt » sans un mot : le fondateur
+  // continuait de parler à une session morte.
+  const fermetureVoulueRef = useRef(false);
   // Les transcriptions arrivent par fragments : on les accumule dans le dernier
   // tour du bon locuteur plutôt que de créer une bulle par fragment.
   const tourEnCoursRef = useRef<{ fondateur: string | null; assistant: string | null }>({ fondateur: null, assistant: null });
@@ -136,15 +146,49 @@ export function useAssistantVocal() {
       }
       const id = uid();
       tourEnCoursRef.current[rôle] = id;
-      return [...precedents, { id, rôle, texte, enCours: rôle === 'assistant' }];
+      return [...precedents, { id, rôle, texte, enCours: rôle === 'assistant', partiel: true }];
     });
+  }, []);
+
+  /**
+   * Remplace un tour par sa version complète et corrigée, envoyée par le serveur
+   * à la fin de la prise de parole.
+   *
+   * Les fragments s'affichent au fil de l'eau pour que l'écran suive la voix,
+   * mais ils sont bruts : sans majuscule, sans ponctuation, sigles en
+   * minuscules. La correction ne peut porter que sur le texte entier.
+   */
+  const finaliserTour = useCallback((rôle: 'fondateur' | 'assistant', texte: string) => {
+    const id = tourEnCoursRef.current[rôle];
+    if (rôle === 'fondateur') tourEnCoursRef.current.fondateur = null;
+
+    if (!id) {
+      // Aucun fragment n'a précédé : le tour n'existe pas encore, on le crée
+      // directement dans sa forme définitive.
+      setTours((precedents) => [...precedents, { id: uid(), rôle, texte, partiel: false }]);
+      return;
+    }
+
+    setTours((precedents) => precedents.map((t) => {
+      if (t.id !== id) return t;
+      // L'assistante est peut-être encore en train de prononcer ce tour, révélé
+      // mot à mot. Remonter le texte maintenant remonterait tous les mots d'un
+      // coup : on le met de côté, cloreTourAssistant l'appliquera à la dernière
+      // syllabe.
+      if (rôle === 'assistant' && t.enCours) return { ...t, texteFinal: texte };
+      return { ...t, texte, texteFinal: undefined, partiel: false };
+    }));
   }, []);
 
   /** Clot le tour de l'assistante : plus de decoupage, le texte est complet. */
   const cloreTourAssistant = useCallback(() => {
     const id = tourEnCoursRef.current.assistant;
     tourEnCoursRef.current.assistant = null;
-    if (id) setTours((t) => t.map((x) => (x.id === id ? { ...x, enCours: false } : x)));
+    if (id) {
+      setTours((t) => t.map((x) => (x.id === id
+        ? { ...x, texte: x.texteFinal ?? x.texte, texteFinal: undefined, enCours: false, partiel: false }
+        : x)));
+    }
     avancementRef.current = 0;
   }, []);
 
@@ -152,6 +196,7 @@ export function useAssistantVocal() {
   const finEmissionRef = useRef(false);
 
   const arreter = useCallback(() => {
+    fermetureVoulueRef.current = true;
     microRef.current?.arreter();
     lecteurRef.current?.arreter();
     microRef.current = null;
@@ -220,6 +265,7 @@ export function useAssistantVocal() {
 
     setErreur(null);
     setStatut('connexion');
+    fermetureVoulueRef.current = false;
 
     const jeton = localStorage.getItem('token');
     if (!jeton) { setErreur('Session expirée. Reconnectez-vous.'); setStatut('erreur'); return; }
@@ -304,11 +350,13 @@ export function useAssistantVocal() {
           if (micCoupeRef.current) break;
           // Le fondateur reprend la parole : le tour de l'assistante est clos.
           cloreTourAssistant();
-          ajouterFragment('fondateur', m.texte);
+          if (m.partiel === false) finaliserTour('fondateur', m.texte);
+          else ajouterFragment('fondateur', m.texte);
           break;
 
         case 'transcription_assistant':
           tourEnCoursRef.current.fondateur = null;
+          if (m.partiel === false) { finaliserTour('assistant', m.texte); break; }
           ajouterFragment('assistant', m.texte);
           majStatut('parle');
           break;
@@ -399,9 +447,17 @@ export function useAssistantVocal() {
       // reconnexion alors que le micro de la nouvelle session était bien ouvert.
       micCoupeRef.current = false;
       setMicCoupe(false);
+
+      // Fermeture non demandée : c'est une panne, pas une fin de conversation.
+      // Le dire, plutôt que de revenir à « Prêt » comme si de rien n'était.
+      if (!fermetureVoulueRef.current) {
+        setErreur('La connexion vocale a été interrompue. Reprenez avec « Réessayer ».');
+        setStatut('erreur');
+        return;
+      }
       setStatut((s) => (s === 'erreur' ? s : 'inactif'));
     };
-  }, [ajouterFragment, arreter, majStatut, cloreTourAssistant]);
+  }, [ajouterFragment, arreter, majStatut, cloreTourAssistant, finaliserTour]);
 
   /** Permet de poser une question au clavier sans couper la session vocale. */
   const envoyerTexte = useCallback((texte: string) => {
