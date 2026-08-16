@@ -35,6 +35,10 @@ interface DashboardFondateurData {
     evolution_recettes: { mois: string; total: number }[];
   };
   caisses: { nb_caisses: number; sessions_ouvertes: number; encaisse_jour: number; encaisse_mois: number };
+  dossiersEnAttente: {
+    admissions: { total: number; par_origine: Record<string, number> };
+    reinscriptions: { total: number; par_origine: Record<string, number> };
+  };
   moyensGeneraux: {
     distribution: { total_inscrits: number; etudiants_servis: number; etudiants_restants: number; taux_couverture: number };
     stock: { nb_references: number; nb_rupture: number; nb_stock_faible: number; valeur_totale_estimee: number };
@@ -59,6 +63,15 @@ const getUserInfo = () => {
 };
 
 const formatFcfa = (v: number) => `${Number(v).toLocaleString('fr-FR')} FCFA`;
+
+// Libellés d'affichage pour `source_inscription` — 'web'/'agent' sont les valeurs connues
+// aujourd'hui, mais toute autre valeur réellement présente en base s'affiche telle quelle
+// (jamais masquée) plutôt que d'être filtrée silencieusement.
+const libelleOrigine = (origine: string) => {
+  if (origine === 'web') return 'Portail web';
+  if (origine === 'agent') return 'Saisie agent';
+  return origine;
+};
 
 const DashboardFondateur = () => {
   const currentUser = getUserInfo();
@@ -201,7 +214,7 @@ const DashboardFondateur = () => {
               <Card><Statistic title="Étudiants inscrits" value={data.etudiants.total_inscrits} prefix={<TeamOutlined style={{ color: 'var(--mod-scolarite)' }} />} /></Card>
             </Col>
             <Col span={4}>
-              <Card><Statistic title="En attente" value={data.etudiants.total_en_attente} prefix={<TeamOutlined style={{ color: 'var(--warning)' }} />} /></Card>
+              <Card><Statistic title="Admissions en attente" value={data.etudiants.total_en_attente} prefix={<TeamOutlined style={{ color: 'var(--warning)' }} />} /></Card>
             </Col>
             <Col span={4}>
               <Card><Statistic title="Inscriptions — année" value={data.inscriptions.total_annee} prefix={<RiseOutlined />} /></Card>
@@ -216,6 +229,42 @@ const DashboardFondateur = () => {
               <Card><Statistic title="Ce mois" value={data.inscriptions.ce_mois} /></Card>
             </Col>
           </Row>
+
+          {/* Dossiers en attente de paiement — admissions + réinscriptions, même définition que
+              le Dashboard Caisse (etudiant.standing='en attente' / reinscription.statut=
+              'en_attente_paiement'), avec répartition par origine (source_inscription). */}
+          <Card title="Dossiers en attente de paiement" style={{ marginBottom: 24 }}>
+            <Row gutter={16}>
+              <Col xs={24} sm={12}>
+                <Statistic
+                  title="Admissions en attente"
+                  value={data.dossiersEnAttente.admissions.total}
+                  prefix={<HourglassOutlined style={{ color: 'var(--warning)' }} />}
+                />
+                <div style={{ marginTop: 8 }}>
+                  {Object.entries(data.dossiersEnAttente.admissions.par_origine).map(([origine, total]) => (
+                    <Text key={origine} type="secondary" style={{ display: 'block', fontSize: 13 }}>
+                      {libelleOrigine(origine)} : <Text strong>{total}</Text>
+                    </Text>
+                  ))}
+                </div>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Statistic
+                  title="Réinscriptions en attente"
+                  value={data.dossiersEnAttente.reinscriptions.total}
+                  prefix={<HourglassOutlined style={{ color: 'var(--warning)' }} />}
+                />
+                <div style={{ marginTop: 8 }}>
+                  {Object.entries(data.dossiersEnAttente.reinscriptions.par_origine).map(([origine, total]) => (
+                    <Text key={origine} type="secondary" style={{ display: 'block', fontSize: 13 }}>
+                      {libelleOrigine(origine)} : <Text strong>{total}</Text>
+                    </Text>
+                  ))}
+                </div>
+              </Col>
+            </Row>
+          </Card>
 
           {/* Migré depuis l'ancien Dashboard générique (2026-08-02) */}
           {data.etudiants.par_statut_scolaire.length > 0 && (

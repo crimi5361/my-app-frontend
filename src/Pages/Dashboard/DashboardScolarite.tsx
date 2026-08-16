@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Card, Row, Col, Statistic, Select, Table, Tag, Spin, Empty, Typography, Alert } from 'antd';
 import {
-  TeamOutlined, CalendarOutlined, RiseOutlined, GlobalOutlined,
+  TeamOutlined, CalendarOutlined, RiseOutlined, GlobalOutlined, HourglassOutlined,
 } from '@ant-design/icons';
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -30,6 +30,10 @@ interface DashboardScolariteData {
   parNiveau: { niveau: string; total: number }[];
   parFiliere: { filiere: string; total: number }[];
   activiteAgents: { agent: string; total_30j: number; moyenne_jour: number; tendance: string }[];
+  dossiersEnAttente: {
+    admissions: { total: number; par_origine: Record<string, number> };
+    reinscriptions: { total: number; par_origine: Record<string, number> };
+  };
 }
 
 const getUserInfo = () => {
@@ -51,6 +55,14 @@ const TENDANCE_COLOR: Record<string, string> = {
   hausse: 'success',
   baisse: 'warning',
   stable: 'default',
+};
+
+// Libellés d'affichage pour `source_inscription` — 'web'/'agent' sont les valeurs connues
+// aujourd'hui, mais toute autre valeur réellement présente en base s'affiche telle quelle.
+const libelleOrigine = (origine: string) => {
+  if (origine === 'web') return 'Portail web';
+  if (origine === 'agent') return 'Saisie agent';
+  return origine;
 };
 
 const DashboardScolarite = () => {
@@ -172,6 +184,41 @@ const DashboardScolarite = () => {
               </Card>
             </Col>
           </Row>
+
+          {/* Dossiers en attente de paiement — admissions + réinscriptions, même définition que
+              le Dashboard Caisse, avec répartition par origine (source_inscription). */}
+          <Card title="Dossiers en attente de paiement" style={{ marginBottom: 24 }}>
+            <Row gutter={16}>
+              <Col xs={24} sm={12}>
+                <Statistic
+                  title="Admissions en attente"
+                  value={data.dossiersEnAttente.admissions.total}
+                  prefix={<HourglassOutlined style={{ color: 'var(--warning)' }} />}
+                />
+                <div style={{ marginTop: 8 }}>
+                  {Object.entries(data.dossiersEnAttente.admissions.par_origine).map(([origine, total]) => (
+                    <Text key={origine} type="secondary" style={{ display: 'block', fontSize: 13 }}>
+                      {libelleOrigine(origine)} : <Text strong>{total}</Text>
+                    </Text>
+                  ))}
+                </div>
+              </Col>
+              <Col xs={24} sm={12}>
+                <Statistic
+                  title="Réinscriptions en attente"
+                  value={data.dossiersEnAttente.reinscriptions.total}
+                  prefix={<HourglassOutlined style={{ color: 'var(--warning)' }} />}
+                />
+                <div style={{ marginTop: 8 }}>
+                  {Object.entries(data.dossiersEnAttente.reinscriptions.par_origine).map(([origine, total]) => (
+                    <Text key={origine} type="secondary" style={{ display: 'block', fontSize: 13 }}>
+                      {libelleOrigine(origine)} : <Text strong>{total}</Text>
+                    </Text>
+                  ))}
+                </div>
+              </Col>
+            </Row>
+          </Card>
 
           <Row gutter={16} style={{ marginBottom: 24 }}>
             <Col span={14}>
