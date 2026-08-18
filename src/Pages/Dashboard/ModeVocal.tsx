@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { useAssistantVocal, StatutVocal } from '../../lib/useAssistantVocal';
 import BlobVocal, { NomForme } from './BlobVocal';
+import FichePersonne from './FichePersonne';
 import { telechargerFichier, FichierAssistant } from '../../lib/assistantFichiers';
 import './ModeVocal.css';
 
@@ -502,6 +503,11 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
             )
           ))}
         </AnimatePresence>
+
+        {/* Les fiches se dessinent d'elles-memes : aucune animation d'entree
+            framer-motion par-dessus, elle entrerait en concurrence avec la
+            construction progressive du composant. */}
+        {v.fiches.map((f) => <FichePersonne key={`${f.categorie}-${f.id}`} fiche={f} />)}
 
         <AnimatePresence>
           {v.debriefing && <DebriefingVocal key="debriefing" debriefing={v.debriefing} />}

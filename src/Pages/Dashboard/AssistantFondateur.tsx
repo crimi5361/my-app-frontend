@@ -11,6 +11,7 @@ import {
 import { apiFetch, ApiError } from '../../lib/api';
 import { telechargerFichier, FichierAssistant } from '../../lib/assistantFichiers';
 import { corrigerTranscription, CONFIG_VIDE, ConfigTranscription } from '../../lib/transcription';
+import FichePersonne, { Fiche } from './FichePersonne';
 import './AssistantFondateur.css';
 
 // Chargé à la demande : l'écran vocal embarque three.js et ses shaders, inutiles
@@ -71,6 +72,7 @@ interface ChatMessage {
   display?: AssistantDisplay;
   requetes?: RequeteTracee[];
   fichiers?: FichierAssistant[];
+  fiches?: Fiche[];
 }
 interface Conversation {
   id: string;
@@ -86,6 +88,7 @@ interface AssistantChatResponse {
   donnees: LigneDonnees[] | null;
   requetes: RequeteTracee[];
   fichiers?: FichierAssistant[];
+  fiches?: Fiche[];
   history: unknown[];
 }
 
@@ -580,12 +583,13 @@ const AssistantFondateur = () => {
     history: unknown[],
     requetes?: RequeteTracee[],
     fichiers?: FichierAssistant[],
+    fiches?: Fiche[],
   ) => {
     setConversations((convs) => convs.map((c) => (
       c.id === activeId
         ? {
             ...c,
-            messages: [...c.messages, { id: uid(), role: 'assistant' as const, text, display, requetes, fichiers }],
+            messages: [...c.messages, { id: uid(), role: 'assistant' as const, text, display, requetes, fichiers, fiches }],
             geminiHistory: history,
             updatedAt: Date.now(),
           }
@@ -611,7 +615,7 @@ const AssistantFondateur = () => {
       const display: AssistantDisplay | undefined = res.visualisation && res.donnees?.length
         ? { visualisation: res.visualisation, donnees: res.donnees }
         : undefined;
-      appendAssistantMessage(res.message, display, res.history, res.requetes, res.fichiers);
+      appendAssistantMessage(res.message, display, res.history, res.requetes, res.fichiers, res.fiches);
     } catch (e) {
       const errText = e instanceof ApiError ? e.message : "Une erreur est survenue en contactant l'assistant. Réessayez.";
       appendAssistantMessage(errText, undefined, historyForRequest);
@@ -906,6 +910,9 @@ const AssistantFondateur = () => {
                   >
                     <div className="afx-msg-text">{m.text}</div>
                     {m.display && <AssistantVisual display={m.display} />}
+                    {m.fiches && m.fiches.map((f) => (
+                      <FichePersonne key={`${f.categorie}-${f.id}`} fiche={f} />
+                    ))}
                     {m.fichiers && m.fichiers.length > 0 && <FichiersProduits fichiers={m.fichiers} />}
                     {m.requetes && m.requetes.length > 0 && <TraceRequetes requetes={m.requetes} />}
                   </motion.div>
