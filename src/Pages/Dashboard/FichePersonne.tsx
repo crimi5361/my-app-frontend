@@ -19,7 +19,7 @@
 // rendus pour une fiche, pendant que l'assistante parle et que le fil se met à
 // jour. Le texte est écrit directement dans le DOM depuis une seule boucle
 // d'animation : aucun rendu React pendant toute la construction.
-import { useEffect, useMemo, useRef, useCallback } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, User, ShieldCheck, GraduationCap } from 'lucide-react';
 import { creerSonar } from '../../lib/sonFiche';
@@ -63,16 +63,8 @@ const FichePersonne = ({ fiche, onFermer }: { fiche: Fiche; onFermer: () => void
   const Icone = etudiant ? GraduationCap : ShieldCheck;
 
   const panneau = useRef<HTMLDivElement>(null);
-  const zones = useRef<HTMLElement[]>([]);
   const fermeture = useRef(onFermer);
   fermeture.current = onFermer;
-
-  // Enregistre les zones à taper DANS L'ORDRE d'apparition à l'écran. Le tableau
-  // est vidé à chaque rendu pour ne pas accumuler les nœuds démontés.
-  zones.current = [];
-  const enregistrer = useCallback((el: HTMLElement | null) => {
-    if (el && !zones.current.includes(el)) zones.current.push(el);
-  }, []);
 
   const photo = fiche.photo_url
     ? (fiche.photo_url.startsWith('http') ? fiche.photo_url : `${BASE}${fiche.photo_url}`)
@@ -85,7 +77,15 @@ const FichePersonne = ({ fiche, onFermer }: { fiche: Fiche; onFermer: () => void
 
   // ── La frappe ────────────────────────────────────────────────────────────
   useEffect(() => {
-    const cibles = zones.current.slice();
+    // Les zones sont relues DANS LE DOM plutôt que collectées par des refs
+    // pendant le rendu. Une première version remplissait un tableau au fil des
+    // refs et le vidait à chaque rendu : l'écran vocal se redessine vingt fois
+    // par seconde pour son visualiseur, et le tableau se retrouvait vide entre
+    // deux passages. querySelectorAll donne l'ordre du document, qui est
+    // exactement l'ordre de frappe voulu, et ne dépend d'aucun cycle de rendu.
+    const cibles = Array.from(
+      panneau.current?.querySelectorAll<HTMLElement>('.fp-tape') ?? [],
+    );
     const textes = cibles.map((z) => z.dataset.texte || '');
     cibles.forEach((z) => { z.textContent = ''; });
 
@@ -211,7 +211,7 @@ const FichePersonne = ({ fiche, onFermer }: { fiche: Fiche; onFermer: () => void
             </div>
 
             <div className="fp-blocs">
-              {fiche.blocs.map((b, ib) => (
+              {fiche.blocs.map((b) => (
                 <section className="fp-bloc" key={b.titre}>
                   <h4 className="fp-bloc-titre">{b.titre}</h4>
                   <dl className="fp-champs">
@@ -229,10 +229,8 @@ const FichePersonne = ({ fiche, onFermer }: { fiche: Fiche; onFermer: () => void
                             <span
                               className="fp-tape"
                               aria-hidden="true"
-                              ref={enregistrer}
                               data-texte={c.valeur}
                               data-fin={dernier ? 'bloc' : 'ligne'}
-                              data-bloc={ib}
                             />
                           </dd>
                         </div>
@@ -258,4 +256,10 @@ const FichePersonne = ({ fiche, onFermer }: { fiche: Fiche; onFermer: () => void
   return createPortal(contenu, document.body);
 };
 
-export default FichePersonne;
+/**
+ * Mémoïsé volontairement. L'écran vocal met à jour le niveau sonore vingt fois
+ * par seconde ; sans ce garde, toute la fiche se redessinait à la même cadence
+ * pendant qu'elle se tape. Les deux props sont stables — la fiche vient du
+ * serveur, la fermeture est un `useCallback`.
+ */
+export default memo(FichePersonne);
