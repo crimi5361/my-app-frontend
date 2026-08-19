@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mic, ArrowUp, Trash2, Plus, Menu, X, MoreHorizontal, AudioLines,
-  FileSpreadsheet, FileText, Download, Loader2, CalendarCheck, Link2Off,
+  FileSpreadsheet, FileText, Download, Loader2, CalendarCheck, Link2Off, IdCard,
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area,
@@ -377,6 +377,9 @@ const AssistantFondateur = () => {
   // Dictée en cours, pas encore arrêtée par la reconnaissance. Volontairement
   // HORS du champ de saisie : un texte qui se réécrit sous les doigts empêche de
   // corriger quoi que ce soit, et rien ne distingue le provisoire du définitif.
+  // Fiche affichee en fenetre. Elle s'ouvre a l'arrivee, et la pastille du fil
+  // permet de la rouvrir ensuite sans reposer la question.
+  const [ficheOuverte, setFicheOuverte] = useState<Fiche | null>(null);
   const [dicteeProvisoire, setDicteeProvisoire] = useState('');
   const [erreurDictee, setErreurDictee] = useState<string | null>(null);
 
@@ -616,6 +619,7 @@ const AssistantFondateur = () => {
         ? { visualisation: res.visualisation, donnees: res.donnees }
         : undefined;
       appendAssistantMessage(res.message, display, res.history, res.requetes, res.fichiers, res.fiches);
+      if (res.fiches && res.fiches.length > 0) setFicheOuverte(res.fiches[0]);
     } catch (e) {
       const errText = e instanceof ApiError ? e.message : "Une erreur est survenue en contactant l'assistant. Réessayez.";
       appendAssistantMessage(errText, undefined, historyForRequest);
@@ -911,7 +915,15 @@ const AssistantFondateur = () => {
                     <div className="afx-msg-text">{m.text}</div>
                     {m.display && <AssistantVisual display={m.display} />}
                     {m.fiches && m.fiches.map((f) => (
-                      <FichePersonne key={`${f.categorie}-${f.id}`} fiche={f} />
+                      <button
+                        type="button"
+                        key={`${f.categorie}-${f.id}`}
+                        className="afx-fiche-rappel"
+                        onClick={() => setFicheOuverte(f)}
+                      >
+                        <IdCard size={16} />
+                        <span>Fiche de {f.nom_complet}</span>
+                      </button>
                     ))}
                     {m.fichiers && m.fichiers.length > 0 && <FichiersProduits fichiers={m.fichiers} />}
                     {m.requetes && m.requetes.length > 0 && <TraceRequetes requetes={m.requetes} />}
@@ -929,6 +941,14 @@ const AssistantFondateur = () => {
           </div>
         )}
       </div>
+
+      {ficheOuverte && (
+        <FichePersonne
+          key={`${ficheOuverte.categorie}-${ficheOuverte.id}`}
+          fiche={ficheOuverte}
+          onFermer={() => setFicheOuverte(null)}
+        />
+      )}
 
       <AnimatePresence>
         {vocalOuvert && (

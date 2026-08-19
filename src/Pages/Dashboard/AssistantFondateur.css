@@ -1058,3 +1058,29 @@
   border-radius: 50%;
   background: #b7791f;
 }
+
+/* Rappel de fiche dans le fil : la fiche s'ouvre en fenêtre à son arrivée, et
+   cette pastille permet de la rouvrir sans reposer la question. Elle reste
+   discrète — c'est un signet, pas un contenu. */
+.afx-fiche-rappel {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 10px;
+  padding: 9px 14px;
+  border: 1px solid rgba(30, 77, 130, 0.28);
+  border-radius: 10px;
+  background: rgba(30, 77, 130, 0.06);
+  color: #1e4d82;
+  font-size: 13px;
+  font-weight: 550;
+  cursor: pointer;
+  transition: background 0.16s, border-color 0.16s;
+}
+
+.afx-fiche-rappel:hover {
+  background: rgba(30, 77, 130, 0.12);
+  border-color: rgba(30, 77, 130, 0.45);
+}
+
+.afx-fiche-rappel:focus-visible { outline: 2px solid #a97723; outline-offset: 2px; }

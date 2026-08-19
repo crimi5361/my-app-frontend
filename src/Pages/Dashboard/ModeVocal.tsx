@@ -504,11 +504,6 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
           ))}
         </AnimatePresence>
 
-        {/* Les fiches se dessinent d'elles-memes : aucune animation d'entree
-            framer-motion par-dessus, elle entrerait en concurrence avec la
-            construction progressive du composant. */}
-        {v.fiches.map((f) => <FichePersonne key={`${f.categorie}-${f.id}`} fiche={f} />)}
-
         <AnimatePresence>
           {v.debriefing && <DebriefingVocal key="debriefing" debriefing={v.debriefing} />}
         </AnimatePresence>
@@ -533,6 +528,17 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
           </motion.div>
         )}
       </div>
+
+      {/* La fiche passe AU-DESSUS de tout, orbe comprise : elle se consulte,
+          puis on la ferme. Elle se monte elle-meme via un portail, donc elle ne
+          depend pas de l'empilement de cet ecran. */}
+      {v.ficheActive && (
+        <FichePersonne
+          key={`${v.ficheActive.categorie}-${v.ficheActive.id}`}
+          fiche={v.ficheActive}
+          onFermer={v.fermerFiche}
+        />
+      )}
 
       {/* Erreurs */}
       <AnimatePresence>

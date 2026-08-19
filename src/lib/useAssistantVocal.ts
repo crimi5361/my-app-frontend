@@ -146,7 +146,9 @@ export function useAssistantVocal() {
   const [micCoupe, setMicCoupe] = useState(false);
   const [fichiers, setFichiers] = useState<FichierAssistant[]>([]);
   const [debriefing, setDebriefing] = useState<DebriefingVocal | null>(null);
-  const [fiches, setFiches] = useState<FicheVocale[]>([]);
+  // UNE fiche a la fois : c'est une fenetre, pas un journal. En empiler
+  // plusieurs obligerait a les fermer une par une.
+  const [ficheActive, setFicheActive] = useState<FicheVocale | null>(null);
   // Forme 3D a afficher. Emise par le serveur d'apres l'outil appele et la vue
   // interrogee : elle suit ce que l'assistante FAIT, pas ce qui a ete dit.
   const [forme, setForme] = useState('sphere');
@@ -467,10 +469,7 @@ export function useAssistantVocal() {
           break;
 
         case 'fiche':
-          // Une fiche par personne : redemander la meme deux fois ne doit pas
-          // empiler deux cadres identiques.
-          setFiches((f) => (f.some((x) => x.id === m.fiche.id && x.categorie === m.fiche.categorie)
-            ? f : [...f, m.fiche]));
+          setFicheActive(m.fiche);
           break;
 
         case 'debriefing':
@@ -540,13 +539,17 @@ export function useAssistantVocal() {
     }
   }, []);
 
+  /** Referme la fiche. Le fondateur reprend la main sur l'ecran ; la fiche se
+   *  redemande d'un mot si besoin, et le rapport Word en garde la trace. */
+  const fermerFiche = useCallback(() => setFicheActive(null), []);
+
   const reinitialiser = useCallback(() => {
     setTours([]);
     setRequetes([]);
     setVisuel(null);
     setFichiers([]);
     setDebriefing(null);
-    setFiches([]);
+    setFicheActive(null);
     setForme('sphere');
     setErreur(null);
     tourEnCoursRef.current = { fondateur: null, assistant: null };
@@ -556,8 +559,8 @@ export function useAssistantVocal() {
   useEffect(() => () => arreter(), [arreter]);
 
   return {
-    statut, erreur, tours, requetes, visuel, budget, fichiers, forme, debriefing, fiches,
+    statut, erreur, tours, requetes, visuel, budget, fichiers, forme, debriefing, ficheActive,
     niveauEntree, niveauSortie, micCoupe, avancementRef,
-    demarrer, arreter, envoyerTexte, reinitialiser, basculerMicro,
+    demarrer, arreter, envoyerTexte, reinitialiser, basculerMicro, fermerFiche,
   };
 }
