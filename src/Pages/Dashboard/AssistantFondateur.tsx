@@ -100,7 +100,6 @@ const STORAGE_KEY = 'fdt_assistant_conversations';
 const CIVILITES = [
   { valeur: 'Monsieur', libelle: 'Monsieur' },
   { valeur: 'Madame', libelle: 'Madame' },
-  { valeur: '', libelle: 'Sans civilité' },
 ];
 
 // Recharts ne lit pas les variables CSS : les couleurs des axes/grilles doivent être fournies en

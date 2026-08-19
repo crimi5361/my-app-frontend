@@ -1,22 +1,86 @@
-/* Assistant Fondateur — mode vocal (2026-08-12).
-   Thème clair aligné sur les jetons --afx-* de la page assistant : le mode vocal
-   est une couche par-dessus la même application, un basculement en sombre à
-   l'ouverture donnerait l'impression de changer de produit. */
+/* Assistant Fondateur — mode vocal, poste de commandement (2026-08-19).
+
+   REVIREMENT ASSUMÉ. La première version était claire, alignée sur le reste de
+   l'application : « le mode vocal est une couche par-dessus la même app, un
+   basculement en sombre donnerait l'impression de changer de produit ». Le
+   fondateur a tranché l'inverse — il veut précisément qu'on change de registre.
+
+   Et c'est défendable : ici on ne remplit pas un formulaire, on PARLE à une
+   machine. Le fond sombre fait exister la sphère au lieu de la poser sur une
+   page blanche, et le vocabulaire HUD — équerres, réticules, monospace, trame —
+   dit qu'on est devant un instrument, pas devant un document.
+
+   Palette accordée à la fiche d'identité, déjà sombre : cyan #4fd8ff sur
+   #050a14. Les couleurs d'état de la sphère 3D, elles, ne bougent PAS — le
+   fondateur les aime, et leurs cœurs sont déjà sombres. */
 
 .mv-fond {
+  --mv-nuit: #050a14;
+  --mv-cyan: #4fd8ff;
+  --mv-cyan-voile: rgba(79, 216, 255, 0.14);
+  --mv-or: #ffb454;
+  --mv-texte: #dce9f7;
+  --mv-sourdine: #6f8299;
+  --mv-trait: rgba(79, 216, 255, 0.16);
+  --mv-surface: rgba(255, 255, 255, 0.028);
+
   position: fixed;
   inset: 0;
   z-index: 1200;
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(1100px 620px at 50% 6%, rgba(169, 119, 35, 0.07), transparent 62%),
-    radial-gradient(900px 560px at 84% 94%, rgba(30, 77, 130, 0.08), transparent 60%),
-    #f4f6fc;
-  color: #101a33;
+    radial-gradient(900px 520px at 50% 4%, rgba(79, 216, 255, 0.10), transparent 62%),
+    radial-gradient(760px 480px at 88% 96%, rgba(79, 216, 255, 0.055), transparent 60%),
+    radial-gradient(640px 420px at 6% 88%, rgba(255, 180, 84, 0.045), transparent 62%),
+    var(--mv-nuit);
+  color: var(--mv-texte);
   font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
   overflow: hidden;
 }
+
+/* Trame de fond — une grille très fine, à la limite du perceptible. Elle donne
+   une profondeur et une échelle à l'écran sans jamais entrer en concurrence
+   avec le texte. Au-delà de 0,022 d'opacité, elle se met à vibrer sous l'œil. */
+.mv-fond::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(rgba(79, 216, 255, 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(79, 216, 255, 0.022) 1px, transparent 1px);
+  background-size: 46px 46px;
+  mask-image: radial-gradient(circle at 50% 40%, #000 0%, transparent 78%);
+  -webkit-mask-image: radial-gradient(circle at 50% 40%, #000 0%, transparent 78%);
+}
+
+/* Vignette : elle referme l'écran et ramène le regard au centre, là où est la
+   sphère. */
+.mv-fond::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: radial-gradient(circle at 50% 46%, transparent 42%, rgba(2, 5, 12, 0.72) 100%);
+}
+
+/* ── Équerres d'écran ────────────────────────────────────────────────────── */
+.mv-equerre {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--mv-cyan);
+  opacity: 0.4;
+  pointer-events: none;
+  z-index: 5;
+}
+.mv-equerre.ht-g { top: 12px;    left: 12px;  border-right: none; border-bottom: none; }
+.mv-equerre.ht-d { top: 12px;    right: 12px; border-left: none;  border-bottom: none; }
+.mv-equerre.bs-g { bottom: 12px; left: 12px;  border-right: none; border-top: none; }
+.mv-equerre.bs-d { bottom: 12px; right: 12px; border-left: none;  border-top: none; }
 
 /* ── En-tête ─────────────────────────────────────────────────────────────── */
 .mv-entete {
@@ -25,70 +89,71 @@
   display: flex;
   align-items: center;
   gap: 20px;
-  padding: 18px 26px;
-  border-bottom: 1px solid rgba(16, 26, 51, 0.08);
-  background: rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(10px);
+  padding: 16px 30px;
+  border-bottom: 1px solid var(--mv-trait);
+  background: linear-gradient(180deg, rgba(79, 216, 255, 0.05), transparent);
+  backdrop-filter: blur(8px);
 }
 
 .mv-titre {
-  /* Pousse budget, micro et fermeture à droite — y compris avant l'arrivée du
-     budget, qui n'est connu qu'au message « pret ». */
   margin-right: auto;
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  gap: 11px;
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.19em;
+  text-transform: uppercase;
+  color: var(--mv-cyan);
 }
 
 .mv-pastille {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
+  box-shadow: 0 0 10px currentColor;
   animation: mv-battement 2s ease-in-out infinite;
 }
 
 @keyframes mv-battement {
-  0%, 100% { opacity: 1;   transform: scale(1); }
+  0%, 100% { opacity: 1;    transform: scale(1); }
   50%      { opacity: 0.35; transform: scale(0.72); }
 }
 
-.mv-budget {
-  display: flex;
-  align-items: center;
-}
+/* ── Jauge de consommation ───────────────────────────────────────────────── */
+.mv-budget { display: flex; align-items: center; }
 
-/* Jauge à trois niveaux. Le fond porte les trois zones en très pale : on voit
-   d'un coup d'œil où sont les seuils, même quand la barre est presque vide. */
+/* Segmentée plutôt que pleine : une barre découpée se lit comme un instrument
+   de mesure, une barre continue comme un chargement. */
 .mv-budget-barre {
   position: relative;
   width: 132px;
-  height: 7px;
-  border-radius: 99px;
+  height: 8px;
+  border-radius: 2px;
   overflow: hidden;
-  background: linear-gradient(
-    to right,
-    rgba(47, 145, 102, 0.16) 0%, rgba(47, 145, 102, 0.16) 60%,
-    rgba(183, 121, 31, 0.16) 60%, rgba(183, 121, 31, 0.16) 85%,
-    rgba(176, 58, 43, 0.16) 85%, rgba(176, 58, 43, 0.16) 100%
-  );
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mv-budget-barre::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(
+    90deg, transparent 0 5px, rgba(5, 10, 20, 0.85) 5px 7px);
 }
 
 .mv-budget-remplissage {
   height: 100%;
-  border-radius: 99px;
-  /* La couleur suit le niveau atteint ; la transition évite un saut brutal au
-     franchissement d'un seuil. */
   transition: background-color 0.5s ease;
 }
 
-.mv-budget.niveau-vert   .mv-budget-remplissage { background-color: #2f9166; }
-.mv-budget.niveau-orange .mv-budget-remplissage { background-color: #b7791f; }
-.mv-budget.niveau-rouge  .mv-budget-remplissage { background-color: #b03a2b; }
+.mv-budget.niveau-vert   .mv-budget-remplissage { background-color: #34d399; box-shadow: 0 0 12px rgba(52, 211, 153, 0.55); }
+.mv-budget.niveau-orange .mv-budget-remplissage { background-color: var(--mv-or); box-shadow: 0 0 12px rgba(255, 180, 84, 0.5); }
+.mv-budget.niveau-rouge  .mv-budget-remplissage { background-color: #f87171; box-shadow: 0 0 12px rgba(248, 113, 113, 0.55); }
 
-/* Au rouge seulement, la jauge respire : c'est le moment où il faut la remarquer. */
 .mv-budget.niveau-rouge .mv-budget-remplissage {
   animation: mv-jauge-alerte 1.8s ease-in-out infinite;
 }
@@ -98,49 +163,46 @@
   50%      { opacity: 0.45; }
 }
 
-/* Coupure du micro — même gabarit que la fermeture, posé juste avant elle.
-   À l'état coupé, le rouge est franc : c'est une information qu'il ne faut pas
-   rater, sous peine de parler dans le vide. */
+/* ── Boutons de la barre haute ───────────────────────────────────────────── */
 .mv-micro {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  height: 36px;
-  /* Rond tant qu'il n'y a que l'icône ; la pastille s'allonge d'elle-même quand
-     le libellé « Micro coupé » apparaît. */
-  min-width: 36px;
-  padding: 0 9px;
-  border: 1px solid rgba(16, 26, 51, 0.12);
-  border-radius: 999px;
-  background: #ffffff;
-  color: #55607a;
+  height: 34px;
+  min-width: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--mv-trait);
+  border-radius: 3px;
+  background: var(--mv-surface);
+  color: var(--mv-sourdine);
   cursor: pointer;
   transition: background 0.18s, color 0.18s, border-color 0.18s;
 }
 
 .mv-micro:hover {
-  background: rgba(16, 26, 51, 0.06);
-  color: #101a33;
+  background: var(--mv-cyan-voile);
+  border-color: var(--mv-cyan);
+  color: var(--mv-texte);
 }
 
 .mv-micro.est-coupe {
-  background: rgba(176, 58, 43, 0.10);
-  border-color: rgba(176, 58, 43, 0.42);
-  color: #b03a2b;
+  background: rgba(248, 113, 113, 0.12);
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #fca5a5;
 }
 
-.mv-micro.est-coupe:hover { background: rgba(176, 58, 43, 0.18); }
+.mv-micro.est-coupe:hover { background: rgba(248, 113, 113, 0.2); }
 
 .mv-micro-libelle {
-  font-size: 12.5px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
-/* Le libellé se retire sur écran étroit : la pastille rouge et l'icône barrée
-   suffisent alors, et la barre haute reste tenable. */
 @media (max-width: 560px) {
   .mv-micro-libelle { display: none; }
 }
@@ -148,30 +210,34 @@
 .mv-fermer {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid rgba(16, 26, 51, 0.12);
-  border-radius: 50%;
-  background: #ffffff;
-  color: #55607a;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--mv-trait);
+  border-radius: 3px;
+  background: var(--mv-surface);
+  color: var(--mv-sourdine);
   cursor: pointer;
   transition: background 0.18s, color 0.18s, transform 0.18s;
 }
 
 .mv-fermer:hover {
-  background: rgba(16, 26, 51, 0.06);
-  color: #101a33;
+  background: rgba(248, 113, 113, 0.14);
+  border-color: rgba(248, 113, 113, 0.45);
+  color: #fca5a5;
   transform: rotate(90deg);
 }
 
-/* ── Scène centrale ────────────────────────────────────────────── */
+.mv-micro:focus-visible,
+.mv-fermer:focus-visible { outline: 2px solid var(--mv-cyan); outline-offset: 2px; }
+
+/* ── Scène centrale ──────────────────────────────────────────────────────── */
 .mv-scene {
   position: relative;
   z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 8px 20px 4px;
+  padding: 10px 20px 4px;
   flex-shrink: 0;
 }
 
@@ -183,47 +249,88 @@
   place-items: center;
 }
 
-/* La sphère WebGL occupe toute la zone. Aucun flou ni masque : c'est le shader
-   qui produit le volume, un traitement CSS par-dessus l'écraserait. */
+/* Réticule : deux anneaux concentriques et une couronne de graduations. C'est
+   ce qui transforme une sphère qui flotte en une cible SUIVIE par un
+   instrument. Ils tournent très lentement et en sens inverse l'un de l'autre —
+   à cette vitesse on ne les voit pas bouger, on sent que ça vit. */
+.mv-reticule {
+  position: absolute;
+  border: 1px solid var(--mv-trait);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.mv-reticule.anneau-1 {
+  inset: 4%;
+  border-style: dashed;
+  animation: mv-tourne-lent 68s linear infinite;
+}
+
+.mv-reticule.anneau-2 {
+  inset: -6%;
+  border-color: rgba(79, 216, 255, 0.09);
+  animation: mv-tourne-lent 96s linear infinite reverse;
+}
+
+/* Graduations : quatre arcs courts aux quatre points cardinaux, obtenus par un
+   dégradé conique plutôt que par vingt éléments. */
+.mv-reticule.graduations {
+  inset: -13%;
+  border: none;
+  background: conic-gradient(
+    from 0deg,
+    var(--mv-cyan) 0deg 1.2deg, transparent 1.2deg 90deg,
+    var(--mv-cyan) 90deg 91.2deg, transparent 91.2deg 180deg,
+    var(--mv-cyan) 180deg 181.2deg, transparent 181.2deg 270deg,
+    var(--mv-cyan) 270deg 271.2deg, transparent 271.2deg 360deg);
+  mask-image: radial-gradient(circle, transparent 48%, #000 48%, #000 50%, transparent 50%);
+  -webkit-mask-image: radial-gradient(circle, transparent 48%, #000 48%, #000 50%, transparent 50%);
+  opacity: 0.55;
+  animation: mv-tourne-lent 42s linear infinite;
+}
+
+@keyframes mv-tourne-lent { to { transform: rotate(360deg); } }
+
 .mv-blob {
   position: absolute;
   inset: 0;
   pointer-events: none;
 }
 
-/* L'icône flotte au centre, au-dessus du cœur sombre. L'ombre portée la détache
-   des crêtes claires qui passent dessous au fil de la rotation. */
 .mv-icone {
   position: relative;
   z-index: 1;
   display: grid;
   place-items: center;
-  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.55));
+  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.7));
   pointer-events: none;
 }
 
-.mv-tourne {
-  animation: mv-rotation 1s linear infinite;
-}
+.mv-tourne { animation: mv-rotation 1s linear infinite; }
+@keyframes mv-rotation { to { transform: rotate(360deg); } }
 
-@keyframes mv-rotation {
-  to { transform: rotate(360deg); }
-}
-
+/* L'état en monospace capitales : c'est une lecture d'instrument, pas une
+   phrase. Les crochets l'encadrent comme un champ de terminal. */
 .mv-etat {
-  margin-top: 2px;
-  font-size: 14.5px;
+  margin-top: 6px;
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
 }
+
+.mv-etat::before { content: "[ "; opacity: 0.45; }
+.mv-etat::after  { content: " ]"; opacity: 0.45; }
 
 .mv-intention {
-  margin-top: 8px;
+  margin-top: 9px;
   max-width: 460px;
   text-align: center;
-  font-size: 12.5px;
-  color: #7b8499;
-  font-style: italic;
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--mv-sourdine);
 }
 
 /* ── Fil de conversation ─────────────────────────────────────────────────── */
@@ -239,19 +346,18 @@
   gap: 12px;
   align-items: center;
   scrollbar-width: thin;
-  scrollbar-color: rgba(16, 26, 51, 0.18) transparent;
+  scrollbar-color: rgba(79, 216, 255, 0.25) transparent;
 }
 
-.mv-fil::-webkit-scrollbar { width: 7px; }
+.mv-fil::-webkit-scrollbar { width: 6px; }
 .mv-fil::-webkit-scrollbar-thumb {
-  background: rgba(16, 26, 51, 0.18);
+  background: rgba(79, 216, 255, 0.25);
   border-radius: 99px;
 }
 
-/* ── Ce que dit l'assistante ─────────────────────────────────────────
-   Pas de bulle : une reponse n'est pas un message envoye, c'est une parole. Elle
-   s'inscrit a meme la page, en grande typographie aeree, comme un texte qu'on
-   lit. Le cadre aurait enferme la lecture et impose un rythme de SMS. */
+/* ── Ce que dit l'assistante ─────────────────────────────────────────────
+   Toujours pas de bulle : une réponse n'est pas un message envoyé, c'est une
+   parole. Elle s'inscrit à même l'écran, en grande typographie aérée. */
 .mv-dit {
   --p: 0;
   align-self: stretch;
@@ -260,27 +366,25 @@
   font-size: 19.5px;
   line-height: 1.78;
   letter-spacing: -0.005em;
-  color: #16203a;
+  color: #eaf4ff;
+  text-shadow: 0 0 26px rgba(79, 216, 255, 0.12);
   text-wrap: pretty;
 }
 
 .mv-flux { display: inline; }
 
-/* Chaque mot calcule lui-meme son etat a partir de la position de lecture `--p`
-   et de son propre rang `--i`. Rien n'est monte ni demonte pendant la parole :
-   c'est une onde continue qui traverse un texte deja en place, et non une suite
-   d'apparitions. La transition s'etale sur trois mots pour rester douce. */
+/* Chaque mot calcule lui-même son état depuis la position de lecture `--p` et
+   son rang `--i`. Rien n'est monté ni démonté pendant la parole : une onde
+   traverse un texte déjà en place. Sur fond sombre, les mots à venir descendent
+   à 0,10 d'opacité au lieu de 0,13 — le contraste est plus fort, il faut moins. */
 .mv-mot {
   display: inline-block;
   --a: clamp(0, calc((var(--p) - var(--i)) / 3 + 0.5), 1);
-  opacity: calc(0.13 + 0.87 * var(--a));
+  opacity: calc(0.10 + 0.90 * var(--a));
   transform: translateY(calc((1 - var(--a)) * 0.22em));
-  /* Les mots a venir restent lisibles en filigrane : le regard voit arriver la
-     phrase au lieu d'etre surpris mot par mot. */
   will-change: opacity, transform;
 }
 
-/* Point lumineux en tete de lecture. */
 .mv-curseur {
   display: inline-block;
   width: 6px;
@@ -288,8 +392,8 @@
   margin-left: 4px;
   border-radius: 50%;
   vertical-align: middle;
-  background: #a97723;
-  box-shadow: 0 0 10px rgba(169, 119, 35, 0.7);
+  background: var(--mv-cyan);
+  box-shadow: 0 0 12px var(--mv-cyan);
   animation: mv-curseur-pulse 1.4s ease-in-out infinite;
 }
 
@@ -298,23 +402,22 @@
   50%      { opacity: 0.9;  transform: scale(1); }
 }
 
-/* ── Ce que dit le fondateur ────────────────────────────────────────
-   La bulle reste, elle : ce qu'il dit EST un message envoye. Effet goutte d'eau
-   — fond translucide, flou d'arriere-plan, et double lisere interieur (clair en
-   haut, sombre en bas) qui simule l'epaisseur du menisque. Sans ce dernier, on
-   obtient une vitre plate et non une goutte. */
+/* ── Ce que dit le fondateur ─────────────────────────────────────────────
+   La bulle reste : ce qu'il dit EST un message envoyé. L'effet goutte d'eau du
+   thème clair devient ici une plaque de verre teintée — même principe, deux
+   liserés qui simulent l'épaisseur, mais la lumière vient du cyan ambiant. */
 .mv-bulle {
   position: relative;
   max-width: min(560px, 88%);
   width: fit-content;
   padding: 12px 18px;
-  border-radius: 20px;
+  border-radius: 4px 4px 4px 14px;
   font-size: 14.5px;
   line-height: 1.6;
   white-space: pre-wrap;
   isolation: isolate;
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(140%);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
 }
 
 .mv-bulle::before {
@@ -324,46 +427,47 @@
   border-radius: inherit;
   pointer-events: none;
   z-index: -1;
-  background:
-    radial-gradient(120% 80% at 18% 0%, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0) 55%),
-    radial-gradient(90% 60% at 85% 100%, rgba(255, 255, 255, 0.35) 0%, rgba(255, 255, 255, 0) 60%);
+  background: radial-gradient(120% 80% at 18% 0%, rgba(79, 216, 255, 0.14) 0%, transparent 58%);
 }
 
 .mv-bulle-fondateur {
   align-self: flex-end;
   margin-right: max(0px, calc(50% - 340px));
-  border-bottom-right-radius: 7px;
-  color: #4a3413;
-  background: linear-gradient(135deg, rgba(214, 176, 96, 0.30), rgba(214, 176, 96, 0.13));
-  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 4px 4px 14px 4px;
+  color: #cfe6f5;
+  background: linear-gradient(135deg, rgba(79, 216, 255, 0.13), rgba(79, 216, 255, 0.05));
+  border: 1px solid rgba(79, 216, 255, 0.28);
+  border-right: 2px solid var(--mv-cyan);
   box-shadow:
-    inset 0 1px 1px rgba(255, 255, 255, 0.85),
-    inset 0 -1px 2px rgba(140, 100, 20, 0.18),
-    0 8px 26px -14px rgba(140, 100, 20, 0.55);
+    inset 0 1px 0 rgba(255, 255, 255, 0.09),
+    0 8px 30px -16px rgba(79, 216, 255, 0.5);
 }
 
-/* Transcription provisoire : la reconnaissance n'a pas encore tranché, le texte
-   peut encore changer. Il s'affiche donc en retrait — gris, italique, bulle
-   atténuée — pour qu'on ne le lise pas comme un acquis. La bulle reprend sa
-   couleur pleine dès que le texte est définitif. */
 .mv-bulle-fondateur.est-partiel {
-  color: #7b8499;
+  color: var(--mv-sourdine);
   font-style: italic;
-  background: linear-gradient(135deg, rgba(214, 176, 96, 0.13), rgba(214, 176, 96, 0.06));
-  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.6);
+  background: rgba(79, 216, 255, 0.045);
+  border-color: rgba(79, 216, 255, 0.14);
+  border-right-color: rgba(79, 216, 255, 0.3);
+  box-shadow: none;
 }
 
-/* ── Débriefing de la veille ─────────────────────────────────────────────── */
+/* ── Panneaux : débriefing, graphique, fichier ───────────────────────────── */
+.mv-debriefing,
+.mv-graphique {
+  width: min(720px, 96%);
+  border-radius: 5px;
+  background:
+    linear-gradient(180deg, rgba(79, 216, 255, 0.045), transparent 40%),
+    rgba(255, 255, 255, 0.022);
+  border: 1px solid var(--mv-trait);
+  box-shadow: 0 22px 60px -34px rgba(0, 0, 0, 0.9);
+}
 
 .mv-debriefing {
-  width: 100%;
   max-width: 680px;
   margin: 18px auto 4px;
   padding: 18px 20px 6px;
-  border-radius: 18px;
-  background: #ffffff;
-  border: 1px solid rgba(16, 26, 51, 0.10);
-  box-shadow: 0 18px 44px -26px rgba(16, 26, 51, 0.45);
 }
 
 .mv-debriefing-entete {
@@ -371,24 +475,24 @@
   align-items: center;
   gap: 9px;
   margin-bottom: 14px;
-  color: #1e4d82;
-  font-size: 13.5px;
-  font-weight: 650;
-  letter-spacing: 0.01em;
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--mv-cyan);
 }
 
 .mv-debriefing-faits {
   margin: 0 0 6px;
   padding: 0 0 0 18px;
-  color: #101a33;
+  color: var(--mv-texte);
   font-size: 15px;
   line-height: 1.62;
 }
 
 .mv-debriefing-faits li { margin-bottom: 5px; }
 
-/* Chaque graphique du débriefing garde sa carte, mais sans le fond ni l'ombre
-   du graphique isolé : ils sont déjà DANS une carte. */
 .mv-debriefing .mv-graphique {
   margin: 14px 0 0;
   padding: 0;
@@ -396,48 +500,100 @@
   border: none;
   box-shadow: none;
   max-width: none;
+  width: 100%;
 }
 
 .mv-debriefing-limite {
   margin: 16px 0 14px;
   padding-top: 12px;
-  border-top: 1px solid rgba(16, 26, 51, 0.08);
-  color: #7b8499;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  color: var(--mv-sourdine);
   font-size: 12px;
   line-height: 1.5;
+}
+
+.mv-graphique {
+  margin-top: 8px;
+  padding: 18px 18px 10px;
+}
+
+.mv-graphique-titre {
+  margin-bottom: 14px;
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--mv-cyan);
 }
 
 .mv-invite {
   margin-top: 20px;
   text-align: center;
   font-size: 14px;
-  color: #7b8499;
+  color: var(--mv-sourdine);
   line-height: 2;
 }
 
 .mv-invite span {
   display: block;
-  font-size: 13px;
-  color: #9aa2b4;
-  font-style: italic;
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: 12px;
+  color: rgba(111, 130, 153, 0.75);
 }
 
-/* ── Graphique ───────────────────────────────────────────────────────────── */
-.mv-graphique {
-  width: min(720px, 96%);
-  margin-top: 8px;
-  padding: 20px 20px 12px;
-  border-radius: 20px;
-  background: #ffffff;
-  border: 1px solid rgba(16, 26, 51, 0.09);
-  box-shadow: 0 22px 55px -28px rgba(16, 26, 51, 0.5);
+/* ── Fichiers annoncés à l'oral ──────────────────────────────────────────── */
+.mv-fichier {
+  width: min(560px, 92%);
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 12px 15px;
+  border: 1px solid var(--mv-trait);
+  border-left: 2px solid var(--mv-cyan);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.028);
+  color: var(--mv-texte);
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.16s ease, border-color 0.16s ease, background 0.16s ease;
 }
 
-.mv-graphique-titre {
-  margin-bottom: 14px;
-  font-size: 14.5px;
-  font-weight: 700;
-  color: #101a33;
+.mv-fichier:hover {
+  transform: translateY(-1px);
+  background: var(--mv-cyan-voile);
+}
+
+.mv-fichier-icone {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.mv-fichier-icone.est-tableur  { background: rgba(52, 211, 153, 0.13); color: #6ee7b7; }
+.mv-fichier-icone.est-document { background: rgba(79, 216, 255, 0.13); color: var(--mv-cyan); }
+
+.mv-fichier-corps { flex: 1; min-width: 0; }
+
+.mv-fichier-nom {
+  display: block;
+  font-size: 13.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mv-fichier-meta {
+  display: block;
+  margin-top: 2px;
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  color: var(--mv-sourdine);
 }
 
 /* ── Erreur ──────────────────────────────────────────────────────────────── */
@@ -452,28 +608,33 @@
   gap: 12px;
   max-width: 92vw;
   padding: 12px 16px;
-  border-radius: 14px;
-  background: #ffffff;
-  border: 1px solid rgba(176, 58, 43, 0.32);
-  box-shadow: 0 16px 40px -20px rgba(176, 58, 43, 0.6);
-  color: #8f2f22;
+  border-radius: 4px;
+  background: rgba(30, 10, 10, 0.9);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  border-left: 2px solid #f87171;
+  box-shadow: 0 16px 44px -20px rgba(0, 0, 0, 0.9);
+  color: #fca5a5;
   font-size: 13.5px;
+  backdrop-filter: blur(8px);
 }
 
 .mv-erreur button {
   padding: 5px 13px;
-  border: 1px solid rgba(176, 58, 43, 0.35);
-  border-radius: 9px;
-  background: rgba(176, 58, 43, 0.08);
-  color: #8f2f22;
-  font-size: 12.5px;
-  font-weight: 600;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  border-radius: 3px;
+  background: rgba(248, 113, 113, 0.1);
+  color: #fca5a5;
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.18s;
 }
 
-.mv-erreur button:hover { background: rgba(176, 58, 43, 0.18); }
+.mv-erreur button:hover { background: rgba(248, 113, 113, 0.22); }
 
 /* ── Écrans étroits ──────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
@@ -481,68 +642,17 @@
   .mv-budget-barre { width: 84px; }
   .mv-bulle-fondateur { margin-right: 0; }
   .mv-dit { font-size: 17.5px; }
+  .mv-entete { padding: 14px 18px; gap: 12px; }
+  .mv-equerre { width: 18px; height: 18px; }
 }
 
-/* Certains fondateurs coupent les animations au niveau système : on respecte.
-   La sphère gère son propre cas (elle fige son horloge et sa rotation). */
+/* Animations coupées au niveau système. La sphère gère son propre cas : elle
+   fige son horloge et sa rotation dans le shader. */
 @media (prefers-reduced-motion: reduce) {
   .mv-fond *:not(.mv-blob) {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
   }
-}
-
-/* ── Fichiers annoncés à l'oral ─────────────────────────────────────────────
-   Un classeur dont l'assistante parle mais qu'on ne voit pas n'existe pas :
-   il apparaît dans le fil, au même titre qu'un graphique. */
-.mv-fichier {
-  width: min(560px, 92%);
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  padding: 13px 16px;
-  border: 1px solid rgba(16, 26, 51, 0.09);
-  border-radius: 16px;
-  background: #ffffff;
-  color: #101a33;
-  text-align: left;
-  cursor: pointer;
-  box-shadow: 0 10px 28px -20px rgba(16, 26, 51, 0.5);
-  transition: transform 0.16s ease, border-color 0.16s ease;
-}
-
-.mv-fichier:hover {
-  transform: translateY(-1px);
-  border-color: rgba(169, 119, 35, 0.45);
-}
-
-.mv-fichier-icone {
-  display: grid;
-  place-items: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
-  flex-shrink: 0;
-}
-
-.mv-fichier-icone.est-tableur  { background: rgba(33, 115, 70, 0.10); color: #217346; }
-.mv-fichier-icone.est-document { background: rgba(43, 87, 154, 0.10); color: #2b579a; }
-
-.mv-fichier-corps { flex: 1; min-width: 0; }
-
-.mv-fichier-nom {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.mv-fichier-meta {
-  display: block;
-  margin-top: 2px;
-  font-size: 12px;
-  color: #7b8499;
+  .mv-reticule { animation: none !important; }
 }

@@ -20,18 +20,26 @@ import FichePersonne from './FichePersonne';
 import { telechargerFichier, FichierAssistant } from '../../lib/assistantFichiers';
 import './ModeVocal.css';
 
-const PALETTE = ['#a97723', '#1e4d82', '#2f9166', '#a4515f', '#7b5fbe', '#2f7d8f', '#8a6d3b'];
+// Palette relevée pour le fond sombre. Recharts ne lit pas les variables CSS :
+// toutes ces couleurs doivent être fournies en dur, et celles du thème clair
+// disparaissaient sur #050a14.
+const PALETTE = ['#4fd8ff', '#ffb454', '#6ee7b7', '#b48cff', '#ff8a9b', '#7fd4c1', '#ffd48a'];
+const AXE_SOMBRE = '#6f8299';
+const GRILLE_SOMBRE = 'rgba(255,255,255,0.09)';
 
 // Chaque état a sa couleur et son libellé : c'est le seul retour visuel dont
 // dispose quelqu'un qui parle sans regarder l'écran de près.
+// Teintes relevées pour le fond sombre : les couleurs du thème clair — or #a97723,
+// bleu #1e4d82 — y devenaient illisibles. Elles restent accordées à la sphère 3D,
+// dont les couleurs d'état n'ont pas bougé.
 const ETATS: Record<StatutVocal, { libelle: string; teinte: string; icone: any }> = {
-  inactif:   { libelle: 'Prêt',                teinte: '#7b8499', icone: Mic },
-  connexion: { libelle: 'Connexion…',          teinte: '#7b8499', icone: Loader2 },
-  ecoute:    { libelle: 'Je vous écoute',      teinte: '#a97723', icone: Mic },
-  reflexion: { libelle: 'Je consulte la base', teinte: '#1e4d82', icone: Database },
-  construction: { libelle: 'Je construis le graphique', teinte: '#6d4bb8', icone: BarChart3 },
-  parle:     { libelle: 'Réponse en cours',    teinte: '#237a53', icone: Volume2 },
-  erreur:    { libelle: 'Interrompu',          teinte: '#b03a2b', icone: AlertTriangle },
+  inactif:   { libelle: 'En veille',           teinte: '#6f8299', icone: Mic },
+  connexion: { libelle: 'Liaison en cours',    teinte: '#8fa3ba', icone: Loader2 },
+  ecoute:    { libelle: 'À votre écoute',      teinte: '#ffb454', icone: Mic },
+  reflexion: { libelle: 'Lecture de la base',  teinte: '#4fd8ff', icone: Database },
+  construction: { libelle: 'Assemblage du visuel', teinte: '#b48cff', icone: BarChart3 },
+  parle:     { libelle: 'Transmission',        teinte: '#6ee7b7', icone: Volume2 },
+  erreur:    { libelle: 'Liaison interrompue', teinte: '#ff8a75', icone: AlertTriangle },
 };
 
 // Jauge de consommation. Le fondateur n'a pas à lire un montant en pleine
@@ -63,6 +71,12 @@ type Etat = { libelle: string; teinte: string; icone: any };
 const Orbe = ({ statut, forme, etat }: { statut: StatutVocal; forme: NomForme; etat: Etat }) => {
   return (
     <div className="mv-orbe-zone">
+      {/* Réticule : ce qui transforme une sphère qui flotte en une cible suivie
+          par un instrument. Purement décoratif, donc masqué aux lecteurs
+          d'écran. */}
+      <span className="mv-reticule anneau-2" aria-hidden="true" />
+      <span className="mv-reticule graduations" aria-hidden="true" />
+      <span className="mv-reticule anneau-1" aria-hidden="true" />
       {/* La forme EST l'orbe : cylindre à bourrelets quand le modèle interroge la
           base, histogramme en gradins quand il assemble un graphique, sphère le
           reste du temps — la couleur suivant l'état dans tous les cas. */}
@@ -215,24 +229,24 @@ const GraphiqueVocal = ({ visuel }: { visuel: Visuel }) => {
   const formater = formatteurs[v.format_valeur] ?? formatteurs.nombre;
   const tooltip = {
     contentStyle: {
-      background: '#ffffff', border: '1px solid rgba(16,26,51,.12)', borderRadius: 12,
-      boxShadow: '0 12px 32px -12px rgba(16,26,51,.35)',
+      background: '#0a1424', border: '1px solid rgba(79,216,255,0.32)', borderRadius: 4,
+      boxShadow: '0 12px 32px -12px rgba(0,0,0,.8)',
     },
-    labelStyle: { color: '#55607a', fontSize: 12 },
-    itemStyle: { color: '#101a33', fontSize: 12.5 },
+    labelStyle: { color: AXE_SOMBRE, fontSize: 11 },
+    itemStyle: { color: '#dce9f7', fontSize: 12.5 },
     formatter: (val: number) => formater(val),
   };
   const axeX = (
-    <XAxis dataKey="__x" tick={{ fontSize: 10, fill: '#7b8499' }} interval={0}
+    <XAxis dataKey="__x" tick={{ fontSize: 10, fill: AXE_SOMBRE }} interval={0}
       angle={data.length > 4 ? -20 : 0} textAnchor={data.length > 4 ? 'end' : 'middle'}
-      height={data.length > 4 ? 56 : 28} axisLine={{ stroke: 'rgba(16,26,51,.12)' }} tickLine={false} />
+      height={data.length > 4 ? 56 : 28} axisLine={{ stroke: GRILLE_SOMBRE }} tickLine={false} />
   );
   const axeY = (
-    <YAxis tick={{ fontSize: 11, fill: '#7b8499' }} axisLine={false} tickLine={false}
+    <YAxis tick={{ fontSize: 11, fill: AXE_SOMBRE }} axisLine={false} tickLine={false}
       tickFormatter={formater} width={60} />
   );
-  const grille = <CartesianGrid strokeDasharray="3 3" stroke="rgba(16,26,51,.09)" vertical={false} />;
-  const legende = v.series.length > 1 ? <Legend wrapperStyle={{ fontSize: 12, color: '#55607a' }} /> : null;
+  const grille = <CartesianGrid strokeDasharray="3 3" stroke={GRILLE_SOMBRE} vertical={false} />;
+  const legende = v.series.length > 1 ? <Legend wrapperStyle={{ fontSize: 12, color: AXE_SOMBRE }} /> : null;
 
   const rendu = () => {
     switch (v.type) {
@@ -244,7 +258,7 @@ const GraphiqueVocal = ({ visuel }: { visuel: Visuel }) => {
               animationDuration={900}>
               {data.map((_, i) => <Cell key={i} fill={PALETTE[i % PALETTE.length]} />)}
             </Pie>
-            <Legend wrapperStyle={{ fontSize: 12, color: '#97a0bd' }} />
+            <Legend wrapperStyle={{ fontSize: 12, color: AXE_SOMBRE }} />
           </PieChart>
         );
       case 'lignes':
@@ -272,7 +286,7 @@ const GraphiqueVocal = ({ visuel }: { visuel: Visuel }) => {
       default:
         return (
           <BarChart data={data}>
-            {grille}{axeX}{axeY}<Tooltip {...tooltip} cursor={{ fill: 'rgba(16,26,51,.05)' }} />{legende}
+            {grille}{axeX}{axeY}<Tooltip {...tooltip} cursor={{ fill: 'rgba(255,255,255,.05)' }} />{legende}
             {v.series.map((s, i) => (
               <Bar key={s.colonne} dataKey={s.colonne} name={s.libelle}
                 stackId={v.type === 'barres_empilees' ? 'pile' : undefined}
@@ -386,11 +400,17 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
       exit={{ opacity: 0 }}
       transition={{ duration: 0.28 }}
     >
+      {/* Équerres d'écran : elles cadrent la vue comme un viseur. */}
+      <span className="mv-equerre ht-g" aria-hidden="true" />
+      <span className="mv-equerre ht-d" aria-hidden="true" />
+      <span className="mv-equerre bs-g" aria-hidden="true" />
+      <span className="mv-equerre bs-d" aria-hidden="true" />
+
       {/* Barre haute : identité, budget, sortie */}
       <div className="mv-entete">
         <div className="mv-titre">
-          <span className="mv-pastille" style={{ background: etat.teinte }} />
-          Assistant vocal
+          <span className="mv-pastille" style={{ background: etat.teinte, color: etat.teinte }} />
+          Assistant vocal <span style={{ opacity: 0.4 }}>//</span> IIPEA
         </div>
 
         {v.budget && (
