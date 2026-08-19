@@ -199,17 +199,39 @@
   filter: contrast(1.05) saturate(0.92);
 }
 
-.fp-photo-absente {
+/* Monogramme — toujours monté, sous la photo. Il apparaît quand l'image manque
+   ou n'arrive pas. Ce n'est pas un cas marginal : 61 % des étudiants n'ont pas
+   de photo, et le personnel n'en a jamais, la table utilisateur ne portant
+   aucune colonne pour ça. Des initiales se lisent comme une identité ; un cadre
+   vide se lit comme une panne. */
+.fp-monogramme {
+  position: absolute;
+  inset: 0;
   display: grid;
   place-items: center;
   align-content: center;
-  gap: 8px;
-  height: 100%;
-  color: rgba(125, 146, 173, 0.7);
-  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
-  font-size: 9px;
-  letter-spacing: 0.14em;
+  gap: 6px;
+  background:
+    radial-gradient(120% 100% at 50% 0%, var(--acc-doux), transparent 70%),
+    #0b1526;
+  color: var(--acc);
 }
+
+.fp-initiales {
+  font-size: 40px;
+  font-weight: 300;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  opacity: 0.92;
+  text-shadow: 0 0 26px var(--acc-doux);
+}
+
+.fp-monogramme svg { opacity: 0.35; }
+
+/* L'image, quand elle arrive, se pose PAR-DESSUS le monogramme. Si elle échoue,
+   `sans-image` la retire et le monogramme réapparaît sans transition. */
+.fp-photo img { position: relative; z-index: 1; }
+.fp-photo.sans-image img { display: none; }
 
 .fp-balayage {
   position: absolute;

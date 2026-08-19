@@ -49,7 +49,38 @@ const VITESSE = 190;
 /** Instant où la frappe commence, après l'ouverture du cadre et la photo. */
 const DEBUT_FRAPPE_MS = 900;
 
-const BASE = (import.meta.env.VITE_API_URL_SERVER as string) || '';
+/**
+ * Où sont servies les photos.
+ *
+ * Par défaut, là où est l'API — c'est le cas en production. Mais en
+ * développement l'API tourne en local alors que la BASE est celle de
+ * production : les chemins `/uploads/photos/...` désignent alors des fichiers
+ * qui n'existent que sur le serveur distant, et le navigateur reçoit un 404.
+ *
+ * `VITE_URL_MEDIAS` permet de pointer les médias vers le serveur de production
+ * tout en gardant l'API en local. Non renseignée, rien ne change.
+ */
+const BASE_MEDIAS = (import.meta.env.VITE_URL_MEDIAS as string)
+  || (import.meta.env.VITE_API_URL_SERVER as string)
+  || '';
+
+/**
+ * Initiales, pour quand il n'y a pas de photo.
+ *
+ * Ce n'est pas un cas marginal : 61 % des étudiants n'en ont pas, et le
+ * personnel n'en a JAMAIS — la table `utilisateur` ne porte aucune colonne de
+ * photo. Un monogramme se lit comme une identité ; un cadre vide se lit comme
+ * une panne.
+ */
+function initiales(nom: string): string {
+  return String(nom || '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((m) => m[0])
+    .join('')
+    .toUpperCase() || '?';
+}
 
 function tonEtat(etat: string | null): 'ok' | 'attention' | 'neutre' {
   const e = (etat || '').toLowerCase();
@@ -66,9 +97,24 @@ const FichePersonne = ({ fiche, onFermer }: { fiche: Fiche; onFermer: () => void
   const fermeture = useRef(onFermer);
   fermeture.current = onFermer;
 
-  const photo = fiche.photo_url
-    ? (fiche.photo_url.startsWith('http') ? fiche.photo_url : `${BASE}${fiche.photo_url}`)
+  const cadrePhoto = useRef<HTMLDivElement>(null);
+
+  // La chaîne vide existe en base (38 étudiants) : elle ne doit pas produire une
+  // requête vers la racine du serveur.
+  const chemin = (fiche.photo_url || '').trim();
+  const photo = chemin
+    ? (chemin.startsWith('http') ? chemin : `${BASE_MEDIAS}${chemin}`)
     : null;
+
+  /**
+   * Photo introuvable — le fichier a été supprimé, ou il n'est pas sur ce
+   * serveur. On bascule sur le monogramme plutôt que de laisser l'icône
+   * d'image cassée du navigateur, qui donne l'impression que la fiche a raté.
+   *
+   * Une classe sur le conteneur plutôt qu'un état React : la bascule ne doit
+   * pas provoquer de rendu pendant que le texte se tape.
+   */
+  const photoAbsente = () => cadrePhoto.current?.classList.add('sans-image');
 
   const total = useMemo(
     () => fiche.blocs.reduce((s, b) => s + b.champs.length, 0),
@@ -189,10 +235,15 @@ const FichePersonne = ({ fiche, onFermer }: { fiche: Fiche; onFermer: () => void
 
         <div className="fp-corps">
           <div className="fp-colonne-gauche">
-            <div className="fp-photo">
-              {photo
-                ? <img src={photo} alt="" />
-                : <div className="fp-photo-absente"><User size={34} /><span>AUCUNE IMAGE</span></div>}
+            <div className={`fp-photo${photo ? '' : ' sans-image'}`} ref={cadrePhoto}>
+              {/* Le monogramme est TOUJOURS monté, sous la photo. C'est lui qui
+                  apparaît si l'image manque ou n'arrive pas, sans qu'aucun
+                  rendu React ne soit nécessaire pour basculer. */}
+              <div className="fp-monogramme" aria-hidden="true">
+                <span className="fp-initiales">{initiales(fiche.nom_complet)}</span>
+                <User size={15} strokeWidth={1.6} />
+              </div>
+              {photo && <img src={photo} alt="" onError={photoAbsente} />}
               <span className="fp-balayage" aria-hidden="true" />
               <span className="fp-reticule" aria-hidden="true" />
             </div>
