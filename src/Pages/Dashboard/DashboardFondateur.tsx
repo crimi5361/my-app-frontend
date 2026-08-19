@@ -5,7 +5,7 @@ import {
   TrophyOutlined, ToolOutlined, CheckCircleOutlined, HourglassOutlined, InboxOutlined, WarningOutlined,
 } from '@ant-design/icons';
 import {
-  ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+  ResponsiveContainer, LineChart, Line, BarChart, Bar, ComposedChart, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import { apiFetch, ApiError } from '../../lib/api';
@@ -21,7 +21,8 @@ interface AcademicYear {
 
 interface DashboardFondateurData {
   etudiants: {
-    total_inscrits: number; total_en_attente: number; total_general: number;
+    total_inscrits: number; total_en_attente: number;
+    admissions_validees: number; reinscriptions_validees: number;
     par_statut_scolaire: { statut: string; total: number }[];
   };
   inscriptions: { total_annee: number; aujourd_hui: number; cette_semaine: number; ce_mois: number };
@@ -29,10 +30,13 @@ interface DashboardFondateurData {
   parFiliere: { filiere: string; total: number }[];
   parNiveau: { niveau: string; total: number }[];
   parCursus: { cursus: string; total: number }[];
-  evolutionInscriptions: { jour: string; total: number }[];
+  // Chantier Statistiques (2026-08-18) : quotidien depuis le 1er jour de l'année académique du
+  // site (plus une fenêtre de 30 jours glissants), avec split admissions/réinscriptions validées.
+  evolutionInscriptions: { jour: string; admissions: number; reinscriptions: number; total: number }[];
   finance: {
     total_scolarite: number; total_verse: number; total_restant: number; total_pec: number; nombre_pec: number;
-    evolution_recettes: { mois: string; total: number }[];
+    // Chantier Statistiques (2026-08-18) : quotidien (plus mensuel) — { jour, total }.
+    evolution_recettes: { jour: string; total: number }[];
   };
   caisses: { nb_caisses: number; sessions_ouvertes: number; encaisse_jour: number; encaisse_mois: number };
   dossiersEnAttente: {
@@ -199,34 +203,68 @@ const DashboardFondateur = () => {
               <ResponsiveContainer width="100%" height={240}>
                 <LineChart data={data.finance.evolution_recettes}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="mois" tickFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })} />
+                  <XAxis dataKey="jour" tickFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} />
                   <YAxis tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v: number) => formatFcfa(v)} labelFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })} />
-                  <Line type="monotone" dataKey="total" stroke="var(--mod-comptabilite)" strokeWidth={2} />
+                  <Tooltip formatter={(v: number) => formatFcfa(v)} labelFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} />
+                  <Line type="monotone" dataKey="total" name="Recettes du jour" stroke="var(--mod-comptabilite)" strokeWidth={2} dot={{ r: 2 }} />
                 </LineChart>
               </ResponsiveContainer>
             ) : <Empty description="Aucun encaissement sur l'année sélectionnée" style={{ marginTop: 40 }} />}
           </Card>
 
-          {/* Vue globale étudiants + inscriptions */}
+          {/* Vue globale étudiants — "Étudiants inscrits" = admissions + réinscriptions
+              OFFICIELLEMENT finalisées à la caisse (etudiant.standing = 'Inscrit'). Un dossier en
+              attente de paiement n'est jamais inclus dans ce chiffre (règle métier 2026-08-18). */}
+          <Row gutter={16} style={{ marginBottom: 16 }}>
+            <Col span={24}>
+              <Card>
+                <Statistic
+                  title="Étudiants inscrits — admissions et réinscriptions officiellement finalisées à la caisse"
+                  value={data.etudiants.total_inscrits}
+                  prefix={<TeamOutlined style={{ color: 'var(--mod-scolarite)' }} />}
+                  valueStyle={{ fontSize: 36 }}
+                />
+              </Card>
+            </Col>
+          </Row>
+
           <Row gutter={16} style={{ marginBottom: 24 }}>
-            <Col span={4}>
-              <Card><Statistic title="Étudiants inscrits" value={data.etudiants.total_inscrits} prefix={<TeamOutlined style={{ color: 'var(--mod-scolarite)' }} />} /></Card>
+            <Col span={6}>
+              <Card>
+                <Statistic title="Admissions validées" value={data.etudiants.admissions_validees} prefix={<CheckCircleOutlined style={{ color: 'var(--success)' }} />} />
+              </Card>
             </Col>
-            <Col span={4}>
-              <Card><Statistic title="Admissions en attente" value={data.etudiants.total_en_attente} prefix={<TeamOutlined style={{ color: 'var(--warning)' }} />} /></Card>
+            <Col span={6}>
+              <Card>
+                <Statistic title="Réinscriptions validées" value={data.etudiants.reinscriptions_validees} prefix={<CheckCircleOutlined style={{ color: 'var(--success)' }} />} />
+              </Card>
             </Col>
-            <Col span={4}>
-              <Card><Statistic title="Inscriptions — année" value={data.inscriptions.total_annee} prefix={<RiseOutlined />} /></Card>
+            <Col span={6}>
+              <Card>
+                <Statistic title="Admissions en attente de paiement" value={data.etudiants.total_en_attente} prefix={<HourglassOutlined style={{ color: 'var(--warning)' }} />} />
+              </Card>
             </Col>
-            <Col span={4}>
-              <Card><Statistic title="Aujourd'hui" value={data.inscriptions.aujourd_hui} /></Card>
+            <Col span={6}>
+              <Card>
+                <Statistic title="Réinscriptions en attente de paiement" value={data.dossiersEnAttente.reinscriptions.total} prefix={<HourglassOutlined style={{ color: 'var(--warning)' }} />} />
+              </Card>
             </Col>
-            <Col span={4}>
-              <Card><Statistic title="Cette semaine" value={data.inscriptions.cette_semaine} /></Card>
+          </Row>
+
+          {/* Détail par période — mêmes admissions/réinscriptions validées ci-dessus, ventilées
+              dans le temps (source : historique_inscription.created_at, jamais date_inscription). */}
+          <Row gutter={16} style={{ marginBottom: 24 }}>
+            <Col span={6}>
+              <Card><Statistic title="Inscriptions validées — année" value={data.inscriptions.total_annee} prefix={<RiseOutlined />} /></Card>
             </Col>
-            <Col span={4}>
-              <Card><Statistic title="Ce mois" value={data.inscriptions.ce_mois} /></Card>
+            <Col span={6}>
+              <Card><Statistic title="Validées aujourd'hui" value={data.inscriptions.aujourd_hui} /></Card>
+            </Col>
+            <Col span={6}>
+              <Card><Statistic title="Validées cette semaine" value={data.inscriptions.cette_semaine} /></Card>
+            </Col>
+            <Col span={6}>
+              <Card><Statistic title="Validées ce mois" value={data.inscriptions.ce_mois} /></Card>
             </Col>
           </Row>
 
@@ -287,19 +325,31 @@ const DashboardFondateur = () => {
             </Card>
           )}
 
-          {/* Évolution des inscriptions */}
-          <Card title="Évolution des inscriptions (30 derniers jours)" style={{ marginBottom: 24, height: 340 }}>
+          {/* Évolution des inscriptions VALIDÉES — quotidien, depuis le 1er jour de l'année
+              académique sélectionnée jusqu'à aujourd'hui (plus une fenêtre de 30 jours). Un
+              dossier en attente de paiement n'apparaît jamais ici (source :
+              historique_inscription, jamais un dossier créé mais non finalisé). */}
+          <Card
+            title={`Évolution des inscriptions validées — année académique ${academicYears.find((y) => y.id === selectedYearId)?.annee ?? ''}`}
+            style={{ marginBottom: 24, height: 380 }}
+          >
             {data.evolutionInscriptions.length > 0 ? (
-              <ResponsiveContainer width="100%" height={260}>
-                <LineChart data={data.evolutionInscriptions}>
+              <ResponsiveContainer width="100%" height={300}>
+                <ComposedChart data={data.evolutionInscriptions}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="jour" tickFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} />
                   <YAxis allowDecimals={false} />
-                  <Tooltip labelFormatter={(v) => new Date(v).toLocaleDateString('fr-FR')} />
-                  <Line type="monotone" dataKey="total" stroke="var(--gold)" strokeWidth={2} />
-                </LineChart>
+                  <Tooltip
+                    labelFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    formatter={(v: number, name: string) => [`${v} dossier(s)`, name]}
+                  />
+                  <Legend />
+                  <Bar dataKey="admissions" name="Admissions validées" stackId="inscriptions" fill="var(--mod-scolarite)" />
+                  <Bar dataKey="reinscriptions" name="Réinscriptions validées" stackId="inscriptions" fill="var(--gold)" />
+                  <Line type="monotone" dataKey="total" name="Total validé" stroke="var(--ink)" strokeWidth={2} dot={{ r: 2 }} />
+                </ComposedChart>
               </ResponsiveContainer>
-            ) : <Empty description="Aucune inscription sur la période" style={{ marginTop: 60 }} />}
+            ) : <Empty description="Aucune inscription validée sur l'année sélectionnée" style={{ marginTop: 60 }} />}
           </Card>
 
           {/* Répartitions */}

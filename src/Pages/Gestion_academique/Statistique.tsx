@@ -546,7 +546,7 @@ const Statistique = () => {
               {statistiques.detailed && (
                 <Row gutter={[16, 16]} style={{ marginBottom: 32 }} className="stat-section">
                   {[
-                    { title: 'Total Étudiants', value: totalEtu, icon: <TeamOutlined />, bg: 'linear-gradient(135deg, #0f2044, #1e4d8c)', suffix: '' },
+                    { title: 'Total Étudiants inscrits', value: totalEtu, icon: <TeamOutlined />, bg: 'linear-gradient(135deg, #0f2044, #1e4d8c)', suffix: '' },
                     { title: 'Étudiants Affectés', value: totalAffectes, icon: <CheckCircleOutlined />, bg: 'linear-gradient(135deg, #166534, #22c55e)', suffix: '' },
                     { title: 'Non Affectés', value: totalNonAffectes, icon: <CloseCircleOutlined />, bg: 'linear-gradient(135deg, #991b1b, #ef4444)', suffix: '' },
                     { title: "Taux d'Affectation", value: tauxAffectation, icon: <TrophyOutlined />, bg: 'linear-gradient(135deg, #92400e, #f59e0b)', suffix: '%' },

@@ -24,7 +24,10 @@ interface AcademicYear {
 interface DashboardAdministrateurData {
   sante: { base_de_donnees: string; uptime_secondes: number; environnement: string; temps_reponse_ms: number };
   statistiques: { totalEtudiants: number; totalAgentsActifs: number; totalAgentsDesactives: number; nb_classes: number };
-  etudiants: { total: number; hommes: number; femmes: number; inscriptions_web: number; inscriptions_agent: number };
+  etudiants: {
+    total: number; hommes: number; femmes: number; inscriptions_web: number; inscriptions_agent: number;
+    admissions_validees: number; reinscriptions_validees: number;
+  };
   finance: { total_scolarite: number; total_verse: number; total_restant: number; total_pec: number };
   utilisateurs: {
     parRole: { role: string; actifs: number; desactives: number }[];
@@ -203,7 +206,13 @@ const DashboardAdministrateur = () => {
       {/* Statistiques principales */}
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={6}>
-          <Card><Statistic title="Étudiants inscrits" value={data.statistiques.totalEtudiants} prefix={<TeamOutlined style={{ color: 'var(--mod-scolarite)' }} />} /></Card>
+          <Card>
+            <Statistic
+              title="Étudiants inscrits — finalisés à la caisse"
+              value={data.statistiques.totalEtudiants}
+              prefix={<TeamOutlined style={{ color: 'var(--mod-scolarite)' }} />}
+            />
+          </Card>
         </Col>
         <Col span={6}>
           <Card><Statistic title="Agents actifs" value={data.statistiques.totalAgentsActifs} prefix={<TeamOutlined style={{ color: 'var(--success)' }} />} /></Card>
@@ -216,12 +225,24 @@ const DashboardAdministrateur = () => {
         </Col>
       </Row>
 
+      {/* Admissions/réinscriptions validées — répartition de "Étudiants inscrits" ci-dessus par
+          origine du dossier (source unique : historique_inscription.type_evenement). */}
+      <Row gutter={16} style={{ marginBottom: 24 }}>
+        <Col span={12}>
+          <Card><Statistic title="Admissions validées" value={data.etudiants.admissions_validees} prefix={<CheckCircleOutlined style={{ color: 'var(--success)' }} />} /></Card>
+        </Col>
+        <Col span={12}>
+          <Card><Statistic title="Réinscriptions validées" value={data.etudiants.reinscriptions_validees} prefix={<CheckCircleOutlined style={{ color: 'var(--success)' }} />} /></Card>
+        </Col>
+      </Row>
+
       {/* Statistiques étudiants — valeurs absolues uniquement, aucun pourcentage (demande
-          explicite du 2026-08-02). */}
-      <Card title="Statistiques étudiants" style={{ marginBottom: 24 }}>
+          explicite du 2026-08-02). Répartition des étudiants inscrits ci-dessus (même définition,
+          standing='Inscrit') — jamais un dossier en attente de paiement. */}
+      <Card title="Statistiques étudiants inscrits" style={{ marginBottom: 24 }}>
         <Row gutter={16}>
           <Col span={5}>
-            <Statistic title="Total étudiants" value={data.etudiants.total} prefix={<TeamOutlined style={{ color: 'var(--mod-scolarite)' }} />} />
+            <Statistic title="Total (inscrits)" value={data.etudiants.total} prefix={<TeamOutlined style={{ color: 'var(--mod-scolarite)' }} />} />
           </Col>
           <Col span={5}>
             <Statistic title="Hommes" value={data.etudiants.hommes} prefix={<ManOutlined style={{ color: 'var(--mod-scolarite)' }} />} />

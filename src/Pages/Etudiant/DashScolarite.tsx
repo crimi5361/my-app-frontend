@@ -290,7 +290,7 @@ const DashScolarite: React.FC = () => {
         <Col xs={24} sm={12} md={6}>
           <Card>
             <Statistic
-              title="Inscriptions Aujourd'hui"
+              title="Inscriptions validées aujourd'hui"
               value={stats.inscriptionsAujourdhui || 0}
               prefix={<TeamOutlined style={{ color: 'var(--success)' }} />}
               valueStyle={{ color: 'var(--success)' }}

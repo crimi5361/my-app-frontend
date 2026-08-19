@@ -4,7 +4,7 @@ import {
   TeamOutlined, CalendarOutlined, RiseOutlined, GlobalOutlined, HourglassOutlined,
 } from '@ant-design/icons';
 import {
-  ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+  ResponsiveContainer, Line, BarChart, Bar, ComposedChart, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import { apiFetch, ApiError } from '../../lib/api';
@@ -20,12 +20,16 @@ interface AcademicYear {
 
 interface DashboardScolariteData {
   totalInscrits: number;
+  // Chantier Statistiques (2026-08-18) : sourcés sur historique_inscription.created_at (date
+  // réelle de validation caisse), jamais etudiant.date_inscription (date de création du dossier).
   inscriptionsAujourdhui: number;
   inscriptionsHier: number;
   inscriptionsCetteSemaine: number;
   inscriptionsSemaineDerniere: number;
   origine: { web_pct: number; agent_pct: number };
-  evolutionQuotidienne: { jour: string; total: number }[];
+  // Quotidien depuis le 1er jour de l'année académique du site (plus 14 jours glissants), avec
+  // split admissions/réinscriptions validées.
+  evolutionQuotidienne: { jour: string; admissions: number; reinscriptions: number; total: number }[];
   parEcole: { ecole: string; total: number }[];
   parNiveau: { niveau: string; total: number }[];
   parFiliere: { filiere: string; total: number }[];
@@ -159,13 +163,17 @@ const DashboardScolarite = () => {
           <Row gutter={16} style={{ marginBottom: 24 }}>
             <Col span={6}>
               <Card>
-                <Statistic title="Inscriptions totales — année en cours" value={data.totalInscrits} prefix={<TeamOutlined style={{ color: 'var(--mod-scolarite)' }} />} />
+                <Statistic
+                  title="Étudiants inscrits — finalisés à la caisse (année en cours)"
+                  value={data.totalInscrits}
+                  prefix={<TeamOutlined style={{ color: 'var(--mod-scolarite)' }} />}
+                />
               </Card>
             </Col>
             <Col span={6}>
               <Card>
                 <Statistic
-                  title="Inscriptions aujourd'hui"
+                  title="Inscriptions validées aujourd'hui"
                   value={data.inscriptionsAujourdhui}
                   prefix={<RiseOutlined style={{ color: deltaAujourdhui >= 0 ? 'var(--success)' : 'var(--danger)' }} />}
                 />
@@ -174,7 +182,7 @@ const DashboardScolarite = () => {
             </Col>
             <Col span={6}>
               <Card>
-                <Statistic title="Inscriptions cette semaine" value={data.inscriptionsCetteSemaine} />
+                <Statistic title="Inscriptions validées cette semaine" value={data.inscriptionsCetteSemaine} />
                 <Text type="secondary">S-1 : {data.inscriptionsSemaineDerniere} ({deltaSemaine >= 0 ? '+' : ''}{deltaSemaine})</Text>
               </Card>
             </Col>
@@ -222,18 +230,24 @@ const DashboardScolarite = () => {
 
           <Row gutter={16} style={{ marginBottom: 24 }}>
             <Col span={14}>
-              <Card title="Évolution quotidienne des inscriptions (14 derniers jours)" style={{ height: 340 }}>
+              <Card title="Évolution des inscriptions validées — depuis le début de l'année académique" style={{ height: 380 }}>
                 {data.evolutionQuotidienne.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={260}>
-                    <LineChart data={data.evolutionQuotidienne}>
+                  <ResponsiveContainer width="100%" height={300}>
+                    <ComposedChart data={data.evolutionQuotidienne}>
                       <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                       <XAxis dataKey="jour" tickFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} />
                       <YAxis allowDecimals={false} />
-                      <Tooltip labelFormatter={(v) => new Date(v).toLocaleDateString('fr-FR')} />
-                      <Line type="monotone" dataKey="total" stroke="var(--mod-scolarite)" strokeWidth={2} />
-                    </LineChart>
+                      <Tooltip
+                        labelFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                        formatter={(v: number, name: string) => [`${v} dossier(s)`, name]}
+                      />
+                      <Legend />
+                      <Bar dataKey="admissions" name="Admissions validées" stackId="inscriptions" fill="var(--mod-scolarite)" />
+                      <Bar dataKey="reinscriptions" name="Réinscriptions validées" stackId="inscriptions" fill="var(--gold)" />
+                      <Line type="monotone" dataKey="total" name="Total validé" stroke="var(--ink)" strokeWidth={2} dot={{ r: 2 }} />
+                    </ComposedChart>
                   </ResponsiveContainer>
-                ) : <Empty description="Aucune inscription sur la période" style={{ marginTop: 60 }} />}
+                ) : <Empty description="Aucune inscription validée sur la période" style={{ marginTop: 60 }} />}
               </Card>
             </Col>
             <Col span={10}>

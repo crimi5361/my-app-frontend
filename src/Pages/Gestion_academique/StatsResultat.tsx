@@ -115,6 +115,8 @@ interface EtudiantResultat {
     type_filiere?: string | null;
     credits_valides?: number;
     credits_total?: number;
+    // Statut financier ('SOLDE' | 'NON_SOLDE') pour l'année académique sélectionnée.
+    statut_etudiant?: string | null;
 }
 
 interface StatsResponse {
@@ -330,6 +332,21 @@ const StatsResultat: React.FC = () => {
 
         setFilteredEtudiants(filtered);
     }, [activeTab, searchText, etudiants]);
+
+    // ✅ Correctif (2026-08-19) : changer l'année académique sans réinitialiser filiereId/niveauId
+    // laissait passer un niveauId "figé" d'une AUTRE année (les lignes `niveau` sont des entités
+    // distinctes par année — même libellé, id différent, cf. niveauxQuery ci-dessus côté backend).
+    // Résultat concret : la requête combinait anneeAcademiqueId=<nouvelle année> avec
+    // niveau_id=<ancienne année> → aucun étudiant ne peut jamais correspondre aux deux à la fois,
+    // ce qui vidait silencieusement la page ("Aucune donnée disponible") au lieu de simplement
+    // afficher les niveaux de la nouvelle année. filiereId est stable d'une année à l'autre (une
+    // filière n'est pas dupliquée par année) donc n'a pas besoin d'être réinitialisé, mais on le
+    // fait quand même par cohérence avec le filtre niveau qui, lui, en dépend.
+    const handleAnneeChange = (value: number) => {
+        setSelectedAnneeId(value);
+        setFiltres(prev => ({ ...prev, filiereId: '', niveauId: '' }));
+        setNiveauxFiltres([]);
+    };
 
     // Gérer le changement de filière
     const handleFiliereChange = (value: string) => {
@@ -625,6 +642,25 @@ const StatsResultat: React.FC = () => {
                 const icon = isAdmis ? <CheckCircleOutlined /> : isDeroge ? <WarningOutlined /> : <CloseCircleOutlined />;
                 return <StatusTag tone={tone} icon={icon} label={decision || '-'} />;
             }
+        },
+        {
+            title: 'Statut scolarité',
+            dataIndex: 'statut_etudiant',
+            key: 'statut_etudiant',
+            align: 'center',
+            width: 150,
+            filters: [
+                { text: 'Soldé', value: 'SOLDE' },
+                { text: 'Non soldé', value: 'NON_SOLDE' },
+            ],
+            onFilter: (value, record) => record.statut_etudiant === value,
+            render: (statut: string | null | undefined) => {
+                const isSolde = statut === 'SOLDE';
+                const isNonSolde = statut === 'NON_SOLDE';
+                const tone = isSolde ? 'success' : isNonSolde ? 'danger' : 'neutral';
+                const label = isSolde || isNonSolde ? statut! : 'N/A';
+                return <StatusTag tone={tone} label={label} />;
+            }
         }
     ];
 
@@ -666,7 +702,7 @@ const StatsResultat: React.FC = () => {
                         <Select
                             placeholder="Année académique"
                             value={selectedAnneeId ?? undefined}
-                            onChange={(value) => setSelectedAnneeId(value)}
+                            onChange={handleAnneeChange}
                             className="w-full"
                             loading={annees.length === 0}
                         >
@@ -738,7 +774,7 @@ const StatsResultat: React.FC = () => {
                                 <Select
                                     placeholder="Année académique"
                                     value={selectedAnneeId ?? undefined}
-                                    onChange={(value) => setSelectedAnneeId(value)}
+                                    onChange={handleAnneeChange}
                                     className="w-full min-w-0"
                                     loading={annees.length === 0}
                                 >
