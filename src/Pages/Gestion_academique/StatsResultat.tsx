@@ -426,12 +426,15 @@ const StatsResultat: React.FC = () => {
             'Moyenne /20': formatMoyenne(e.moyenne),
             'Crédits validés': e.credits_total ? `${e.credits_valides ?? 0}/${e.credits_total}` : '-',
             'Décision': e.decision || '-',
+            // Même donnée et même valeur que la colonne "Statut scolarité" du tableau (colonne
+            // statut_etudiant, rendu ci-dessus) : SOLDE / NON_SOLDE, ou N/A si ni l'un ni l'autre.
+            'Statut scolarité': e.statut_etudiant === 'SOLDE' || e.statut_etudiant === 'NON_SOLDE' ? e.statut_etudiant : 'N/A',
         }));
 
         const worksheet = XLSX.utils.json_to_sheet(donneesExport);
         worksheet['!cols'] = [
             { wch: 5 }, { wch: 16 }, { wch: 20 }, { wch: 20 },
-            { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 12 },
+            { wch: 22 }, { wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 16 },
         ];
 
         const workbook = XLSX.utils.book_new();
