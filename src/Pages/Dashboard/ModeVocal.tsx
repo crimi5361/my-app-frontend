@@ -5,10 +5,11 @@
 // chargé est déroutant. Ici, une seule chose se passe, et l'orbe central dit
 // en permanence où on en est — écoute, recherche, réponse.
 import { useEffect, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Mic, MicOff, Database, BarChart3, Volume2, Loader2, AlertTriangle,
-  FileSpreadsheet, FileText, Download, CalendarClock,
+  FileSpreadsheet, FileText, Download, CalendarClock, ArrowRightCircle,
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area,
@@ -365,6 +366,7 @@ const DebriefingVocal = ({ debriefing }: { debriefing: NonNullable<ReturnType<ty
 const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
   const v = useAssistantVocal();
   const filRef = useRef<HTMLDivElement>(null);
+  const naviguer = useNavigate();
 
   // Une seule session est démarrée au montage : ouvrir le mode vocal EST le
   // consentement à parler, un bouton « démarrer » de plus serait redondant.
@@ -375,6 +377,39 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
   }, [v.tours, v.visuel]);
 
   const fermer = () => { v.arreter(); onFermer(); };
+
+  /**
+   * Redirection demandée par l'assistante.
+   *
+   * ON ATTEND QU'ELLE AIT FINI DE PARLER. Le message de navigation arrive avec
+   * la réponse d'outil, donc AVANT qu'elle ait prononcé « je vous y conduis » :
+   * partir aussitôt couperait sa phrase, et le fondateur arriverait sur l'écran
+   * sans savoir pourquoi.
+   *
+   * Deux échéances, la première atteinte l'emporte :
+   *   • 900 ms après qu'elle a cessé de parler — le cas normal ;
+   *   • 9 secondes dans tous les cas, garde-fou si le tour ne se referme jamais
+   *     (session coupée, audio perdu). Mieux vaut partir un peu tôt que rester
+   *     bloqué sur un écran qui a annoncé un départ.
+   */
+  const departFait = useRef(false);
+  useEffect(() => {
+    if (!v.navigation || departFait.current) return undefined;
+    const cible = v.navigation.chemin;
+
+    const partir = () => {
+      if (departFait.current) return;
+      departFait.current = true;
+      v.arreter();
+      onFermer();
+      naviguer(cible);
+    };
+
+    const delai = v.statut === 'parle' ? 9000 : 900;
+    const minuteur = window.setTimeout(partir, delai);
+    return () => clearTimeout(minuteur);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [v.navigation, v.statut]);
 
   // Échap ferme : le fondateur a les mains libres, pas forcément la souris.
   useEffect(() => {
@@ -559,6 +594,21 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
           onFermer={v.fermerFiche}
         />
       )}
+
+      {/* Départ annoncé : le fondateur doit voir où il va avant d'y être. */}
+      <AnimatePresence>
+        {v.navigation && (
+          <motion.div
+            className="mv-depart"
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0 }}
+          >
+            <ArrowRightCircle size={17} />
+            <span>Ouverture de {v.navigation.libelle}…</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Erreurs */}
       <AnimatePresence>

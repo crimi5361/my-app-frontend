@@ -149,6 +149,9 @@ export function useAssistantVocal() {
   // UNE fiche a la fois : c'est une fenetre, pas un journal. En empiler
   // plusieurs obligerait a les fermer une par une.
   const [ficheActive, setFicheActive] = useState<FicheVocale | null>(null);
+  // Ecran vers lequel conduire le fondateur. La redirection n'est PAS immediate :
+  // l'assistante annonce le depart, et on attend qu'elle ait fini de parler.
+  const [navigation, setNavigation] = useState<{ chemin: string; libelle: string } | null>(null);
   // Forme 3D a afficher. Emise par le serveur d'apres l'outil appele et la vue
   // interrogee : elle suit ce que l'assistante FAIT, pas ce qui a ete dit.
   const [forme, setForme] = useState('sphere');
@@ -468,6 +471,10 @@ export function useAssistantVocal() {
           setForme(m.forme || 'sphere');
           break;
 
+        case 'navigation':
+          setNavigation({ chemin: m.chemin, libelle: m.libelle });
+          break;
+
         case 'fiche':
           setFicheActive(m.fiche);
           break;
@@ -550,6 +557,7 @@ export function useAssistantVocal() {
     setFichiers([]);
     setDebriefing(null);
     setFicheActive(null);
+    setNavigation(null);
     setForme('sphere');
     setErreur(null);
     tourEnCoursRef.current = { fondateur: null, assistant: null };
@@ -559,7 +567,7 @@ export function useAssistantVocal() {
   useEffect(() => () => arreter(), [arreter]);
 
   return {
-    statut, erreur, tours, requetes, visuel, budget, fichiers, forme, debriefing, ficheActive,
+    statut, erreur, tours, requetes, visuel, budget, fichiers, forme, debriefing, ficheActive, navigation,
     niveauEntree, niveauSortie, micCoupe, avancementRef,
     demarrer, arreter, envoyerTexte, reinitialiser, basculerMicro, fermerFiche,
   };
