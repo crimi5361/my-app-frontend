@@ -12,7 +12,10 @@
 .fp-voile {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  /* Au-dessus de l'ecran vocal, qui est lui-meme en 1200. Le portail monte la
+     fiche sur document.body : elle est donc SOEUR de l'ecran vocal, pas fille.
+     A 200 elle passait derriere son fond opaque et restait invisible. */
+  z-index: 2000;
   display: grid;
   place-items: center;
   padding: 24px 18px;
