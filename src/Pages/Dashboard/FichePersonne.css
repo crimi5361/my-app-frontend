@@ -477,3 +477,170 @@
   .fp-reticule { opacity: 0.22; }
   .fp-tape.est-actif::after, .fp-etat-scan::before { animation: none; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Analyse — jauges, graphiques, lacunes
+   ═════════════════════════════════════════════════════════════════════════ */
+
+.fa-racine { margin-top: 22px; }
+
+.fa-section-titre {
+  margin: 0 0 14px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--trait);
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--acc);
+}
+
+.fa-indisponible {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: rgba(255, 180, 84, 0.08);
+  border: 1px solid rgba(255, 180, 84, 0.22);
+  color: #ffd39c;
+  font-size: 12.5px;
+}
+
+/* ── Jauges ─────────────────────────────────────────────────────────────── */
+.fa-jauges {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.fa-jauge {
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.fa-jauge-lib {
+  display: block;
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--sourdine);
+  margin-bottom: 5px;
+}
+
+.fa-jauge-val {
+  display: block;
+  font-size: 21px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--texte);
+  font-variant-numeric: tabular-nums;
+}
+.fa-jauge-val em { font-style: normal; font-size: 12px; color: var(--sourdine); margin-left: 2px; }
+.fa-jauge-val.est-vide { font-size: 13px; font-weight: 400; color: var(--sourdine); }
+
+.fa-jauge-piste {
+  display: block;
+  height: 3px;
+  margin-top: 8px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.fa-jauge-part {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  /* La barre se remplit après la frappe : elle confirme un chiffre déjà lu. */
+  animation: fa-remplir 0.9s cubic-bezier(0.16, 1, 0.3, 1) 2.6s both;
+}
+.fa-jauge-part.ton-bon    { background: #6ee7b7; box-shadow: 0 0 8px rgba(110, 231, 183, 0.5); }
+.fa-jauge-part.ton-moyen  { background: var(--acc); box-shadow: 0 0 8px var(--acc-doux); }
+.fa-jauge-part.ton-faible { background: #fca5a5; box-shadow: 0 0 8px rgba(252, 165, 165, 0.4); }
+
+@keyframes fa-remplir { from { width: 0 !important; } }
+
+/* ── Graphiques ─────────────────────────────────────────────────────────── */
+.fa-visuel {
+  margin: 0 0 20px;
+  padding: 14px 14px 10px;
+  border-radius: 5px;
+  background: rgba(255, 255, 255, 0.022);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  /* Ils arrivent après la frappe : un graphique qui s'anime pendant qu'on lit
+     du texte détourne l'œil de la lecture en cours. */
+  animation: fp-glisse-bas 0.5s cubic-bezier(0.16, 1, 0.3, 1) 2.7s both;
+}
+
+@keyframes fp-glisse-bas {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.fa-titre {
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--acc);
+  margin-bottom: 8px;
+}
+
+.fa-toile { width: 100%; min-width: 0; }
+
+.fa-lecture {
+  margin: 8px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--sourdine);
+}
+
+/* ── Lacunes ────────────────────────────────────────────────────────────── */
+.fa-lacunes {
+  margin-top: 18px;
+  padding: 12px 14px;
+  border-radius: 4px;
+  border-left: 2px solid rgba(255, 180, 84, 0.5);
+  background: rgba(255, 180, 84, 0.05);
+}
+
+.fa-lacunes-titre {
+  display: block;
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: #ffb454;
+  margin-bottom: 7px;
+}
+
+.fa-lacunes ul { margin: 0; padding-left: 16px; }
+.fa-lacunes li {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--sourdine);
+  margin-bottom: 4px;
+}
+
+/* Un champ non renseigné reste visible mais s'efface : on doit voir qu'il
+   existe sans qu'il concurrence les valeurs réelles. */
+.fp-champ.est-vide dd {
+  color: rgba(125, 146, 173, 0.55);
+  font-style: italic;
+  font-weight: 400;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fa-visuel, .fa-jauge-part { animation-delay: 0ms !important; animation-duration: 0.001ms !important; }
+}

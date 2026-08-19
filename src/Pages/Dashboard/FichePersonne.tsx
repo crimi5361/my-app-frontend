@@ -23,9 +23,10 @@ import { memo, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, User, ShieldCheck, GraduationCap } from 'lucide-react';
 import { creerSonar } from '../../lib/sonFiche';
+import FicheAnalyse, { AnalyseFiche } from './FicheAnalyse';
 import './FichePersonne.css';
 
-export interface ChampFiche { libelle: string; valeur: string }
+export interface ChampFiche { libelle: string; valeur: string; vide?: boolean }
 export interface BlocFiche { titre: string; champs: ChampFiche[] }
 
 export interface Fiche {
@@ -38,13 +39,20 @@ export interface Fiche {
   etat: string | null;
   soustitre: string | null;
   blocs: BlocFiche[];
+  analyse?: AnalyseFiche;
+  lacunes?: string[];
 }
 
-/** Caractères par seconde. À 190, une fiche de vingt lignes se remplit en un
- *  peu plus de deux secondes : on voit distinctement la frappe sans jamais
- *  attendre après elle. En dessous de 120 on s'impatiente, au-dessus de 260 on
- *  ne voit plus qu'un clignotement. */
-const VITESSE = 190;
+/** Durée visée pour la frappe, quelle que soit la longueur de la fiche.
+ *
+ *  La vitesse était fixe à 190 caractères par seconde, ce qui convenait aux
+ *  vingt champs de la première version. Une fiche exhaustive en compte soixante
+ *  et se serait remplie en près de cinq secondes — on attend après elle. La
+ *  cadence s'adapte donc au volume : une fiche courte reste posée, une fiche
+ *  longue accélère, et les deux se terminent en deux secondes et demie. */
+const DUREE_FRAPPE_S = 2.5;
+const VITESSE_MIN = 150;
+const VITESSE_MAX = 900;
 
 /** Instant où la frappe commence, après l'ouverture du cadre et la photo. */
 const DEBUT_FRAPPE_MS = 900;
@@ -148,10 +156,12 @@ const FichePersonne = ({ fiche, onFermer }: { fiche: Fiche; onFermer: () => void
       let pos = 0;        // caractères déjà écrits dans cette zone
       let reste = 0;      // fraction de caractère reportée d'une image à l'autre
       let precedent = performance.now();
+      const totalCar = textes.reduce((n, x) => n + x.length, 0);
+      const vitesse = Math.min(VITESSE_MAX, Math.max(VITESSE_MIN, totalCar / DUREE_FRAPPE_S));
 
       const boucle = (t: number) => {
         if (annule) return;
-        reste += ((t - precedent) / 1000) * VITESSE;
+        reste += ((t - precedent) / 1000) * vitesse;
         precedent = t;
 
         let aEcrire = Math.floor(reste);
@@ -270,7 +280,11 @@ const FichePersonne = ({ fiche, onFermer }: { fiche: Fiche; onFermer: () => void
                       rang += 1;
                       const dernier = ic === b.champs.length - 1;
                       return (
-                        <div className="fp-champ" key={c.libelle} style={{ '--r': rang } as any}>
+                        <div
+                          className={`fp-champ${c.vide ? ' est-vide' : ''}`}
+                          key={c.libelle}
+                          style={{ '--r': rang } as any}
+                        >
                           <dt>{c.libelle}</dt>
                           <dd>
                             {/* Le texte complet reste lisible par un lecteur
@@ -291,6 +305,15 @@ const FichePersonne = ({ fiche, onFermer }: { fiche: Fiche; onFermer: () => void
                 </section>
               ))}
             </div>
+
+            {fiche.analyse && <FicheAnalyse analyse={fiche.analyse} />}
+
+            {(fiche.lacunes || []).length > 0 && (
+              <div className="fa-lacunes">
+                <span className="fa-lacunes-titre">Non enregistré dans la base</span>
+                <ul>{(fiche.lacunes || []).map((l) => <li key={l}>{l}</li>)}</ul>
+              </div>
+            )}
           </div>
         </div>
 
