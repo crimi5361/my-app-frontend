@@ -14,7 +14,6 @@ import {
   Col,
   Row,
   Modal,
-  Checkbox,
   Input,
   Select,
   Alert,
@@ -22,6 +21,8 @@ import {
 } from 'antd';
 import { DollarOutlined, ArrowLeftOutlined, CheckCircleFilled, PercentageOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { METHODES_PAIEMENT } from '../../lib/methodesPaiement';
+import KitTraitement from '../../Components/KitTraitement/KitTraitement';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -40,14 +41,6 @@ interface EtudiantData {
   scolarite_restante: number;
 }
 
-interface KitData {
-  id: string;
-  etudiant_id: string;
-  montant: number;
-  deposer: boolean;
-  date_enregistrement: string;
-}
-
 interface PriseEnChargeData {
   id: string;
   type_pec: string;
@@ -63,16 +56,14 @@ interface PriseEnChargeData {
 interface PaymentSuccessModalProps {
   visible: boolean;
   onClose: () => void;
-  hasKit: boolean;
   hasPEC: boolean;
   pecStatus?: string;
   isPECOnly?: boolean;
 }
 
-const PaymentSuccessModal = ({ 
-  visible, 
+const PaymentSuccessModal = ({
+  visible,
   onClose,
-  hasKit,
   hasPEC,
   pecStatus,
   isPECOnly = false
@@ -94,16 +85,6 @@ const PaymentSuccessModal = ({
         <Title level={3} style={{ marginBottom: '16px' }}>Demande envoyée avec succès</Title>
       ) : (
         <Title level={3} style={{ marginBottom: '16px' }}>Paiement effectué avec succès</Title>
-      )}
-      
-      {hasKit && (
-        <Alert
-          message="Kit école ajouté"
-          description="Le kit a été facturé et ajouté à votre compte."
-          type="info"
-          showIcon
-          style={{ marginBottom: '16px' }}
-        />
       )}
       
       {hasPEC && pecStatus === 'en_attente' && (
@@ -151,7 +132,6 @@ const EffectuerPaiement = () => {
   const [form] = Form.useForm();
   const [pecForm] = Form.useForm();
   const [etudiant, setEtudiant] = useState<EtudiantData | null>(null);
-  const [kit, setKit] = useState<KitData | null>(null);
   const [priseEnCharge, setPriseEnCharge] = useState<PriseEnChargeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -159,7 +139,6 @@ const EffectuerPaiement = () => {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState('paiement');
   const [isPremierPaiement, setIsPremierPaiement] = useState(false);
-  const [kitSuspendu, setKitSuspendu] = useState(false);
   const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
 
   useEffect(() => {
@@ -167,12 +146,13 @@ const EffectuerPaiement = () => {
       try {
         const token = localStorage.getItem('token');
 
-        // ✅ PERF : ces 5 appels sont indépendants (aucun ne dépend du résultat d'un autre) —
+        // ✅ PERF : ces 3 appels sont indépendants (aucun ne dépend du résultat d'un autre) —
         // lancés en parallèle au lieu d'être enchaînés séquentiellement pour ne payer qu'une
         // seule fois la latence réseau. Traitement des réponses inchangé.
-        // Chantier 4 (2026-08-01) : l'appel /api/kit/etat-campagne indique si le module Kit est
-        // suspendu pour l'année académique de l'étudiant, sans dupliquer la règle côté frontend.
-        const [etudiantResponse, paiementsResponse, kitResponse, pecResponse, kitCampagneResponse] = await Promise.all([
+        // Chantier Kit étudiant, Phase 1 (2026-08-21) : les appels /api/kit/* sont retirés d'ici —
+        // le Kit est désormais géré par le composant KitTraitement, totalement indépendant du
+        // paiement de scolarité (plus jamais mêlé à ce formulaire ni à son montant).
+        const [etudiantResponse, paiementsResponse, pecResponse] = await Promise.all([
           fetch(`${API_URL}/api/etudiants/etudiant/${id}`, {
             method: 'GET',
             headers: {
@@ -186,19 +166,7 @@ const EffectuerPaiement = () => {
               'Authorization': `Bearer ${token}`,
             }
           }),
-          fetch(`${API_URL}/api/kit/etudiant/${id}`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            }
-          }),
-          fetch(`${API_URL}/api/prise-en-charge/etudiant/${id}/active`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            }
-          }),
-          fetch(`${API_URL}/api/kit/etat-campagne/${id}`, {
+          fetch(`${API_URL}/api/priseEnCharge/etudiant/${id}/active`, {
             method: 'GET',
             headers: {
               'Authorization': `Bearer ${token}`,
@@ -219,27 +187,11 @@ const EffectuerPaiement = () => {
           setIsPremierPaiement(paiementsData.count === 0);
         }
 
-        // Fetch kit data
-        if (kitResponse.ok) {
-          const kitData = await kitResponse.json();
-          if (kitData.success) {
-            setKit(kitData.data);
-          }
-        }
-
         // Fetch active PEC
         if (pecResponse.ok) {
           const pecData = await pecResponse.json();
           if (pecData.success && pecData.data) {
             setPriseEnCharge(pecData.data);
-          }
-        }
-
-        // Chantier 4 : état de suspension du module Kit pour cette campagne
-        if (kitCampagneResponse.ok) {
-          const kitCampagneData = await kitCampagneResponse.json();
-          if (kitCampagneData.success) {
-            setKitSuspendu(kitCampagneData.data.suspendu);
           }
         }
 
@@ -268,7 +220,6 @@ const EffectuerPaiement = () => {
         montant: values.montant,
         methode: values.methode,
         date_paiement: values.date_paiement,
-        veut_kit_ecole: isPremierPaiement && values.veut_kit_ecole,
         demande_pec: values.demande_pec,
         type_pec: values.type_pec,
         pourcentage_reduction: values.pourcentage_reduction,
@@ -457,25 +408,12 @@ const EffectuerPaiement = () => {
           />
         )}
 
-        {kit && (
-          <Alert
-            message="Kit déjà acquis"
-            description={`Vous avez déjà le kit école (${kit.montant.toLocaleString()} FCFA)`}
-            type="info"
-            showIcon
-            style={{ marginBottom: '16px' }}
-          />
-        )}
+        {/* Chantier Kit étudiant, Phase 1 (2026-08-21) : totalement indépendant du paiement de
+            scolarité ci-dessous — sa propre section, son propre appel, jamais mêlé au montant
+            payé ici. Se masque elle-même si l'étudiant n'est pas concerné ou si suspendu. */}
+        {etudiant && <KitTraitement etudiantId={Number(id)} />}
 
-        {isPremierPaiement && !kit && kitSuspendu && (
-          <Alert
-            message="Module Kit suspendu"
-            description="Le kit école n'est pas proposé pour cette campagne d'inscription."
-            type="warning"
-            showIcon
-            style={{ marginBottom: '16px' }}
-          />
-        )}
+        <Divider />
 
         <Tabs activeKey={activeTab} onChange={setActiveTab}>
           <TabPane tab="Effectuer un paiement" key="paiement">
@@ -485,24 +423,11 @@ const EffectuerPaiement = () => {
               onFinish={handleSubmitPaiement}
               initialValues={{
                 date_paiement: dayjs(),
-                veut_kit_ecole: false,
                 demande_pec: false,
                 montant: isPremierPaiement ? 0 : 0,
-                methode: 'Espèces'
+                methode: 'especes'
               }}
             >
-              {isPremierPaiement && !kit && !kitSuspendu && (
-                <Form.Item
-                  name="veut_kit_ecole"
-                  valuePropName="checked"
-                  style={{ marginBottom: '16px' }}
-                >
-                  <Checkbox>
-                    Je souhaite payer le kit de l'école (+5 000 FCFA)
-                  </Checkbox>
-                </Form.Item>
-              )}
-
               {!hasActivePEC && !hasPendingPEC && (
                 <Form.Item
                   name="demande_pec"
@@ -591,10 +516,7 @@ const EffectuerPaiement = () => {
                 rules={[{ required: true, message: 'Veuillez sélectionner la méthode' }]}
               >
                 <Select placeholder="Sélectionner la méthode">
-                  <Option value="Espèces">Espèces</Option>
-                  <Option value="Mobile Money">Mobile Money</Option>
-                  <Option value="Orange Money">Orange Money</Option>
-                  <Option value="Wave">Wave</Option>
+                  {METHODES_PAIEMENT.map(m => <Option key={m.value} value={m.value}>{m.label}</Option>)}
                 </Select>
               </Form.Item>
 
@@ -686,10 +608,9 @@ const EffectuerPaiement = () => {
         </Tabs>
       </Card>
 
-      <PaymentSuccessModal 
-        visible={paymentSuccess} 
+      <PaymentSuccessModal
+        visible={paymentSuccess}
         onClose={handleModalClose}
-        hasKit={isPremierPaiement && form.getFieldValue('veut_kit_ecole')}
         hasPEC={form.getFieldValue('demande_pec') || activeTab === 'reduction'}
         pecStatus={priseEnCharge?.statut}
         isPECOnly={activeTab === 'reduction'}

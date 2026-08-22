@@ -46,7 +46,22 @@ interface KitDetails {
   montant: number;
   deposer: boolean;
   date_enregistrement: string;
+  // Chantier Kit étudiant, Phase 1 (2026-08-21) — absent sur les lignes historiques (2025-2026,
+  // jamais réinterprétées) : repli sur `deposer` uniquement dans ce cas, cf. rendu ci-dessous.
+  statut?: 'KIT_APPORTE' | 'KIT_PAYE' | null;
 }
+
+// Priorité au nouveau statut explicite ; repli sur l'ancien `deposer` UNIQUEMENT pour les lignes
+// historiques qui n'ont jamais eu de statut (2025-2026, jamais réinterprétées).
+const getKitAffichage = (kit: KitDetails) => {
+  if (kit.statut === 'KIT_PAYE' || (!kit.statut && kit.deposer)) {
+    return { label: "Acheté à l'école", tagColor: 'green', bg: '#f6ffed', border: '#b7eb8f', text: '#52c41a', afficherDate: true };
+  }
+  if (kit.statut === 'KIT_APPORTE') {
+    return { label: "Apporté par l'étudiant", tagColor: 'blue', bg: '#e6f4ff', border: '#91caff', text: '#1677ff', afficherDate: true };
+  }
+  return { label: "Non traité", tagColor: 'orange', bg: '#fff2e8', border: '#ffbb96', text: '#faad14', afficherDate: false };
+};
 
 interface PriseEnChargeDetails {
   type_pec: string;
@@ -392,19 +407,18 @@ const RecuEtudiant = () => {
   }
 
   const isSolde = etudiant.scolarite.statut_etudiant === 'SOLDE';
-  // Correction (Chantier 2) : les deux branches renvoyaient la même valeur, la réduction PEC
-  // n'apparaissait donc jamais dans le montant total affiché en tête de reçu — seulement dans la
-  // section PEC dédiée plus bas. Nécessaire pour que la PEC institutionnelle 100 % (dont la
-  // réduction peut être intégrale) reste cohérente ici : Total Scolarité doit refléter le montant
-  // réellement dû après prise en charge, l'original restant affiché en dessous à titre indicatif.
-  const montantScolariteAvecReduction = etudiant.prise_en_charge?.statut === 'valide'
-    ? etudiant.scolarite.montant_scolarite - (etudiant.prise_en_charge.montant_reduction || 0)
-    : etudiant.scolarite.montant_scolarite;
+  // Chantier PEC — correction du rattachement par année (2026-08-21) : plus aucun recalcul de
+  // réduction côté frontend (§7 de la demande — "ne pas créer une deuxième logique de calcul PEC
+  // côté frontend"). `etudiant.scolarite.montant_scolarite` (le total réel) et
+  // `etudiant.scolarite.scolarite_restante` (déjà net de la réduction PEC, appliquée une seule
+  // fois et durablement par paiyement.controller.js::validerPEC) viennent tous deux du backend,
+  // déjà scopés à l'année exacte de ce reçu (etudiant.prise_en_charge, s'il existe, appartient
+  // forcément à cette même année — voir controllers/etudiant.controller.js::getRecuData).
 
   const qrData = JSON.stringify({
     nom_complet: `${etudiant.nom} ${etudiant.prenoms}`,
     matricule: etudiant.code_unique,
-    montant_total: montantScolariteAvecReduction,
+    montant_total: etudiant.scolarite.montant_scolarite,
     montant_verse: etudiant.scolarite.scolarite_verse,
     montant_restant: etudiant.scolarite.scolarite_restante,
     reduction_pec: etudiant.prise_en_charge?.statut === 'valide' ? etudiant.prise_en_charge.montant_reduction : 0,
@@ -733,15 +747,17 @@ const RecuEtudiant = () => {
         </Card>
 
         {/* Section Kit École */}
-        {etudiant.kit && (
-          <Card 
-            title="Kit École" 
+        {etudiant.kit && (() => {
+          const kitAffichage = getKitAffichage(etudiant.kit);
+          return (
+          <Card
+            title="Kit École"
             style={{ marginBottom: '15px' }}
-            headStyle={{ 
-              backgroundColor: etudiant.kit.deposer ? '#f6ffed' : '#fff2e8',
-              borderBottom: etudiant.kit.deposer ? '1px solid #b7eb8f' : '1px solid #ffbb96',
+            headStyle={{
+              backgroundColor: kitAffichage.bg,
+              borderBottom: `1px solid ${kitAffichage.border}`,
               fontWeight: 'bold',
-              color: etudiant.kit.deposer ? '#52c41a' : '#faad14',
+              color: kitAffichage.text,
               fontSize: '12px',
               padding: '5px 8px',
               minHeight: 'auto'
@@ -750,51 +766,53 @@ const RecuEtudiant = () => {
           >
             <Row gutter={14}>
               <Col xs={24} md={12}>
-                <Descriptions 
+                <Descriptions
                   column={1}
                   size="small"
-                  labelStyle={{ 
+                  labelStyle={{
                     fontWeight: 'bold',
                     fontSize: '10px',
                     padding: '1px 2px'
                   }}
-                  contentStyle={{ 
+                  contentStyle={{
                     fontSize: '10px',
                     padding: '1px 2px'
                   }}
                 >
                   <Descriptions.Item label="Statut">
-                    <Tag 
-                      color={etudiant.kit.deposer ? 'green' : 'orange'} 
-                      icon={etudiant.kit.deposer ? <CheckCircleOutlined /> : <ShoppingOutlined />}
+                    <Tag
+                      color={kitAffichage.tagColor}
+                      icon={kitAffichage.afficherDate ? <CheckCircleOutlined /> : <ShoppingOutlined />}
                       style={{ fontSize: '9px' }}
                     >
-                      {etudiant.kit.deposer ? 'Payé à l\'école' : 'Non payé à l\'école'}
+                      {kitAffichage.label}
                     </Tag>
                   </Descriptions.Item>
-                  <Descriptions.Item label="Montant">
-                    <Text strong style={{ color: '#1890ff', fontSize: '10px' }}>
-                      {etudiant.kit.montant.toLocaleString()} FCFA
-                    </Text>
-                  </Descriptions.Item>
+                  {etudiant.kit.statut !== 'KIT_APPORTE' && (
+                    <Descriptions.Item label="Montant">
+                      <Text strong style={{ color: '#1890ff', fontSize: '10px' }}>
+                        {etudiant.kit.montant.toLocaleString()} FCFA
+                      </Text>
+                    </Descriptions.Item>
+                  )}
                 </Descriptions>
               </Col>
               <Col xs={24} md={12}>
-                <Descriptions 
+                <Descriptions
                   column={1}
                   size="small"
-                  labelStyle={{ 
+                  labelStyle={{
                     fontWeight: 'bold',
                     fontSize: '10px',
                     padding: '1px 2px'
                   }}
-                  contentStyle={{ 
+                  contentStyle={{
                     fontSize: '10px',
                     padding: '1px 2px'
                   }}
                 >
-                  {etudiant.kit.deposer && (
-                    <Descriptions.Item label="Date Paiement">
+                  {kitAffichage.afficherDate && (
+                    <Descriptions.Item label="Date">
                       {new Date(etudiant.kit.date_enregistrement).toLocaleDateString()}
                     </Descriptions.Item>
                   )}
@@ -802,7 +820,8 @@ const RecuEtudiant = () => {
               </Col>
             </Row>
           </Card>
-        )}
+          );
+        })()}
 
         {/* Section Prise en Charge */}
         {etudiant.prise_en_charge && (
@@ -1084,17 +1103,10 @@ const RecuEtudiant = () => {
           <Row gutter={11} style={{ marginBottom: '10px' }}>
             <Col xs={24} sm={8}>
               <div style={{ backgroundColor: '#fafafa', padding: '7px', borderRadius: '3px', textAlign: 'center' }}>
-                <div style={{ fontSize: '10px', color: '#666', marginBottom: '3px' }}>
-                  {etudiant.prise_en_charge?.statut === 'valide' ? 'Total Scolarité' : 'Total Scolarité'}
-                </div>
+                <div style={{ fontSize: '10px', color: '#666', marginBottom: '3px' }}>Total Scolarité</div>
                 <div style={{ color: '#1890ff', fontWeight: 'bold', fontSize: '12px' }}>
-                  {montantScolariteAvecReduction.toLocaleString()} FCFA
+                  {etudiant.scolarite.montant_scolarite.toLocaleString()} FCFA
                 </div>
-                {etudiant.prise_en_charge?.statut === 'valide' && (
-                  <div style={{ fontSize: '8px', color: '#999', marginTop: '2px' }}>
-                    (Original: {etudiant.scolarite.montant_scolarite.toLocaleString()} FCFA)
-                  </div>
-                )}
               </div>
             </Col>
             <Col xs={24} sm={8}>
