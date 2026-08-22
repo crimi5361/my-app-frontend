@@ -54,6 +54,9 @@ interface Kit {
   montant: number;
   deposer: boolean;
   date_enregistrement: string | null;
+  // Chantier Kit étudiant, Phase 1 (2026-08-21) — absent sur les lignes historiques (2025-2026,
+  // jamais réinterprétées) : repli sur `deposer` uniquement dans ce cas, cf. rendu ci-dessous.
+  statut?: 'KIT_APPORTE' | 'KIT_PAYE' | null;
 }
 
 interface DocumentJustificatif {
@@ -577,10 +580,23 @@ const DetailEtudiant = () => {
         <Row gutter={16} style={{ marginBottom: 24 }}>
           <Col xs={24} sm={12}>
             <Card title={<Space><GiftOutlined />Kit Étudiant</Space>} size="small"
-              extra={etudiant.kit && <StatusTag tone={etudiant.kit.deposer ? 'success' : 'danger'} label={etudiant.kit.deposer ? 'Déposé' : 'Non déposé'} />}>
+              extra={etudiant.kit && (() => {
+                // Chantier Kit étudiant, Phase 1 (2026-08-21) : priorité au nouveau statut
+                // explicite ; repli sur `deposer` uniquement pour les lignes historiques
+                // (2025-2026, jamais réinterprétées) qui n'ont jamais eu de statut.
+                if (etudiant.kit!.statut === 'KIT_PAYE' || (!etudiant.kit!.statut && etudiant.kit!.deposer)) {
+                  return <StatusTag tone="success" label="Acheté à l'école" />;
+                }
+                if (etudiant.kit!.statut === 'KIT_APPORTE') {
+                  return <StatusTag tone="info" label="Apporté par l'étudiant" />;
+                }
+                return <StatusTag tone="danger" label="Non traité" />;
+              })()}>
               {etudiant.kit ? (
                 <Descriptions column={1} size="small">
-                  <Descriptions.Item label="Montant"><Text strong>{formatCurrency(etudiant.kit.montant)}</Text></Descriptions.Item>
+                  {etudiant.kit.statut !== 'KIT_APPORTE' && (
+                    <Descriptions.Item label="Montant"><Text strong>{formatCurrency(etudiant.kit.montant)}</Text></Descriptions.Item>
+                  )}
                   <Descriptions.Item label="Date">{formatDate(etudiant.kit.date_enregistrement)}</Descriptions.Item>
                 </Descriptions>
               ) : <Text type="secondary">Aucun kit enregistré</Text>}

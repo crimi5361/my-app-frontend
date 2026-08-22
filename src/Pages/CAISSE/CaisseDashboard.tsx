@@ -11,10 +11,14 @@ import {
 } from 'recharts';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import { apiFetch, ApiError } from '../../lib/api';
+import KitStatsCard, { StatistiquesKit } from '../../Components/KitStatsCard/KitStatsCard';
 
 const { Text } = Typography;
 
+// 'Espèces'/'Mobile Money'/'Orange Money' : graphies historiques, conservées pour l'affichage
+// des anciens paiements. 'especes' : nouvelle graphie canonique (2026-08-18, cf. lib/methodesPaiement.ts).
 const COULEURS_METHODE: Record<string, string> = {
+  'especes': 'var(--success)',
   'Espèces': 'var(--success)',
   'Mobile Money': 'var(--warning)',
   'Orange Money': 'var(--gold)',
@@ -45,6 +49,9 @@ interface DashboardStats {
   evolution_encaissements: { jour: string; total: number }[];
   kits_deposes_aujourdhui: number;
   pec_en_attente: number;
+  // null si aucune année académique "en cour" n'est configurée pour ce site (pas de sélecteur
+  // d'année sur ce dashboard — voir caisse.controller.js::getDashboardStats).
+  kit: StatistiquesKit | null;
 }
 
 const CaisseDashboard = () => {
@@ -181,6 +188,8 @@ const CaisseDashboard = () => {
           </Card>
         </Col>
       </Row>
+
+      {stats.kit && <KitStatsCard kit={stats.kit} />}
 
       <Row gutter={16} style={{ marginBottom: 24 }}>
         <Col span={12}>

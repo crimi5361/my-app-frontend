@@ -7,14 +7,14 @@ import {
 } from 'antd';
 import { SearchOutlined, CheckCircleOutlined, LockOutlined, BankOutlined } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import KitTraitement from '../../Components/KitTraitement/KitTraitement';
 import { apiFetch, ApiError } from '../../lib/api';
+import { METHODES_PAIEMENT } from '../../lib/methodesPaiement';
 
 const { Title, Text } = Typography;
 const { Option } = Select;
 
 const API_URL = import.meta.env.VITE_API_URL_SERVER || '';
-
-const METHODES_PAIEMENT = ['Espèces', 'Mobile Money', 'Orange Money', 'Wave'];
 
 interface DossierCaisse {
   reinscription_id?: number;
@@ -248,6 +248,12 @@ const Encaisser = () => {
               <Button onClick={nouvelleRecherche}>Nouvelle recherche</Button>
             </Space>
           </Result>
+          {/* Chantier Kit étudiant, Phase 1 (2026-08-21) : proposé après validation, une fois
+              l'étudiant réellement inscrit à son niveau/année définitifs (admission ET
+              réinscription) — jamais mêlé au paiement de scolarité ci-dessus. */}
+          <div style={{ maxWidth: 500, margin: '0 auto' }}>
+            <KitTraitement etudiantId={validationResult.etudiant_id} />
+          </div>
         </Card>
       )}
 
@@ -318,7 +324,7 @@ const Encaisser = () => {
                     rules={[{ required: true, message: 'Méthode requise' }]}
                   >
                     <Select placeholder="Sélectionnez la méthode">
-                      {METHODES_PAIEMENT.map(m => <Option key={m} value={m}>{m}</Option>)}
+                      {METHODES_PAIEMENT.map(m => <Option key={m.value} value={m.value}>{m.label}</Option>)}
                     </Select>
                   </Form.Item>
                 </Col>

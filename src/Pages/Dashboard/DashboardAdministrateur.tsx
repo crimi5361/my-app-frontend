@@ -11,6 +11,7 @@ import {
 } from 'recharts';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import { apiFetch, ApiError } from '../../lib/api';
+import KitStatsCard, { StatistiquesKit } from '../../Components/KitStatsCard/KitStatsCard';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -46,6 +47,7 @@ interface DashboardAdministrateurData {
     admissions: { total: number; par_origine: Record<string, number> };
     reinscriptions: { total: number; par_origine: Record<string, number> };
   };
+  kit: StatistiquesKit;
 }
 
 const QUICKLINKS = [
@@ -313,6 +315,8 @@ const DashboardAdministrateur = () => {
           </Col>
         </Row>
       </Card>
+
+      <KitStatsCard kit={data.kit} />
 
       {/* Utilisateurs */}
       <Row gutter={16} style={{ marginBottom: 24 }}>

@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import { apiFetch, ApiError } from '../../lib/api';
+import KitStatsCard, { StatistiquesKit } from '../../Components/KitStatsCard/KitStatsCard';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -30,6 +31,7 @@ interface DashboardComptabiliteData {
   finance: {
     total_scolarite: number; total_verse: number; total_restant: number; total_pec: number; nombre_pec: number;
   };
+  kit: StatistiquesKit;
 }
 
 const getUserInfo = () => {
@@ -173,6 +175,8 @@ const DashboardComptabilite = () => {
               </div>
             )}
           </Card>
+
+          <KitStatsCard kit={data.kit} />
 
           <Row gutter={16} style={{ marginBottom: 24 }}>
             <Col span={6}>

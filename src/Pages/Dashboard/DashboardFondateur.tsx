@@ -8,6 +8,7 @@ import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar, ComposedChart, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
 import PageHeader from '../../Components/PageHeader/PageHeader';
+import KitStatsCard, { StatistiquesKit } from '../../Components/KitStatsCard/KitStatsCard';
 import { apiFetch, ApiError } from '../../lib/api';
 
 const { Text } = Typography;
@@ -49,6 +50,7 @@ interface DashboardFondateurData {
     alertes: { nom: string; code: string; solde: number; seuil_alerte: number; statut: string }[];
     evolution_distributions: { mois: string; total: number }[];
   };
+  kit: StatistiquesKit;
 }
 
 const getUserInfo = () => {
@@ -435,6 +437,8 @@ const DashboardFondateur = () => {
               </Col>
             </Row>
           </Card>
+
+          <KitStatsCard kit={data.kit} />
 
           {/* Moyens Généraux (sous-phase 12) — indicateurs de pilotage uniquement, aucune action
               de gestion (pas d'ajustement, pas de distribution ici : ça reste le rôle du
