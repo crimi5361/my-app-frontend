@@ -36,7 +36,10 @@ const Login: React.FC = () => {
           code: user.code,
           userType: user.userType,
           departementName: user.departement.nom,
-          departement_id: user.departement.id, 
+          departement_id: user.departement.id,
+          // Permissions individuelles (Chantier Moyens Généraux, Phase 1) — [] pour un compte
+          // etudiant ou un agent sans permission particulière accordée.
+          permissions: user.permissions || [],
         };
 
         localStorage.setItem("token", token);
