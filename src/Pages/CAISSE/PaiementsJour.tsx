@@ -21,7 +21,10 @@ interface Paiement {
   caissier_nom: string | null;
 }
 
+// 'Espèces'/'Mobile Money'/'Orange Money' : graphies historiques, conservées pour l'affichage
+// des anciens paiements. 'especes' : nouvelle graphie canonique (2026-08-18, cf. lib/methodesPaiement.ts).
 const TONS_METHODE: Record<string, StatusTone> = {
+  'especes': 'success',
   'Espèces': 'success',
   'Mobile Money': 'warning',
   'Orange Money': 'warning',

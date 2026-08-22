@@ -8,12 +8,12 @@ import PageHeader from '../../Components/PageHeader/PageHeader';
 import DataTable from '../../Components/ui/DataTable';
 import StatusTag from '../../Components/ui/StatusTag';
 import { apiFetch, ApiError } from '../../lib/api';
+import { METHODES_PAIEMENT } from '../../lib/methodesPaiement';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
 
 const API_URL = import.meta.env.VITE_API_URL_SERVER || '';
-const METHODES_PAIEMENT = ['Espèces', 'Mobile Money', 'Orange Money', 'Wave'];
 
 interface ResultatEtudiant {
   id: number;
@@ -363,7 +363,7 @@ const SituationEtudiant = () => {
                     </Form.Item>
                     <Form.Item name="methode" label="Méthode" rules={[{ required: true, message: 'Méthode requise' }]}>
                       <Select placeholder="Sélectionnez" style={{ width: 180 }}>
-                        {METHODES_PAIEMENT.map(m => <Option key={m} value={m}>{m}</Option>)}
+                        {METHODES_PAIEMENT.map(m => <Option key={m.value} value={m.value}>{m.label}</Option>)}
                       </Select>
                     </Form.Item>
                     <Form.Item>
