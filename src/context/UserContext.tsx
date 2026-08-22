@@ -69,6 +69,7 @@ export const UserProvider = ({ children }: UserProviderProps) => {
         statut: "active",
         role: res.user.role,
         departementName: dep?.nom ?? "",
+        departement_id: dep?.id,
         permissions: res.user.permissions ?? [],
       };
       localStorage.setItem("user", JSON.stringify(refreshed));
