@@ -1,17 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Input, Card, List, Avatar, Row, Col, Descriptions, Tag, Button, InputNumber, Select, Table, message, Empty, Spin, Alert, Space, Typography } from "antd";
+import { Input, Card, List, Avatar, Row, Col, Descriptions, Tag, Button, Checkbox, Select, Table, message, Empty, Spin, Alert, Space, Typography } from "antd";
 import {
-  SearchOutlined, UserOutlined, CheckCircleFilled, CloseCircleFilled,
-  PlusOutlined, DeleteOutlined, EyeOutlined, RollbackOutlined, PrinterOutlined,
+  SearchOutlined, UserOutlined, CheckCircleFilled,
+  EyeOutlined, RollbackOutlined, PrinterOutlined,
 } from "@ant-design/icons";
 import PageHeader from "../../Components/PageHeader/PageHeader";
 import PageContainer from "../../Components/ui/PageContainer";
+import AccesRestreint from "../../Components/ui/AccesRestreint";
 import { apiFetch, ApiError } from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
-const { Option } = Select;
 const { Text, Title } = Typography;
+const { Option } = Select;
 
 const API_URL = import.meta.env.VITE_API_URL_SERVER;
 
@@ -51,9 +53,28 @@ interface RemiseDetail {
   id: number;
   numero_recu: string;
   date_remise: string;
+  etudiant_id: number;
+  annee_academique_id: number;
   agent_nom: string;
   annee_academique: string;
   lignes: LigneRemise[];
+}
+
+// Chantier Moyens Généraux, Phase 2C (2026-08-19) : chaque accessoire éligible porte désormais son
+// propre état (disponible / déjà distribué / indisponible) — remplace l'ancien "deja_remis"/"remise"
+// global (une seule remise possible par étudiant/année, tout ou rien).
+interface AccessoireEligible {
+  regle_id: number;
+  accessoire_id: number;
+  accessoire_nom: string;
+  code: string;
+  categorie_nom: string | null;
+  niveau_libelle: string;
+  quantite_standard: number;
+  stock_disponible: number;
+  etat: "disponible" | "deja_distribue" | "indisponible";
+  deja_distribue_le: string | null;
+  deja_distribue_numero_recu: string | null;
 }
 
 interface FicheEtudiant {
@@ -71,15 +92,7 @@ interface FicheEtudiant {
   niveau: string;
   classe: string | null;
   ecole: string;
-  deja_remis: boolean;
-  remise: RemiseDetail | null;
-}
-
-interface AccessoireStock {
-  accessoire_id: number;
-  code: string;
-  nom: string;
-  solde: number;
+  accessoires_eligibles: AccessoireEligible[];
 }
 
 const photoSrc = (photoUrl: string | null) => (photoUrl ? `${API_URL}${photoUrl}` : undefined);
@@ -116,15 +129,12 @@ const Distribution = () => {
 
   const [fiche, setFiche] = useState<FicheEtudiant | null>(null);
   const [loadingFiche, setLoadingFiche] = useState(false);
+  const [etudiantSelectionneId, setEtudiantSelectionneId] = useState<number | null>(null);
 
   const [remiseConsultee, setRemiseConsultee] = useState<RemiseDetail | null>(null);
 
-  const [accessoiresDisponibles, setAccessoiresDisponibles] = useState<AccessoireStock[]>([]);
-  const [lignes, setLignes] = useState<{ accessoire_id: number; code: string; nom: string; quantite: number }[]>([]);
-  const [ligneAccessoireId, setLigneAccessoireId] = useState<number | null>(null);
-  const [ligneQuantite, setLigneQuantite] = useState<number | null>(null);
+  const [selection, setSelection] = useState<Set<number>>(new Set());
   const [validation, setValidation] = useState(false);
-
   const [derniereRemise, setDerniereRemise] = useState<RemiseDetail | null>(null);
 
   const searchInputRef = useRef<any>(null);
@@ -145,25 +155,16 @@ const Distribution = () => {
       .finally(() => setLoadingYears(false));
   }, [departementId]);
 
-  useEffect(() => {
-    apiFetch<{ data: AccessoireStock[] }>("/api/moyens-generaux/stock")
-      .then((res) => setAccessoiresDisponibles(res.data))
-      .catch(() => {});
-  }, []);
-
   const reinitialiser = useCallback(() => {
     setQuery("");
     setEtudiants([]);
     setRemisesTrouvees([]);
     setARecherche(false);
     setFiche(null);
+    setEtudiantSelectionneId(null);
     setRemiseConsultee(null);
-    setLignes([]);
-    setLigneAccessoireId(null);
-    setLigneQuantite(null);
+    setSelection(new Set());
     setDerniereRemise(null);
-    // Recharge le stock (soldes potentiellement modifiés par la remise précédente).
-    apiFetch<{ data: AccessoireStock[] }>("/api/moyens-generaux/stock").then((res) => setAccessoiresDisponibles(res.data)).catch(() => {});
     setTimeout(() => searchInputRef.current?.focus(), 50);
   }, []);
 
@@ -199,20 +200,19 @@ const Distribution = () => {
     debounceRef.current = setTimeout(() => lancerRecherche(value), 350);
   };
 
-  const selectionnerEtudiant = (etudiantId: number) => {
+  const chargerFiche = useCallback((etudiantId: number) => {
     if (!selectedYearId) return;
     setLoadingFiche(true);
     setRemiseConsultee(null);
     apiFetch<{ data: FicheEtudiant }>(`/api/moyens-generaux/distribution/etudiant/${etudiantId}?anneeAcademiqueId=${selectedYearId}`)
       .then((res) => {
         setFiche(res.data);
-        setLignes([]);
-        setLigneAccessoireId(null);
-        setLigneQuantite(null);
+        setEtudiantSelectionneId(etudiantId);
+        setSelection(new Set());
       })
       .catch((e) => { if (e instanceof ApiError) { message.error(e.message); return; } message.error("Impossible de charger la fiche étudiant"); })
       .finally(() => setLoadingFiche(false));
-  };
+  }, [selectedYearId]);
 
   const consulterRemise = (distributionId: number) => {
     apiFetch<{ data: RemiseDetail }>(`/api/moyens-generaux/distribution/${distributionId}`)
@@ -220,49 +220,36 @@ const Distribution = () => {
       .catch(() => message.error("Impossible de charger la remise"));
   };
 
-  const ajouterLigne = () => {
-    if (!ligneAccessoireId || !ligneQuantite || ligneQuantite <= 0) {
-      message.warning("Choisissez un accessoire et une quantité positive.");
-      return;
-    }
-    if (lignes.some((l) => l.accessoire_id === ligneAccessoireId)) {
-      message.warning("Cet accessoire est déjà dans la liste — modifiez la ligne existante.");
-      return;
-    }
-    const accessoire = accessoiresDisponibles.find((a) => a.accessoire_id === ligneAccessoireId);
-    if (accessoire && ligneQuantite > accessoire.solde) {
-      message.warning(`Stock insuffisant : ${accessoire.solde} disponible(s) seulement.`);
-      return;
-    }
-    setLignes((prev) => [...prev, { accessoire_id: ligneAccessoireId, code: accessoire?.code ?? "", nom: accessoire?.nom ?? "", quantite: ligneQuantite }]);
-    setLigneAccessoireId(null);
-    setLigneQuantite(null);
-  };
-
-  const retirerLigne = (accessoireId: number) => {
-    setLignes((prev) => prev.filter((l) => l.accessoire_id !== accessoireId));
+  const toggleSelection = (accessoireId: number, checked: boolean) => {
+    setSelection((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(accessoireId); else next.delete(accessoireId);
+      return next;
+    });
   };
 
   const validerRemise = async () => {
-    if (!fiche || !selectedYearId) return;
-    if (lignes.length === 0) {
-      message.warning("Ajoutez au moins un accessoire à remettre.");
+    if (!fiche || !selectedYearId || selection.size === 0) {
+      message.warning("Sélectionnez au moins un accessoire à remettre.");
       return;
     }
     setValidation(true);
     try {
+      // Aucune quantité envoyée : la distribution gratuite standard utilise toujours la quantité
+      // prévue par la règle applicable — le backend la détermine lui-même, jamais le client
+      // (Chantier Moyens Généraux, Phase 2C §9).
       const res = await apiFetch<{ data: RemiseDetail }>("/api/moyens-generaux/distribution", {
         method: "POST",
         body: JSON.stringify({
           etudiant_id: fiche.id,
           annee_academique_id: selectedYearId,
-          lignes: lignes.map((l) => ({ accessoire_id: l.accessoire_id, quantite: l.quantite })),
+          lignes: [...selection].map((accessoire_id) => ({ accessoire_id })),
         }),
       });
       message.success(`Remise enregistrée — reçu ${res.data.numero_recu}`);
       setDerniereRemise(res.data);
-      setFiche({ ...fiche, deja_remis: true, remise: res.data });
-      setLignes([]);
+      setSelection(new Set());
+      if (etudiantSelectionneId) chargerFiche(etudiantSelectionneId); // rafraîchit les états (déjà distribué / stock)
     } catch (e) {
       if (e instanceof ApiError) { message.error(e.message); return; }
       message.error("Erreur lors de la validation de la remise");
@@ -270,22 +257,6 @@ const Distribution = () => {
       setValidation(false);
     }
   };
-
-  const renderIndicateurStatut = (dejaRemis: boolean) => (
-    <div
-      style={{
-        display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", borderRadius: 10,
-        background: dejaRemis ? "var(--danger-bg, #fbeae8)" : "var(--success-bg, #e7f6ee)",
-        border: `2px solid ${dejaRemis ? "var(--danger)" : "var(--success)"}`,
-        marginBottom: 20,
-      }}
-    >
-      {dejaRemis ? <CloseCircleFilled style={{ fontSize: 32, color: "var(--danger)" }} /> : <CheckCircleFilled style={{ fontSize: 32, color: "var(--success)" }} />}
-      <Title level={4} style={{ margin: 0, color: dejaRemis ? "var(--danger)" : "var(--success)" }}>
-        {dejaRemis ? "ACCESSOIRES DÉJÀ REMIS" : "ACCESSOIRES NON REMIS"}
-      </Title>
-    </div>
-  );
 
   if (loadingYears) {
     return (
@@ -296,10 +267,25 @@ const Distribution = () => {
     );
   }
 
+  // Permission individuelle (Chantier Moyens Généraux, Phase 1) — le backend revalide de toute
+  // façon chaque requête ; ce masquage n'est qu'une amélioration d'ergonomie.
+  if (!hasPermission("distribution.effectuer")) {
+    return (
+      <div>
+        <PageHeader />
+        <AccesRestreint description="Vous n'avez pas la permission d'effectuer une distribution." />
+      </div>
+    );
+  }
+
+  const nbDisponibles = fiche?.accessoires_eligibles.filter((a) => a.etat === "disponible").length ?? 0;
+  const nbDejaDistribues = fiche?.accessoires_eligibles.filter((a) => a.etat === "deja_distribue").length ?? 0;
+  const nbIndisponibles = fiche?.accessoires_eligibles.filter((a) => a.etat === "indisponible").length ?? 0;
+
   return (
     <div>
       <PageHeader />
-      <PageContainer title="Distribution des accessoires" description="Recherche étudiant, remise et suivi anti-fraude — Moyens Généraux">
+      <PageContainer title="Distribution des accessoires" description="Recherche étudiant, remise pilotée par les règles de niveau — Moyens Généraux">
         <Row gutter={12} style={{ marginBottom: 16 }} align="middle">
           <Col flex="220px">
             <Select value={selectedYearId} onChange={setSelectedYearId} style={{ width: "100%" }} placeholder="Année académique">
@@ -338,7 +324,7 @@ const Distribution = () => {
                     renderItem={(e) => (
                       <List.Item
                         style={{ cursor: "pointer" }}
-                        onClick={() => selectionnerEtudiant(e.id)}
+                        onClick={() => chargerFiche(e.id)}
                         actions={[<Button key="ouvrir" type="link">Ouvrir la fiche</Button>]}
                       >
                         <List.Item.Meta
@@ -397,7 +383,13 @@ const Distribution = () => {
               columns={[{ title: "Accessoire", dataIndex: "nom" }, { title: "Quantité", dataIndex: "quantite", align: "right" as const }]}
             />
             <div style={{ marginTop: 16, textAlign: "right" }}>
-              <Button type="primary" icon={<PrinterOutlined />} onClick={() => navigate(`/moyens-generaux/recu/${remiseConsultee.id}`)}>
+              {/* Chantier Moyens Généraux, Phase 2D — diagnostic reçu (2026-08-19) : reçu consolidé,
+                  même correction que HistoriqueDistributions.tsx — un seul document, jamais l'ancien
+                  reçu par session. */}
+              <Button
+                type="primary" icon={<PrinterOutlined />}
+                onClick={() => navigate(`/moyens-generaux/recu-consolide/${remiseConsultee.etudiant_id}?anneeAcademiqueId=${remiseConsultee.annee_academique_id}`)}
+              >
                 Voir / imprimer le reçu
               </Button>
             </div>
@@ -429,84 +421,95 @@ const Distribution = () => {
               </Col>
             </Row>
 
-            {renderIndicateurStatut(fiche.deja_remis)}
+            <div
+              style={{
+                display: "flex", alignItems: "center", gap: 16, padding: "12px 18px", borderRadius: 10,
+                background: "var(--bg-soft, #f7f8fa)", border: "1px solid var(--border-soft, #eee)",
+                margin: "20px 0",
+              }}
+            >
+              <Text strong>Accessoires à distribuer</Text>
+              <Tag color="success">{nbDisponibles} disponible{nbDisponibles > 1 ? "s" : ""}</Tag>
+              <Tag color="blue">{nbDejaDistribues} déjà distribué{nbDejaDistribues > 1 ? "s" : ""}</Tag>
+              {nbIndisponibles > 0 && <Tag color="warning">{nbIndisponibles} indisponible{nbIndisponibles > 1 ? "s" : ""}</Tag>}
+            </div>
 
-            {fiche.deja_remis && fiche.remise ? (
-              <>
-                <Alert
-                  type="error"
-                  showIcon
-                  message="Nouvelle remise impossible"
-                  description={`Cet étudiant a déjà reçu ses accessoires pour l'année ${fiche.annee_academique} (reçu ${fiche.remise.numero_recu}, le ${new Date(fiche.remise.date_remise).toLocaleDateString("fr-FR")}).`}
-                  style={{ marginBottom: 16 }}
-                />
-                <Table
-                  dataSource={fiche.remise.lignes}
-                  rowKey="accessoire_id"
-                  size="small"
-                  pagination={false}
-                  columns={[{ title: "Accessoire déjà remis", dataIndex: "nom" }, { title: "Quantité", dataIndex: "quantite", align: "right" as const }]}
-                />
-                <div style={{ marginTop: 16, textAlign: "right" }}>
-                  <Button type="primary" icon={<PrinterOutlined />} onClick={() => navigate(`/moyens-generaux/recu/${fiche.remise!.id}`)}>
+            {derniereRemise && (
+              <Alert
+                type="success"
+                showIcon
+                message={`Remise validée — reçu ${derniereRemise.numero_recu}`}
+                action={
+                  <Button
+                    size="small" type="primary" icon={<PrinterOutlined />}
+                    onClick={() => navigate(`/moyens-generaux/recu-consolide/${fiche?.id}?anneeAcademiqueId=${selectedYearId}`)}
+                  >
                     Voir / imprimer le reçu
                   </Button>
-                </div>
-              </>
+                }
+                style={{ marginBottom: 16 }}
+              />
+            )}
+
+            {fiche.accessoires_eligibles.length === 0 ? (
+              <Empty description="Aucune règle de distribution active ne couvre le niveau de cet étudiant pour cette année académique." />
             ) : (
               <>
-                {derniereRemise ? (
-                  <>
-                    <Alert
-                      type="success"
-                      showIcon
-                      message={`Remise validée — reçu ${derniereRemise.numero_recu}`}
-                    />
-                    <div style={{ marginTop: 16, textAlign: "right" }}>
-                      <Button type="primary" icon={<PrinterOutlined />} onClick={() => navigate(`/moyens-generaux/recu/${derniereRemise.id}`)}>
-                        Voir / imprimer le reçu
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                      <Select
-                        placeholder="Accessoire"
-                        style={{ flex: 1 }}
-                        value={ligneAccessoireId}
-                        onChange={setLigneAccessoireId}
-                        showSearch
-                        optionFilterProp="children"
+                {fiche.accessoires_eligibles.map((item) => {
+                  if (item.etat === "deja_distribue") {
+                    return (
+                      <div
+                        key={item.accessoire_id}
+                        style={{
+                          display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 8,
+                          background: "var(--success-bg, #e7f6ee)", border: "1px solid var(--success, #1e8e5a)", marginBottom: 8,
+                        }}
                       >
-                        {accessoiresDisponibles.map((a) => (
-                          <Option key={a.accessoire_id} value={a.accessoire_id} disabled={a.solde <= 0}>
-                            {a.nom} ({a.code}) — {a.solde} disponible{a.solde > 1 ? "s" : ""}
-                          </Option>
-                        ))}
-                      </Select>
-                      <InputNumber min={1} placeholder="Quantité" value={ligneQuantite ?? undefined} onChange={setLigneQuantite} style={{ width: 120 }} />
-                      <Button icon={<PlusOutlined />} onClick={ajouterLigne}>Ajouter</Button>
+                        <CheckCircleFilled style={{ color: "var(--success, #1e8e5a)", fontSize: 18, flex: "none" }} />
+                        <div>
+                          <div style={{ fontWeight: 600 }}>{item.accessoire_nom}</div>
+                          <div style={{ fontSize: 12, color: "var(--text-soft)" }}>
+                            Déjà distribué le {item.deja_distribue_le ? new Date(item.deja_distribue_le).toLocaleDateString("fr-FR") : ""}
+                            {item.deja_distribue_numero_recu ? ` — reçu ${item.deja_distribue_numero_recu}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  const indisponible = item.etat === "indisponible";
+                  return (
+                    <div
+                      key={item.accessoire_id}
+                      style={{
+                        display: "flex", alignItems: "flex-start", gap: 12, padding: "10px 14px", borderRadius: 8,
+                        border: "1px solid var(--border-soft, #eee)", opacity: indisponible ? 0.7 : 1, marginBottom: 8,
+                      }}
+                    >
+                      <Checkbox
+                        checked={selection.has(item.accessoire_id)}
+                        disabled={indisponible}
+                        onChange={(e) => toggleSelection(item.accessoire_id, e.target.checked)}
+                        style={{ marginTop: 3 }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600 }}>
+                          {item.accessoire_nom}
+                          {item.categorie_nom && <Tag style={{ marginLeft: 8 }}>{item.categorie_nom}</Tag>}
+                        </div>
+                        <div style={{ fontSize: 12, color: "var(--text-soft)" }}>
+                          Quantité prévue : {item.quantite_standard} · Stock disponible : {item.stock_disponible}
+                        </div>
+                        {indisponible && <Tag color="error" style={{ marginTop: 4 }}>Stock insuffisant — indisponible</Tag>}
+                      </div>
                     </div>
-                    <Table
-                      dataSource={lignes}
-                      rowKey="accessoire_id"
-                      size="small"
-                      pagination={false}
-                      locale={{ emptyText: "Aucun accessoire sélectionné" }}
-                      columns={[
-                        { title: "Accessoire", dataIndex: "nom" },
-                        { title: "Quantité", dataIndex: "quantite", align: "right" as const },
-                        { title: "", key: "retirer", width: 50, render: (_: any, r) => <Button icon={<DeleteOutlined />} size="small" danger onClick={() => retirerLigne(r.accessoire_id)} /> },
-                      ]}
-                    />
-                    <Space style={{ marginTop: 16 }}>
-                      <Button type="primary" size="large" loading={validation} disabled={lignes.length === 0} onClick={validerRemise}>
-                        Valider la remise
-                      </Button>
-                    </Space>
-                  </>
-                )}
+                  );
+                })}
+
+                <Space style={{ marginTop: 16 }}>
+                  <Button type="primary" size="large" loading={validation} disabled={selection.size === 0} onClick={validerRemise}>
+                    Distribuer les éléments sélectionnés ({selection.size})
+                  </Button>
+                </Space>
               </>
             )}
           </Card>

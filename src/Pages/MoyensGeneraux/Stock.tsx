@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Tabs, Button, Modal, Form, Select, InputNumber, Input, message, Statistic, Row, Col, DatePicker, Card } from "antd";
+import { Tabs, Button, Modal, Form, Select, InputNumber, Input, message, Statistic, Row, Col, DatePicker, Card, Alert } from "antd";
 import type { TablePaginationConfig } from "antd";
 import { PlusOutlined, InboxOutlined, WarningOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
@@ -8,7 +8,9 @@ import PageHeader from "../../Components/PageHeader/PageHeader";
 import PageContainer from "../../Components/ui/PageContainer";
 import DataTable from "../../Components/ui/DataTable";
 import StatusTag from "../../Components/ui/StatusTag";
+import AccesRestreint from "../../Components/ui/AccesRestreint";
 import { apiFetch, ApiError } from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -44,6 +46,53 @@ interface Agent {
   nom: string;
 }
 
+interface AcademicYear {
+  id: number;
+  annee: string;
+  etat: string;
+}
+
+interface AccessoireOption {
+  id: number;
+  nom: string;
+  code: string;
+  actif: boolean;
+}
+
+// Chantier Moyens Généraux, Phase 2F (2026-08-20) — reprise de stock à l'ouverture d'une année
+// académique. Distinct d'une réception fournisseur (aucune commande créée) et d'un ajustement
+// d'inventaire courant (type de mouvement dédié côté backend).
+interface StockInitialDeclaration {
+  id: number;
+  site_id: number;
+  annee_academique_id: number;
+  annee: string;
+  accessoire_id: number;
+  accessoire_nom: string;
+  accessoire_code: string;
+  quantite: number;
+  cout_unitaire_saisi: number | null;
+  observation: string | null;
+  declare_par: number;
+  declare_par_nom: string;
+  date_declaration: string;
+}
+
+const getUserInfo = () => {
+  try {
+    const userStr = localStorage.getItem("user");
+    if (!userStr) return null;
+    const user = JSON.parse(userStr);
+    if (!user.departement_id) {
+      const deptId = localStorage.getItem("departement_id");
+      if (deptId) user.departement_id = parseInt(deptId, 10);
+    }
+    return user;
+  } catch {
+    return null;
+  }
+};
+
 const STATUT_TONE: Record<EtatStockLigne["statut"], "success" | "warning" | "danger"> = {
   normal: "success",
   stock_faible: "warning",
@@ -68,6 +117,10 @@ const TYPE_LABEL: Record<string, string> = {
 const formatFcfa = (v: number) => `${v.toLocaleString("fr-FR")} FCFA`;
 
 const EtatDuStock = () => {
+  // Permission individuelle (Chantier Moyens Généraux, Phase 1) — le backend revalide de toute
+  // façon chaque requête ; ce masquage n'est qu'une amélioration d'ergonomie.
+  const peutAjuster = hasPermission("stock.ajuster");
+
   const [etat, setEtat] = useState<EtatStockLigne[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -178,9 +231,11 @@ const EtatDuStock = () => {
           </Select>
         }
         toolbarExtra={
-          <Button type="primary" icon={<PlusOutlined />} onClick={openAjustement}>
-            Ajustement d'inventaire
-          </Button>
+          peutAjuster ? (
+            <Button type="primary" icon={<PlusOutlined />} onClick={openAjustement}>
+              Ajustement d'inventaire
+            </Button>
+          ) : undefined
         }
         emptyTitle="Aucun accessoire actif"
       />
@@ -300,19 +355,188 @@ const HistoriqueMouvements = () => {
   );
 };
 
-const Stock = () => (
-  <div>
-    <PageHeader />
-    <PageContainer title="Gestion du stock" description="État du stock et historique des mouvements — Moyens Généraux">
-      <Tabs
-        defaultActiveKey="etat"
-        items={[
-          { key: "etat", label: "État du stock", children: <EtatDuStock /> },
-          { key: "mouvements", label: "Historique des mouvements", children: <HistoriqueMouvements /> },
-        ]}
+const StockInitial = () => {
+  // Permission individuelle — mêmes permissions que l'ajustement d'inventaire (§12 de la demande :
+  // réutiliser l'existant plutôt qu'inventer une permission dédiée pour une action de même nature).
+  const peutDeclarer = hasPermission("stock.ajuster");
+  const siteId: number | undefined = getUserInfo()?.departement_id;
+
+  const [annees, setAnnees] = useState<AcademicYear[]>([]);
+  const [accessoiresOptions, setAccessoiresOptions] = useState<AccessoireOption[]>([]);
+  const [declarations, setDeclarations] = useState<StockInitialDeclaration[]>([]);
+  const [filtreAnnee, setFiltreAnnee] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form] = Form.useForm();
+
+  useEffect(() => {
+    if (!siteId) return;
+    apiFetch<AcademicYear[]>(`/api/annees?site_id=${siteId}`)
+      .then((years) => {
+        setAnnees(years);
+        const courante = years.find((y) => y.etat === "en cour" || y.etat === "en cours");
+        setFiltreAnnee(courante ? courante.id : years[0]?.id ?? null);
+      })
+      .catch(() => {});
+    apiFetch<{ data: AccessoireOption[] }>("/api/moyens-generaux/accessoires")
+      .then((res) => setAccessoiresOptions(res.data.filter((a) => a.actif)))
+      .catch(() => {});
+  }, [siteId]);
+
+  const fetchDeclarations = useCallback(() => {
+    if (!filtreAnnee) return;
+    setLoading(true);
+    apiFetch<{ data: StockInitialDeclaration[] }>(`/api/moyens-generaux/stock/initial?annee_academique_id=${filtreAnnee}`)
+      .then((res) => setDeclarations(res.data))
+      .catch((e) => { if (e instanceof ApiError && e.status === 401) return; message.error("Erreur lors du chargement du stock initial"); })
+      .finally(() => setLoading(false));
+  }, [filtreAnnee]);
+
+  useEffect(() => { fetchDeclarations(); }, [fetchDeclarations]);
+
+  // Articles déjà déclarés pour l'année sélectionnée — retirés du sélecteur du formulaire, pour
+  // éviter à l'agent une tentative vouée à un 409 (une seule déclaration valide par site+année+
+  // article, cf. §8 de la demande).
+  const accessoiresRestants = useMemo(() => {
+    const dejaDeclares = new Set(declarations.map((d) => d.accessoire_id));
+    return accessoiresOptions.filter((a) => !dejaDeclares.has(a.id));
+  }, [accessoiresOptions, declarations]);
+
+  const openDeclaration = () => {
+    form.resetFields();
+    form.setFieldsValue({ annee_academique_id: filtreAnnee });
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async () => {
+    try {
+      const values = await form.validateFields();
+      setSaving(true);
+      await apiFetch("/api/moyens-generaux/stock/initial", {
+        method: "POST",
+        body: JSON.stringify(values),
+      });
+      message.success("Stock initial déclaré");
+      setIsModalOpen(false);
+      fetchDeclarations();
+    } catch (e) {
+      if (e instanceof ApiError) { message.error(e.message); return; }
+      if ((e as any)?.errorFields) return;
+      message.error("Erreur lors de la déclaration du stock initial");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const columns = [
+    { title: "Article", dataIndex: "accessoire_nom", key: "accessoire_nom" },
+    { title: "Code", dataIndex: "accessoire_code", key: "accessoire_code" },
+    { title: "Année académique", dataIndex: "annee", key: "annee" },
+    { title: "Quantité initiale", dataIndex: "quantite", key: "quantite", align: "right" as const },
+    {
+      title: "Coût saisi", dataIndex: "cout_unitaire_saisi", key: "cout_unitaire_saisi", align: "right" as const,
+      render: (v: number | null) => v !== null ? formatFcfa(v) : <span style={{ color: "var(--text-soft)" }}>—</span>,
+    },
+    { title: "Observation", dataIndex: "observation", key: "observation", render: (v: string | null) => v || <span style={{ color: "var(--text-soft)" }}>—</span> },
+    { title: "Déclaré par", dataIndex: "declare_par_nom", key: "declare_par_nom" },
+    { title: "Le", dataIndex: "date_declaration", key: "date_declaration", render: (v: string) => new Date(v).toLocaleDateString("fr-FR") },
+  ];
+
+  return (
+    <>
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 16 }}
+        message="Le stock initial représente des articles déjà physiquement présents sur votre site — jamais une nouvelle acquisition fournisseur. Une seule déclaration possible par article et par année académique ; une correction ultérieure passe par un ajustement d'inventaire."
       />
-    </PageContainer>
-  </div>
-);
+      <DataTable<StockInitialDeclaration>
+        columns={columns}
+        dataSource={declarations}
+        rowKey="id"
+        loading={loading}
+        filters={
+          <Select value={filtreAnnee} onChange={setFiltreAnnee} style={{ width: 220 }} placeholder="Année académique">
+            {annees.map((y) => <Option key={y.id} value={y.id}>{y.annee} ({y.etat})</Option>)}
+          </Select>
+        }
+        toolbarExtra={
+          peutDeclarer ? (
+            <Button type="primary" icon={<PlusOutlined />} onClick={openDeclaration}>
+              Stock initial
+            </Button>
+          ) : undefined
+        }
+        emptyTitle="Aucun stock initial déclaré pour cette année"
+      />
+
+      <Modal
+        title="Déclarer un stock initial"
+        open={isModalOpen}
+        onCancel={() => setIsModalOpen(false)}
+        onOk={handleSubmit}
+        okText="Déclarer"
+        cancelText="Annuler"
+        confirmLoading={saving}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item name="annee_academique_id" label="Année académique" rules={[{ required: true, message: "Année académique requise" }]}>
+            <Select placeholder="Sélectionner l'année académique">
+              {annees.map((y) => <Option key={y.id} value={y.id}>{y.annee} ({y.etat})</Option>)}
+            </Select>
+          </Form.Item>
+          <Form.Item name="accessoire_id" label="Article" rules={[{ required: true, message: "Article requis" }]}>
+            <Select placeholder="Sélectionner un article" showSearch optionFilterProp="children">
+              {accessoiresRestants.map((a) => <Option key={a.id} value={a.id}>{a.nom} ({a.code})</Option>)}
+            </Select>
+          </Form.Item>
+          <Form.Item name="quantite" label="Quantité initiale" rules={[{ required: true, message: "Quantité requise" }]}>
+            <InputNumber min={1} style={{ width: "100%" }} />
+          </Form.Item>
+          <Form.Item
+            name="cout_unitaire"
+            label="Coût unitaire de référence (facultatif)"
+            tooltip="Ne complète le prix de référence de l'article que s'il n'est pas déjà configuré — ne l'écrase jamais."
+          >
+            <InputNumber min={0} style={{ width: "100%" }} />
+          </Form.Item>
+          <Form.Item name="observation" label="Observation (facultative)">
+            <Input.TextArea rows={2} placeholder="Ex : comptage physique du 01/09, reprise de l'année 2025-2026" />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </>
+  );
+};
+
+const Stock = () => {
+  // Permission individuelle (Chantier Moyens Généraux, Phase 1) — le backend revalide de toute
+  // façon chaque requête ; ce masquage n'est qu'une amélioration d'ergonomie.
+  if (!hasPermission("stock.voir")) {
+    return (
+      <div>
+        <PageHeader />
+        <AccesRestreint description="Vous n'avez pas la permission de consulter le stock." />
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <PageHeader />
+      <PageContainer title="Gestion du stock" description="État du stock et historique des mouvements — Moyens Généraux">
+        <Tabs
+          defaultActiveKey="etat"
+          items={[
+            { key: "etat", label: "État du stock", children: <EtatDuStock /> },
+            { key: "initial", label: "Stock initial", children: <StockInitial /> },
+            { key: "mouvements", label: "Historique des mouvements", children: <HistoriqueMouvements /> },
+          ]}
+        />
+      </PageContainer>
+    </div>
+  );
+};
 
 export default Stock;

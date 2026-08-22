@@ -34,6 +34,7 @@ const titles: Record<string, string> = {
   "/caisse/paiements-jour": "Paiements du jour",
   "/caisse/reçus": "Mes reçus",
   "/caisse/fermer": "Fermer la caisse",
+  "/caisse/gestion-kits": "Gestion des Kits — régularisation",
 
   // Gestion académique
   "/Gestion_academique/Statistique": "Statistiques académiques",

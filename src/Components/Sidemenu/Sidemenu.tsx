@@ -19,9 +19,12 @@ import {
   EnvironmentOutlined,
   SafetyCertificateOutlined,
   GiftOutlined,
+  TagsOutlined,
   DatabaseOutlined,
+  ApartmentOutlined,
   UsergroupAddOutlined,
   FundOutlined,
+  SwapOutlined,
 } from "@ant-design/icons";
 
 import { useLocation, useNavigate } from "react-router-dom";
@@ -149,8 +152,10 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
         { key: "/caisse/encaisser", label: "Encaisser", icon: <CreditCardOutlined />, permission: ["admin", "comptabilite", "caissier"] },
         { key: "/caisse/recherche", label: "Rechercher étudiant", icon: <SolutionOutlined />, permission: ["admin", "comptabilite", "caissier"] },
         { key: "/caisse/situation-etudiant", label: "Situation étudiant", icon: <IdcardOutlined />, permission: ["admin", "comptabilite", "caissier"] },
+        { key: "/caisse/surplus", label: "Surplus Moyens Généraux", icon: <GiftOutlined />, permission: ["admin", "comptabilite", "caissier"] },
         { key: "/caisse/paiements-jour", label: "Paiements du jour", icon: <HistoryOutlined />, permission: ["admin", "comptabilite", "caissier"] },
         { key: "/caisse/fermer", label: "Fermer la caisse", icon: <CloseCircleOutlined />, permission: ["admin", "comptabilite", "caissier"] },
+        { key: "/caisse/gestion-kits", label: "Gestion des Kits", icon: <TagsOutlined />, permission: ["admin", "comptabilite", "caissier", "scolarite"] },
       ],
     },
     {
@@ -200,10 +205,13 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
       children: [
         { key: "/dashboard/moyensgeneraux", label: "Tableau de bord", icon: <DashboardOutlined />, permission: ["admin", "moyens_generaux"] },
         { key: "/moyens-generaux/accessoires", label: "Accessoires", icon: <AppstoreAddOutlined />, permission: ["admin", "moyens_generaux"] },
+        { key: "/moyens-generaux/regles-distribution", label: "Règles de distribution", icon: <ApartmentOutlined />, permission: ["admin", "moyens_generaux"] },
+        { key: "/moyens-generaux/demandes-surplus", label: "Surplus payants", icon: <GiftOutlined />, permission: ["admin", "moyens_generaux"] },
         { key: "/moyens-generaux/fournisseurs", label: "Fournisseurs", icon: <TeamOutlined />, permission: ["admin", "moyens_generaux"] },
         { key: "/moyens-generaux/commandes", label: "Commandes", icon: <SolutionOutlined />, permission: ["admin", "moyens_generaux"] },
         { key: "/moyens-generaux/stock", label: "Stock", icon: <DatabaseOutlined />, permission: ["admin", "moyens_generaux"] },
         { key: "/moyens-generaux/distribution", label: "Distribution", icon: <UserSwitchOutlined />, permission: ["admin", "moyens_generaux"] },
+        { key: "/moyens-generaux/transferts", label: "Transferts entre sites", icon: <SwapOutlined />, permission: ["admin", "moyens_generaux"] },
         { key: "/moyens-generaux/historique", label: "Historique", icon: <HistoryOutlined />, permission: ["admin", "moyens_generaux"] },
       ],
     },

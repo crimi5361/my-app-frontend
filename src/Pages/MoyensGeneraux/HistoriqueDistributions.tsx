@@ -14,7 +14,9 @@ import PageHeader from "../../Components/PageHeader/PageHeader";
 import PageContainer from "../../Components/ui/PageContainer";
 import DataTable from "../../Components/ui/DataTable";
 import StatusTag from "../../Components/ui/StatusTag";
+import AccesRestreint from "../../Components/ui/AccesRestreint";
 import { apiFetch, ApiError } from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -31,6 +33,8 @@ interface DistributionDetail {
   id: number;
   numero_recu: string;
   date_remise: string;
+  etudiant_id: number;
+  annee_academique_id: number;
   ecole_nom: string;
   filiere_nom: string;
   niveau_nom: string;
@@ -51,6 +55,8 @@ interface HistoriqueLigne {
   id: number;
   numero_recu: string;
   date_remise: string;
+  etudiant_id: number;
+  annee_academique_id: number;
   ecole_nom: string;
   filiere_nom: string;
   niveau_nom: string;
@@ -270,11 +276,28 @@ const HistoriqueDistributions = () => {
       render: (_: any, r: HistoriqueLigne) => (
         <Space>
           <Button icon={<EyeOutlined />} size="small" onClick={() => openDetail(r.id)} />
-          <Button icon={<PrinterOutlined />} size="small" onClick={() => navigate(`/moyens-generaux/recu/${r.id}`)} />
+          {/* Chantier Moyens Généraux, Phase 2D — diagnostic reçu (2026-08-19) : reçu de remise
+              CONSOLIDÉ (offerts + surplus), jamais l'ancien reçu par session — sinon un surplus déjà
+              distribué n'apparaîtrait jamais depuis ce bouton. */}
+          <Button
+            icon={<PrinterOutlined />} size="small"
+            onClick={() => navigate(`/moyens-generaux/recu-consolide/${r.etudiant_id}?anneeAcademiqueId=${r.annee_academique_id}`)}
+          />
         </Space>
       ),
     },
   ];
+
+  // Permission individuelle (Chantier Moyens Généraux, Phase 1) — le backend revalide de toute
+  // façon chaque requête ; ce masquage n'est qu'une amélioration d'ergonomie.
+  if (!hasPermission("distribution.voir")) {
+    return (
+      <div>
+        <PageHeader />
+        <AccesRestreint description="Vous n'avez pas la permission de consulter l'historique des distributions." />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -359,9 +382,9 @@ const HistoriqueDistributions = () => {
               type="primary"
               icon={<PrinterOutlined />}
               style={{ marginTop: 16, width: "100%" }}
-              onClick={() => navigate(`/moyens-generaux/recu/${detail.id}`)}
+              onClick={() => navigate(`/moyens-generaux/recu-consolide/${detail.etudiant_id}?anneeAcademiqueId=${detail.annee_academique_id}`)}
             >
-              Réimprimer le reçu
+              Imprimer le reçu de remise consolidé
             </Button>
           </>
         )}

@@ -8,12 +8,16 @@ import DashboardAdministrateur from "../../Pages/Dashboard/DashboardAdministrate
 import DashboardFondateur from "../../Pages/Dashboard/DashboardFondateur";
 import DashboardMoyensGeneraux from "../../Pages/Dashboard/DashboardMoyensGeneraux";
 import Accessoires from "../../Pages/MoyensGeneraux/Accessoires";
+import ReglesDistribution from "../../Pages/MoyensGeneraux/ReglesDistribution";
+import DemandesSurplus from "../../Pages/MoyensGeneraux/DemandesSurplus";
+import RecuRemiseConsolide from "../../Pages/MoyensGeneraux/RecuRemiseConsolide";
 import Fournisseurs from "../../Pages/MoyensGeneraux/Fournisseurs";
 import Commandes from "../../Pages/MoyensGeneraux/Commandes";
 import Stock from "../../Pages/MoyensGeneraux/Stock";
 import Distribution from "../../Pages/MoyensGeneraux/Distribution";
 import RecuDistribution from "../../Pages/MoyensGeneraux/RecuDistribution";
 import HistoriqueDistributions from "../../Pages/MoyensGeneraux/HistoriqueDistributions";
+import Transferts from "../../Pages/MoyensGeneraux/Transferts";
 
 // Scolarité
 import Statuts from "../../Pages/Scolarite/Statuts";
@@ -72,6 +76,8 @@ import RechercheEtudiantCaisse from "../../Pages/CAISSE/RechercheEtudiantCaisse"
 import PaiementsJour from "../../Pages/CAISSE/PaiementsJour";
 import FermerCaisse from "../../Pages/CAISSE/FermerCaisse";
 import SituationEtudiant from "../../Pages/CAISSE/SituationEtudiant";
+import GestionKits from "../../Pages/CAISSE/GestionKits";
+import SurplusEncaissement from "../../Pages/CAISSE/SurplusEncaissement";
 import SupervisionCaisses from "../../Pages/Comptabilite/SupervisionCaisses";
 import Depenses from "../../Pages/Comptabilite/Depenses";
 import StatsResultat from "../../Pages/Gestion_academique/StatsResultat";
@@ -131,6 +137,27 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
 
+      {/* Affectation des accessoires aux niveaux (Chantier Moyens Généraux, Phase 2B, 2026-08-19) */}
+      <Route path="/moyens-generaux/regles-distribution" element={
+        <ProtectedRoute requiredPermission={["admin", "moyens_generaux"]}>
+          <ReglesDistribution />
+        </ProtectedRoute>
+      } />
+
+      {/* Accessoires supplémentaires payants (Chantier Moyens Généraux, Phase 2D, 2026-08-19) */}
+      <Route path="/moyens-generaux/demandes-surplus" element={
+        <ProtectedRoute requiredPermission={["admin", "moyens_generaux"]}>
+          <DemandesSurplus />
+        </ProtectedRoute>
+      } />
+
+      {/* Reçu de remise consolidé (Chantier Moyens Généraux, Phase 2D — ajustements, 2026-08-19) */}
+      <Route path="/moyens-generaux/recu-consolide/:etudiantId" element={
+        <ProtectedRoute requiredPermission={["admin", "moyens_generaux"]}>
+          <RecuRemiseConsolide />
+        </ProtectedRoute>
+      } />
+
       {/* Fournisseurs (Chantier 10, sous-phase 5) */}
       <Route path="/moyens-generaux/fournisseurs" element={
         <ProtectedRoute requiredPermission={["admin", "moyens_generaux"]}>
@@ -163,6 +190,13 @@ const AppRoutes = () => {
       <Route path="/moyens-generaux/recu/:id" element={
         <ProtectedRoute requiredPermission={["admin", "moyens_generaux"]}>
           <RecuDistribution />
+        </ProtectedRoute>
+      } />
+
+      {/* Transferts d'accessoires entre sites (Chantier Moyens Généraux, Phase 2E, 2026-08-19) */}
+      <Route path="/moyens-generaux/transferts" element={
+        <ProtectedRoute requiredPermission={["admin", "moyens_generaux"]}>
+          <Transferts />
         </ProtectedRoute>
       } />
 
@@ -459,6 +493,20 @@ const AppRoutes = () => {
       <Route path="/caisse/situation-etudiant" element={
         <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
           <SituationEtudiant />
+        </ProtectedRoute>
+      } />
+
+      {/* Chantier Kit étudiant, Phase 2 (2026-08-21) : régularisation des étudiants déjà inscrits */}
+      <Route path="/caisse/gestion-kits" element={
+        <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier", "scolarite"]}>
+          <GestionKits />
+        </ProtectedRoute>
+      } />
+
+      {/* Surplus d'accessoires Moyens Généraux (Chantier Moyens Généraux, Phase 2D, 2026-08-19) */}
+      <Route path="/caisse/surplus" element={
+        <ProtectedRoute requiredPermission={["admin", "comptabilite", "caissier"]}>
+          <SurplusEncaissement />
         </ProtectedRoute>
       } />
 

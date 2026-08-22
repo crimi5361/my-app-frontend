@@ -6,7 +6,9 @@ import PageHeader from "../../Components/PageHeader/PageHeader";
 import PageContainer from "../../Components/ui/PageContainer";
 import DataTable from "../../Components/ui/DataTable";
 import StatusTag from "../../Components/ui/StatusTag";
+import AccesRestreint from "../../Components/ui/AccesRestreint";
 import { apiFetch, ApiError } from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 const { Option } = Select;
 
@@ -72,6 +74,12 @@ const STATUT_LABEL: Record<Commande["statut"], string> = {
 };
 
 const Commandes = () => {
+  // Permissions individuelles (Chantier Moyens Généraux, Phase 1) — le backend revalide de toute
+  // façon chaque requête ; ce masquage n'est qu'une amélioration d'ergonomie.
+  const peutVoir = hasPermission("commande.voir");
+  const peutGerer = hasPermission("commande.gerer");
+  const peutReceptionner = hasPermission("reception.effectuer");
+
   const [commandes, setCommandes] = useState<Commande[]>([]);
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [accessoires, setAccessoires] = useState<Accessoire[]>([]);
@@ -116,7 +124,7 @@ const Commandes = () => {
     }
   };
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { if (peutVoir) fetchAll(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fournisseursActifs = useMemo(() => fournisseurs.filter((f) => f.statut === "actif"), [fournisseurs]);
   const accessoiresActifs = useMemo(() => accessoires.filter((a) => a.actif), [accessoires]);
@@ -298,7 +306,7 @@ const Commandes = () => {
       render: (_: any, row: Commande) => (
         <div style={{ display: "flex", gap: 8 }}>
           <Button icon={<EyeOutlined />} size="small" onClick={() => openDetail(row)} />
-          {row.statut === "brouillon" && (
+          {peutGerer && row.statut === "brouillon" && (
             <>
               <Button icon={<EditOutlined />} size="small" onClick={() => openEdit(row)} />
               <Popconfirm title="Envoyer cette commande au fournisseur ?" onConfirm={() => changerStatut(row, "envoyee")} okText="Confirmer" cancelText="Annuler">
@@ -306,7 +314,7 @@ const Commandes = () => {
               </Popconfirm>
             </>
           )}
-          {(row.statut === "brouillon" || row.statut === "envoyee") && (
+          {peutGerer && (row.statut === "brouillon" || row.statut === "envoyee") && (
             <Popconfirm title="Annuler cette commande ?" onConfirm={() => changerStatut(row, "annulee")} okText="Confirmer" cancelText="Annuler">
               <Button icon={<CloseCircleOutlined />} size="small" danger />
             </Popconfirm>
@@ -324,6 +332,15 @@ const Commandes = () => {
       render: (_: any, r: LigneCommande) => <Button icon={<DeleteOutlined />} size="small" danger onClick={() => retirerLigne(r.accessoire_id)} />,
     },
   ];
+
+  if (!peutVoir) {
+    return (
+      <div>
+        <PageHeader />
+        <AccesRestreint description="Vous n'avez pas la permission de consulter les commandes." />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -348,9 +365,11 @@ const Commandes = () => {
             </Select>
           }
           toolbarExtra={
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-              Nouvelle commande
-            </Button>
+            peutGerer ? (
+              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                Nouvelle commande
+              </Button>
+            ) : undefined
           }
           emptyTitle="Aucune commande"
           emptyDescription="Créez une commande pour démarrer un réapprovisionnement."
@@ -406,7 +425,7 @@ const Commandes = () => {
         onClose={() => setDetailOpen(false)}
         width={520}
         extra={
-          detailCommande && ["envoyee", "partiellement_recue"].includes(detailCommande.statut) ? (
+          peutReceptionner && detailCommande && ["envoyee", "partiellement_recue"].includes(detailCommande.statut) ? (
             <Button type="primary" icon={<InboxOutlined />} onClick={openReceptionModal}>
               Réceptionner
             </Button>

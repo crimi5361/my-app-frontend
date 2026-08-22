@@ -6,7 +6,9 @@ import PageHeader from "../../Components/PageHeader/PageHeader";
 import PageContainer from "../../Components/ui/PageContainer";
 import DataTable from "../../Components/ui/DataTable";
 import StatusTag from "../../Components/ui/StatusTag";
+import AccesRestreint from "../../Components/ui/AccesRestreint";
 import { apiFetch, ApiError } from "../../lib/api";
+import { hasPermission } from "../../lib/permissions";
 
 const { Option } = Select;
 
@@ -27,6 +29,11 @@ interface Fournisseur {
 type FiltreStatut = "tous" | "actif" | "inactif";
 
 const Fournisseurs = () => {
+  // Permissions individuelles (Chantier Moyens Généraux, Phase 1) — le backend revalide de toute
+  // façon chaque requête ; ce masquage n'est qu'une amélioration d'ergonomie.
+  const peutVoir = hasPermission("fournisseur.voir");
+  const peutGerer = hasPermission("fournisseur.gerer");
+
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -49,7 +56,7 @@ const Fournisseurs = () => {
     }
   };
 
-  useEffect(() => { fetchFournisseurs(); }, []);
+  useEffect(() => { if (peutVoir) fetchFournisseurs(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const filteredFournisseurs = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -130,7 +137,7 @@ const Fournisseurs = () => {
       render: (v: string) => new Date(v).toLocaleDateString("fr-FR"),
       sorter: (a: Fournisseur, b: Fournisseur) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
     },
-    {
+    ...(peutGerer ? [{
       title: "Action", key: "action",
       render: (_: any, row: Fournisseur) => (
         <div style={{ display: "flex", gap: 8 }}>
@@ -150,8 +157,17 @@ const Fournisseurs = () => {
           </Popconfirm>
         </div>
       ),
-    },
+    }] : []),
   ];
+
+  if (!peutVoir) {
+    return (
+      <div>
+        <PageHeader />
+        <AccesRestreint description="Vous n'avez pas la permission de consulter les fournisseurs." />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -173,9 +189,11 @@ const Fournisseurs = () => {
             </Select>
           }
           toolbarExtra={
-            <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
-              Nouveau fournisseur
-            </Button>
+            peutGerer ? (
+              <Button type="primary" icon={<PlusOutlined />} onClick={openCreate}>
+                Nouveau fournisseur
+              </Button>
+            ) : undefined
           }
           emptyTitle="Aucun fournisseur"
           emptyDescription="Ajoutez votre premier fournisseur pour démarrer le circuit d'approvisionnement."
