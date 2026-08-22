@@ -56,16 +56,20 @@ interface Props {
   premiereAnneeUniquement?: boolean;
   /**
    * Étudiant affecté par le Ministère : restreint encore le niveau, en plus de
-   * premiereAnneeUniquement — LICENCE 1 uniquement pour une filière universitaire, BTS 1
-   * uniquement pour une filière professionnelle (aucune Licence Pro/Master/Master Pro, même
-   * en 1ère année). Sans effet si premiereAnneeUniquement n'est pas activé.
+   * premiereAnneeUniquement — LICENCE 1 pour une filière universitaire, BTS 1 ou LICENCE 1 PRO
+   * pour une filière professionnelle (aucun Master/Master Pro, même en 1ère année). Chantier
+   * tarification PRO (2026-08-21) : LICENCE 1 PRO est désormais autorisé pour un affecté (tarif
+   * dédié, voir controllers/tarif.controller.js) ; LICENCE 2 PRO reste absent (jamais un niveau
+   * d'entrée en nouvelle admission). Sans effet si premiereAnneeUniquement n'est pas activé.
    */
   statutAffecte?: boolean;
 }
 
 const NIVEAU_PREMIERE_ANNEE_REGEX = /^(BTS|LICENCE|MASTER) 1( PRO)?$/i;
 const NIVEAU_LICENCE_1_REGEX = /^LICENCE 1$/i;
-const NIVEAU_BTS_1_REGEX = /^BTS 1$/i;
+// Chantier tarification PRO (2026-08-21) : un affecté sur une filière professionnelle peut
+// désormais choisir BTS 1 OU LICENCE 1 PRO (avant : BTS 1 uniquement).
+const NIVEAU_PRO_AFFECTE_ADMISSION_REGEX = /^(BTS 1|LICENCE 1 PRO)$/i;
 // ✅ Exception métier : un étudiant titulaire d'un BTS obtenu dans un autre établissement peut
 // s'inscrire directement en LICENCE 3 PRO (nouvelle inscription, pas une réinscription) — proposée
 // en plus des premières années, uniquement pour les filières professionnelles. Le choix du
@@ -133,7 +137,7 @@ const AcademicCascadeSelect = ({ value, onChange, showFiliereNiveau = false, dis
           // LICENCE 3 PRO (BTS obtenu ailleurs) ne concerne que les étudiants Non affecté —
           // aucune filière Affecté n'y a droit ici.
           const estUniversitaire = filiereSelectionnee?.typefiliere_libelle === 'Universitaire';
-          return estUniversitaire ? NIVEAU_LICENCE_1_REGEX.test(n.libelle) : NIVEAU_BTS_1_REGEX.test(n.libelle);
+          return estUniversitaire ? NIVEAU_LICENCE_1_REGEX.test(n.libelle) : NIVEAU_PRO_AFFECTE_ADMISSION_REGEX.test(n.libelle);
         }
         if (NIVEAU_PREMIERE_ANNEE_REGEX.test(n.libelle)) return true;
         if (filiereSelectionnee?.typefiliere_libelle === 'Professionnelles' && NIVEAU_LICENCE_3_PRO_REGEX.test(n.libelle)) {

@@ -2,16 +2,36 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Drawer, Table, Button, Space, Input, InputNumber, Select,
-  Popconfirm, notification, Divider, Tag, Checkbox, Empty, Alert,
+  Popconfirm, notification, Divider, Tag, Checkbox, Empty, Alert, Modal, Typography,
 } from 'antd';
-import { PlusOutlined, DeleteOutlined, SaveOutlined, RocketOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, SaveOutlined, RocketOutlined, DollarOutlined } from '@ant-design/icons';
 import { apiFetch } from '../../lib/api';
 
+const { Text } = Typography;
+
+// Chantier tarification PRO — administration (2026-08-21) : la gestion des tarifs (Affecté/Non
+// affecté/Affecté-Réinscription) est réservée à l'ADMIN. Le backend reste la protection réelle
+// (PUT /api/tarifs/:id → authorizeRoles('admin')) — ce contrôle frontend n'est qu'une amélioration
+// UX pour un rôle "Gestion_academique" qui partage cette même page sans avoir le droit d'éditer
+// les tarifs.
+const estAdmin = (): boolean => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin';
+  } catch {
+    return false;
+  }
+};
+
 export interface TarifNiveau {
+  id: number | null;
   montant_affecte: number | string | null;
   montant_affecte_reinscription: number | string | null;
   montant_non_affecte: number | string | null;
   toujours_non_affecte: boolean;
+  // Tarif Affecté STANDARD pour ce niveau (avant toute surcharge filière) — calculé et fourni
+  // par le backend (tarif.controller.js::getMontantAffecteStandard), jamais déduit ici : le
+  // frontend ne doit jamais deviner quelle est la valeur "standard" pour un libellé donné.
+  montant_affecte_standard?: number | null;
 }
 
 export interface NiveauParcours {
@@ -75,6 +95,53 @@ const FiliereParcoursDrawer: React.FC<Props> = ({
   const [editingRows, setEditingRows] = useState<Record<number, Partial<NiveauParcours>>>({});
   const [savingId, setSavingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+
+  // Chantier tarification PRO — administration (2026-08-21) : modale dédiée à la configuration
+  // du tarif d'un niveau (Affecté / Non affecté / Affecté-Réinscription), séparée de l'édition
+  // des champs niveau (libellé/prix/ordre/parcours) déjà gérée ci-dessus par editingRows.
+  const [tarifRow, setTarifRow] = useState<NiveauParcours | null>(null);
+  const [tarifNonAffecte, setTarifNonAffecte] = useState<number | null>(null);
+  const [tarifSpecifique, setTarifSpecifique] = useState(false);
+  const [tarifAffecte, setTarifAffecte] = useState<number | null>(null);
+  const [tarifAffecteReinscription, setTarifAffecteReinscription] = useState<number | null>(null);
+  const [savingTarif, setSavingTarif] = useState(false);
+
+  const ouvrirTarifModal = (row: NiveauParcours) => {
+    const t = row.tarif;
+    const standard = t?.montant_affecte_standard ?? null;
+    const affecteActuel = t?.montant_affecte !== null && t?.montant_affecte !== undefined ? Number(t.montant_affecte) : null;
+    setTarifRow(row);
+    setTarifNonAffecte(t?.montant_non_affecte !== null && t?.montant_non_affecte !== undefined ? Number(t.montant_non_affecte) : null);
+    setTarifSpecifique(affecteActuel !== null && affecteActuel !== standard);
+    setTarifAffecte(affecteActuel);
+    setTarifAffecteReinscription(t?.montant_affecte_reinscription !== null && t?.montant_affecte_reinscription !== undefined ? Number(t.montant_affecte_reinscription) : null);
+  };
+
+  const handleSaveTarif = async () => {
+    if (!tarifRow?.tarif?.id) return;
+    setSavingTarif(true);
+    try {
+      const standard = tarifRow.tarif.montant_affecte_standard ?? null;
+      await apiFetch(`/api/tarifs/${tarifRow.tarif.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          montant_non_affecte: tarifNonAffecte,
+          // Décoché = revient explicitement au standard société (jamais laissé à une ancienne
+          // valeur périmée) ; coché = la valeur saisie par l'admin, propre à cette filière.
+          montant_affecte: tarifRow.tarif.toujours_non_affecte ? null : (tarifSpecifique ? tarifAffecte : standard),
+          montant_affecte_reinscription: tarifRow.tarif.toujours_non_affecte ? null : tarifAffecteReinscription,
+          toujours_non_affecte: tarifRow.tarif.toujours_non_affecte,
+        }),
+      });
+      notification.success({ message: 'Tarif mis à jour' });
+      setTarifRow(null);
+      onChanged();
+    } catch (error: any) {
+      notification.error({ message: 'Erreur', description: error.message || 'Impossible de mettre à jour ce tarif.' });
+    } finally {
+      setSavingTarif(false);
+    }
+  };
 
   const [catalogue, setCatalogue] = useState<{ annee_reference: string | null; niveaux: CatalogueNiveau[] } | null>(null);
   const [chargementCatalogue, setChargementCatalogue] = useState(false);
@@ -224,11 +291,35 @@ const FiliereParcoursDrawer: React.FC<Props> = ({
     {
       title: 'Tarif',
       dataIndex: 'tarif',
-      render: (_: any, row: NiveauParcours) => (
-        row.tarif?.toujours_non_affecte
-          ? <Tag color="gold">{Number(row.tarif.montant_non_affecte).toLocaleString('fr-FR')} FCFA</Tag>
-          : <Tag color="green">Affecté/Non affecté configurés</Tag>
-      ),
+      render: (_: any, row: NiveauParcours) => {
+        const t = row.tarif;
+        const affecteActuel = t?.montant_affecte !== null && t?.montant_affecte !== undefined ? Number(t.montant_affecte) : null;
+        const standard = t?.montant_affecte_standard ?? null;
+        const estSpecifique = affecteActuel !== null && affecteActuel !== standard;
+        return (
+          <Space direction="vertical" size={2}>
+            {t?.toujours_non_affecte ? (
+              <Tag color="gold">{Number(t.montant_non_affecte).toLocaleString('fr-FR')} FCFA (Non affecté uniquement)</Tag>
+            ) : (
+              <>
+                <Tag color="blue">Non affecté : {Number(t?.montant_non_affecte ?? 0).toLocaleString('fr-FR')} FCFA</Tag>
+                {affecteActuel !== null ? (
+                  <Tag color={estSpecifique ? 'purple' : 'green'}>
+                    Affecté : {affecteActuel.toLocaleString('fr-FR')} FCFA{estSpecifique ? ' (spécifique)' : ' (standard)'}
+                  </Tag>
+                ) : (
+                  <Tag color="red">Affecté : non configuré</Tag>
+                )}
+              </>
+            )}
+            {estAdmin() && t?.id && (
+              <Button size="small" icon={<DollarOutlined />} onClick={() => ouvrirTarifModal(row)}>
+                Configurer le tarif
+              </Button>
+            )}
+          </Space>
+        );
+      },
     },
     {
       title: 'Ordre',
@@ -436,6 +527,91 @@ const FiliereParcoursDrawer: React.FC<Props> = ({
       <div style={{ fontSize: 12, color: '#888', marginTop: 8 }}>
         Pour rattacher une option, créez ou modifiez la filière-option et sélectionnez cette filière comme "filière-mère".
       </div>
+
+      <Modal
+        title={`Tarif — ${tarifRow?.libelle ?? ''} (${filiereNom})`}
+        open={!!tarifRow}
+        onCancel={() => setTarifRow(null)}
+        onOk={handleSaveTarif}
+        confirmLoading={savingTarif}
+        okText="Enregistrer"
+        cancelText="Annuler"
+        destroyOnClose
+      >
+        {tarifRow?.tarif?.toujours_non_affecte ? (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message="Ce niveau n'est jamais accessible au statut Affecté (Master, ou Pro au-delà de Licence 1/2) — seul le tarif Non affecté ci-dessous s'applique."
+          />
+        ) : (
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message={
+              tarifRow?.tarif?.montant_affecte_standard != null
+                ? `Tarif Affecté standard pour ${tarifRow.libelle} : ${tarifRow.tarif.montant_affecte_standard.toLocaleString('fr-FR')} FCFA`
+                : `Aucun tarif Affecté standard défini pour ${tarifRow?.libelle}.`
+            }
+          />
+        )}
+
+        <div style={{ marginBottom: 16 }}>
+          <Text strong>Tarif Non affecté</Text>
+          <InputNumber
+            value={tarifNonAffecte}
+            onChange={setTarifNonAffecte}
+            min={0}
+            addonAfter="FCFA"
+            style={{ width: '100%', marginTop: 4 }}
+          />
+        </div>
+
+        {!tarifRow?.tarif?.toujours_non_affecte && (
+          <>
+            <Checkbox
+              checked={tarifSpecifique}
+              onChange={(e) => {
+                const coche = e.target.checked;
+                setTarifSpecifique(coche);
+                // Décocher revient immédiatement au standard à l'écran (cohérent avec ce qui sera
+                // réellement enregistré) ; cocher pré-remplit avec la valeur actuelle pour édition.
+                if (!coche) setTarifAffecte(tarifRow?.tarif?.montant_affecte_standard ?? null);
+              }}
+              style={{ marginBottom: 8 }}
+            >
+              Tarif spécifique à cette filière
+            </Checkbox>
+            <InputNumber
+              value={tarifSpecifique ? tarifAffecte : (tarifRow?.tarif?.montant_affecte_standard ?? null)}
+              onChange={setTarifAffecte}
+              disabled={!tarifSpecifique}
+              min={0}
+              addonAfter="FCFA"
+              placeholder="Montant Affecté"
+              style={{ width: '100%', marginBottom: 16 }}
+            />
+
+            <div>
+              <Text strong>Tarif Affecté — Réinscription</Text>
+              <br />
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                Laissez vide si non encore déterminé — une réinscription Affecté sans ce tarif configuré sera
+                refusée proprement (aucun montant improvisé), jamais appliquée arbitrairement.
+              </Text>
+              <InputNumber
+                value={tarifAffecteReinscription}
+                onChange={setTarifAffecteReinscription}
+                min={0}
+                addonAfter="FCFA"
+                style={{ width: '100%', marginTop: 4 }}
+              />
+            </div>
+          </>
+        )}
+      </Modal>
     </Drawer>
   );
 };

@@ -28,10 +28,12 @@ interface Niveau {
   niveau_suivant_id?: number | null;
   parcours?: string[];
   tarif?: {
+    id: number | null;
     montant_affecte: number | string | null;
     montant_affecte_reinscription: number | string | null;
     montant_non_affecte: number | string | null;
     toujours_non_affecte: boolean;
+    montant_affecte_standard?: number | null;
   } | null;
 }
 
