@@ -95,9 +95,8 @@ interface TopEtudiant {
 
 interface Stats {
     admis: number;
+    deroges: number;
     ajournes: number;
-    total_ecue_a_reprendre: number;
-    etudiants_a_reprendre: number;
     moyenne_generale: number;
     taux_reussite: number;
 }
@@ -139,8 +138,8 @@ interface RecapItem {
     niveau: string;
     total: number;
     admis: number;
+    deroges: number;
     ajournes: number;
-    etudiants_a_reprendre: number;
     taux_reussite: number;
     moyenne_generale: number;
 }
@@ -161,8 +160,8 @@ interface RecapExportRow {
     'Niveau': string;
     'Total': number;
     'Admis': number;
+    'Dérogés': number;
     'Ajournés': number;
-    'À reprendre': number;
     'Taux de réussite (%)': number;
     'Moyenne générale /20': number | string;
 }
@@ -485,7 +484,9 @@ const StatsResultat: React.FC = () => {
                 return;
             }
 
-            // ✅ Correction : Type explicite pour l'export
+            // ✅ Présentation métier (2026-08-24) : Total / Admis / Dérogés / Ajournés — plus de
+            // colonne "À reprendre" dans ce récapitulatif (ancienne métrique ECUE, jamais une
+            // catégorie de décision — cf. audit précédent).
             const donneesExport: RecapExportRow[] = data.recap.map((r, index) => ({
                 '#': index + 1,
                 'Filière': r.filiere,
@@ -493,8 +494,8 @@ const StatsResultat: React.FC = () => {
                 'Niveau': r.niveau,
                 'Total': r.total,
                 'Admis': r.admis,
+                'Dérogés': r.deroges,
                 'Ajournés': r.ajournes,
-                'À reprendre': r.etudiants_a_reprendre,
                 'Taux de réussite (%)': r.taux_reussite,
                 'Moyenne générale /20': r.moyenne_generale,
             }));
@@ -503,9 +504,9 @@ const StatsResultat: React.FC = () => {
             const totalGlobal = data.recap.reduce((acc, r) => ({
                 total: acc.total + r.total,
                 admis: acc.admis + r.admis,
+                deroges: acc.deroges + r.deroges,
                 ajournes: acc.ajournes + r.ajournes,
-                areprendre: acc.areprendre + r.etudiants_a_reprendre,
-            }), { total: 0, admis: 0, ajournes: 0, areprendre: 0 });
+            }), { total: 0, admis: 0, deroges: 0, ajournes: 0 });
 
             // ✅ Correction : Ligne total avec le bon type
             const totalRow: RecapExportRow = {
@@ -515,9 +516,10 @@ const StatsResultat: React.FC = () => {
                 'Niveau': '',
                 'Total': totalGlobal.total,
                 'Admis': totalGlobal.admis,
+                'Dérogés': totalGlobal.deroges,
                 'Ajournés': totalGlobal.ajournes,
-                'À reprendre': totalGlobal.areprendre,
-                'Taux de réussite (%)': totalGlobal.total > 0 ? parseFloat(((totalGlobal.admis / totalGlobal.total) * 100).toFixed(2)) : 0,
+                // ✅ Le taux de réussite inclut les dérogés (ils passent bien en classe supérieure).
+                'Taux de réussite (%)': totalGlobal.total > 0 ? parseFloat((((totalGlobal.admis + totalGlobal.deroges) / totalGlobal.total) * 100).toFixed(2)) : 0,
                 'Moyenne générale /20': '',
             };
             donneesExport.push(totalRow);
