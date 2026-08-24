@@ -1,6 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Input, Button, List, Avatar, Card, Descriptions, Alert, Row, Col,
   Divider, Form, message, Spin, Empty, Typography, Space, Radio, Select, Result, Checkbox
@@ -121,7 +120,6 @@ const decisionTone = (decision?: string): StatusTone => {
 };
 
 const Reinscription = () => {
-  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<EtudiantResultat[]>([]);
   const [searching, setSearching] = useState(false);
@@ -525,11 +523,6 @@ const Reinscription = () => {
                         type="error" showIcon icon={<CloseCircleOutlined />}
                         message="Scolarité non soldée"
                         description={`Reste à payer : ${financier.scolarite_restante.toLocaleString('fr-FR')} FCFA. La réinscription ne pourra pas être finalisée tant que ce montant n'est pas réglé.`}
-                        action={
-                          <Button size="small" danger onClick={() => navigate(`/Etudiant/Effectuer_Payement/${dossier.etudiant.id}`)}>
-                            Effectuer un paiement
-                          </Button>
-                        }
                       />
                     )}
                     <Descriptions column={1} size="small" style={{ marginTop: 12 }}>
