@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Card, Radio, Button, Select, Alert, Descriptions, Tag, Spin, message } from "antd";
 import { GiftOutlined, CheckCircleOutlined } from "@ant-design/icons";
 import { apiFetch, ApiError } from "../../lib/api";
@@ -16,6 +16,10 @@ interface EtatKit {
 
 interface KitTraitementProps {
   etudiantId: number;
+  // Optionnel — appelé une fois le traitement confirmé avec succès (ex. GestionKits.tsx s'en sert
+  // pour fermer sa modale et rafraîchir sa liste de résultats). EffectuerPayement.tsx/Encaisser.tsx
+  // ne le fournissent pas : ce composant y reste affiché en place, comportement inchangé pour eux.
+  onTraite?: () => void;
 }
 
 // Chantier Kit étudiant (rames + marqueurs) — Phase 1 (2026-08-21). Composant PARTAGÉ entre
@@ -26,13 +30,21 @@ interface KitTraitementProps {
 // Masque entièrement la section si l'étudiant n'est pas concerné (LICENCE 1 / BTS 1 / LICENCE 1
 // PRO) ou si le module est suspendu pour son année académique (KIT_ANNEES_SUSPENDUES) — jamais un
 // appel à /traiter dans ces cas. Le backend revalide de toute façon systématiquement.
-const KitTraitement = ({ etudiantId }: KitTraitementProps) => {
+const KitTraitement = ({ etudiantId, onTraite }: KitTraitementProps) => {
   const [etat, setEtat] = useState<EtatKit | null>(null);
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"APPORTE" | "PAYE" | null>(null);
   const [methode, setMethode] = useState<string | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [resultat, setResultat] = useState<{ statut: string; numero_recu?: string } | null>(null);
+  // Verrou SYNCHRONE anti double-clic/double-soumission : `submitting` (state React) ne se
+  // reflète qu'au rendu suivant — un second clic survenant avant ce rendu (ex. double-clic rapide)
+  // peut donc partir alors que le bouton semble encore actif, produisant deux POST /api/kit/traiter
+  // quasi simultanés (confirmé par reproduction : le premier réussit en 201, le second échoue en
+  // 409 "déjà traité" — sans risque de double écriture grâce à la contrainte UNIQUE, mais avec un
+  // succès immédiatement suivi d'un message d'erreur qui donne l'impression que "rien ne se passe").
+  // useRef change de valeur immédiatement, sans attendre de rendu — seule garantie fiable ici.
+  const submittingRef = useRef(false);
 
   const fetchEtat = () => {
     setLoading(true);
@@ -51,6 +63,7 @@ const KitTraitement = ({ etudiantId }: KitTraitementProps) => {
   }, [etudiantId]);
 
   const confirmer = async () => {
+    if (submittingRef.current) return; // second clic dans le même tick : ignoré, pas de 2e requête
     if (!mode) {
       message.warning("Sélectionnez une option.");
       return;
@@ -59,6 +72,7 @@ const KitTraitement = ({ etudiantId }: KitTraitementProps) => {
       message.warning("Sélectionnez une méthode de paiement.");
       return;
     }
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       const res = await apiFetch<{ data: { statut: string; numero_recu?: string } }>("/api/kit/traiter", {
@@ -68,6 +82,7 @@ const KitTraitement = ({ etudiantId }: KitTraitementProps) => {
       message.success(mode === "PAYE" ? "Kit encaissé — reçu généré" : "Kit apporté enregistré");
       setResultat(res.data);
       fetchEtat();
+      onTraite?.();
     } catch (e) {
       if (e instanceof ApiError) {
         message.error(e.message);
@@ -75,6 +90,7 @@ const KitTraitement = ({ etudiantId }: KitTraitementProps) => {
       }
       message.error("Erreur lors du traitement du Kit");
     } finally {
+      submittingRef.current = false;
       setSubmitting(false);
     }
   };
@@ -139,7 +155,7 @@ const KitTraitement = ({ etudiantId }: KitTraitementProps) => {
               {METHODES_PAIEMENT.map((m) => <Option key={m.value} value={m.value}>{m.label}</Option>)}
             </Select>
           )}
-          <Button type="primary" onClick={confirmer} loading={submitting} disabled={!mode}>
+          <Button type="primary" onClick={confirmer} loading={submitting} disabled={!mode || submitting}>
             {mode === "PAYE" ? "Encaisser le Kit" : "Valider"}
           </Button>
         </>

@@ -153,7 +153,12 @@ const GestionKits = () => {
         title={selected ? `Kit — ${selected.nom} ${selected.prenoms}` : ''}
         destroyOnClose
       >
-        {selected && <KitTraitement etudiantId={selected.id} />}
+        {selected && (
+          <KitTraitement
+            etudiantId={selected.id}
+            onTraite={() => { setSelected(null); handleSearch(); }}
+          />
+        )}
       </Modal>
     </div>
   );
