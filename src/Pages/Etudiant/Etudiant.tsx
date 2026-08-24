@@ -55,6 +55,11 @@ interface EtudiantData {
   standing: string;
   statut_scolaire: string;
   date_inscription: string;
+  // Date d'inscription (admission ou réinscription) réellement validée pour L'ANNÉE consultée —
+  // jamais date_inscription seule, qui reste la date du tout premier dossier de l'étudiant et
+  // n'est jamais mise à jour lors d'une réinscription. C'est cette colonne qui doit être affichée/
+  // triée/exportée ici (voir 041_vue_position_academique_date_inscription_annee.sql).
+  date_inscription_annee: string;
   photo_url: string;
   extrait_naissance: string;
   justificatif_identite: string;
@@ -525,13 +530,13 @@ const Etudiant = () => {
     },
     {
       title: 'Date Inscription',
-      dataIndex: 'date_inscription',
-      key: 'date_inscription',
+      dataIndex: 'date_inscription_annee',
+      key: 'date_inscription_annee',
       width: 150,
       render: (date) => formatDate(date),
       sorter: (a, b) => {
-        const dateA = a.date_inscription ? new Date(a.date_inscription).getTime() : 0;
-        const dateB = b.date_inscription ? new Date(b.date_inscription).getTime() : 0;
+        const dateA = a.date_inscription_annee ? new Date(a.date_inscription_annee).getTime() : 0;
+        const dateB = b.date_inscription_annee ? new Date(b.date_inscription_annee).getTime() : 0;
         return dateA - dateB;
       },
     },
@@ -684,7 +689,7 @@ const Etudiant = () => {
           'Lieu de Naissance': item.lieu_naissance || '',
           'Statut': item.standing || '',
           'Statut Scolaire': item.statut_scolaire || '',
-          'Date Inscription': formatDate(item.date_inscription),
+          'Date Inscription': formatDate(item.date_inscription_annee),
           'Extrait Naissance': item.extrait_naissance === 'oui' ? 'Déposé' : 'Manquant',
           'Justificatif Identité': item.justificatif_identite === 'oui' ? 'Déposé' : 'Manquant',
           'Dernier Diplôme': item.dernier_diplome === 'oui' ? 'Déposé' : 'Manquant',

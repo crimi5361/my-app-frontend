@@ -54,6 +54,9 @@ interface EtudiantData {
   standing: string;
   statut_scolaire: string;
   date_inscription: string;
+  // Date d'inscription (admission ou réinscription) réellement validée pour L'ANNÉE consultée —
+  // voir Pages/Etudiant/Etudiant.tsx et 041_vue_position_academique_date_inscription_annee.sql.
+  date_inscription_annee: string;
   groupe_nom: string;
   classe_nom?: string;
   extrait_naissance: string;
@@ -85,6 +88,7 @@ interface ExportEtudiantData {
    contact_parent_2: string;
   statut_scolaire: string;
   date_inscription: string;
+  date_inscription_annee: string;
   filiere: string;
   niveau: string;
   annee_academique: string;
@@ -496,13 +500,13 @@ useEffect(() => {
     },
     {
       title: 'Date Inscription',
-      dataIndex: 'date_inscription',
-      key: 'date_inscription',
+      dataIndex: 'date_inscription_annee',
+      key: 'date_inscription_annee',
       width: 150,
       render: (date) => date ? new Date(date).toLocaleDateString('fr-FR') : '-',
       sorter: (a, b) => {
-        const dateA = a.date_inscription ? new Date(a.date_inscription).getTime() : 0;
-        const dateB = b.date_inscription ? new Date(b.date_inscription).getTime() : 0;
+        const dateA = a.date_inscription_annee ? new Date(a.date_inscription_annee).getTime() : 0;
+        const dateB = b.date_inscription_annee ? new Date(b.date_inscription_annee).getTime() : 0;
         return dateA - dateB;
       },
     },
@@ -694,7 +698,7 @@ useEffect(() => {
             'Groupe': item.groupe_nom || '',
             'Type Parcours': item.type_parcours || '',
             'Statut Scolaire': item.statut_scolaire || '',
-            'Date Inscription': formatDate(item.date_inscription),
+            'Date Inscription': formatDate(item.date_inscription_annee),
             'Scolarité Total': `${(item.montant_total_scolarite || 0).toLocaleString('fr-FR')} FCFA`,
             'Scolarité Versée': `${(item.montant_paye || 0).toLocaleString('fr-FR')} FCFA`,
             'Reste à Payer': `${(item.montant_restant || 0).toLocaleString('fr-FR')} FCFA`,
