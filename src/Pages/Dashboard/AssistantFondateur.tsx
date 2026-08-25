@@ -694,7 +694,7 @@ const AssistantFondateur = () => {
               <ArrowUp size={17} />
             </button>
             {/* Conversation de vive voix — session séparée du fil écrit : elle
-                consomme du budget audio et doit rester un geste délibéré. */}
+                ouvre une session temps réel : cela doit rester un geste délibéré. */}
             <button
               type="button"
               className="afx-vocal-btn"

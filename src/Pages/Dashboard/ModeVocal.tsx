@@ -43,18 +43,6 @@ const ETATS: Record<StatutVocal, { libelle: string; teinte: string; icone: any }
   erreur:    { libelle: 'Liaison interrompue', teinte: '#ff8a75', icone: AlertTriangle },
 };
 
-// Jauge de consommation. Le fondateur n'a pas à lire un montant en pleine
-// conversation : ce qui lui est utile, c'est de savoir s'il est tranquille, s'il
-// approche de la limite, ou s'il y est. Le montant exact reste sur l'écran écrit.
-const niveauBudget = (pourcentage: number): 'vert' | 'orange' | 'rouge' =>
-  (pourcentage >= 85 ? 'rouge' : pourcentage >= 60 ? 'orange' : 'vert');
-
-const LIBELLE_NIVEAU = {
-  vert: 'Consommation du mois : niveau normal',
-  orange: 'Consommation du mois : niveau élevé',
-  rouge: 'Consommation du mois : limite presque atteinte',
-} as const;
-
 const formatteurs = {
   montant: (v: number) =>
     Math.abs(v) >= 1e9 ? `${(v / 1e9).toFixed(2)} Md`
@@ -441,34 +429,15 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
       <span className="mv-equerre bs-g" aria-hidden="true" />
       <span className="mv-equerre bs-d" aria-hidden="true" />
 
-      {/* Barre haute : identité, budget, sortie */}
+      {/* Barre haute : identité, micro, sortie */}
       <div className="mv-entete">
         <div className="mv-titre">
           <span className="mv-pastille" style={{ background: etat.teinte, color: etat.teinte }} />
           Assistant vocal <span style={{ opacity: 0.4 }}>//</span> IIPEA
         </div>
 
-        {v.budget && (
-          <motion.div
-            className={`mv-budget niveau-${niveauBudget(v.budget.pourcentage)}`}
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            title={LIBELLE_NIVEAU[niveauBudget(v.budget.pourcentage)]}
-            aria-label={LIBELLE_NIVEAU[niveauBudget(v.budget.pourcentage)]}
-          >
-            <div className="mv-budget-barre">
-              <motion.div
-                className="mv-budget-remplissage"
-                initial={{ width: 0 }}
-                animate={{ width: `${Math.max(Math.min(v.budget.pourcentage, 100), 2)}%` }}
-                transition={{ type: 'spring', stiffness: 120, damping: 24 }}
-              />
-            </div>
-          </motion.div>
-        )}
-
         {/* Coupure du micro sans fermer la session : le fondateur peut prendre un
-            appel ou parler à quelqu'un sans que tout soit transmis — ni facturé. */}
+            appel ou parler à quelqu'un sans que tout soit transmis. */}
         <button
           className={`mv-micro${v.micCoupe ? ' est-coupe' : ''}`}
           onClick={v.basculerMicro}
