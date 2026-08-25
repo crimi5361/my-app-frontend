@@ -15,7 +15,8 @@ import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area,
   PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
-import { useAssistantVocal, StatutVocal } from '../../lib/useAssistantVocal';
+import { StatutVocal } from '../../lib/useAssistantVocal';
+import { useVocal, SessionVocale } from '../../lib/ContexteVocal';
 import Modale from './Modale';
 import BlobVocal, { NomForme } from './BlobVocal';
 import FichePersonne from './FichePersonne';
@@ -203,7 +204,7 @@ const FichierVocal = ({ fichier }: { fichier: FichierAssistant }) => {
 // ───────────────────────────────────────────────────────────────────────────
 //  Graphique poussé en direct par le modèle
 // ───────────────────────────────────────────────────────────────────────────
-type Visuel = NonNullable<ReturnType<typeof useAssistantVocal>['visuel']>;
+type Visuel = NonNullable<SessionVocale['visuel']>;
 
 /**
  * Un graphique, en modale ou en ligne.
@@ -389,7 +390,7 @@ const GraphiqueVocal = ({ visuel, onFermer }: { visuel: Visuel; onFermer?: () =>
  * éprouvé, il gère déjà les conversions numériques de PostgreSQL : en écrire un
  * second n'aurait servi qu'à dupliquer ses défauts.
  */
-const DebriefingVocal = ({ debriefing }: { debriefing: NonNullable<ReturnType<typeof useAssistantVocal>['debriefing']> }) => (
+const DebriefingVocal = ({ debriefing }: { debriefing: NonNullable<SessionVocale['debriefing']> }) => (
   <motion.div
     className="mv-debriefing"
     initial={{ opacity: 0, y: 22 }}
@@ -425,7 +426,10 @@ const DebriefingVocal = ({ debriefing }: { debriefing: NonNullable<ReturnType<ty
 //  Écran principal
 // ───────────────────────────────────────────────────────────────────────────
 const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
-  const v = useAssistantVocal();
+  // CONSOMME la session, ne la cree pas. Le serveur n'en autorise qu'une par
+  // utilisateur et ferme silencieusement l'ancienne : une seconde instance ici
+  // tuerait celle du bouton flottant, sans le moindre message d'erreur.
+  const v = useVocal();
   const filRef = useRef<HTMLDivElement>(null);
   const naviguer = useNavigate();
 

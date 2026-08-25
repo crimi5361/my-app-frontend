@@ -2,6 +2,7 @@ import { ReactNode } from "react";
 import Header from "../Header/Header";
 import Sidemenu from "../Sidemenu/Sidemenu";
 import PageContent from "../PageContent/PageContent";
+import { FournisseurVocal } from "../../lib/ContexteVocal";
 
 interface LayoutProps {
   children: ReactNode;
@@ -42,7 +43,13 @@ const Layout = ({
         <Sidemenu isSidemenuOpen={isSidemenuOpen} />
       </>
     )}
-    <PageContent isSidemenuOpen={isSidemenuOpen}>{children}</PageContent>
+    {/* La session vocale vit ICI, et non dans la page assistant : Layout reste
+        monte d'une route a l'autre du tableau de bord, la conversation survit
+        donc aux navigations. Elle ne s'instancie que pour les roles qui y ont
+        droit — voir ContexteVocal. */}
+    <FournisseurVocal role={userRole}>
+      <PageContent isSidemenuOpen={isSidemenuOpen}>{children}</PageContent>
+    </FournisseurVocal>
   </div>
 );
 
