@@ -375,15 +375,44 @@ export function useAssistantVocal() {
     lecteurRef.current = lecteur;
     finEmissionRef.current = false;
 
+    // Le contexte audio est ouvert MAINTENANT, dans la foulée du clic qui a
+    // ouvert l'écran vocal. Attendre le premier paquet — dix à quarante
+    // secondes plus tard, le temps que le modèle interroge la base — revenait à
+    // demander le son à un navigateur qui ne voit plus de geste récent : il
+    // refusait, en silence, et l'assistante paraissait muette.
+    // Volontairement non attendu : la connexion ne doit pas patienter pour ça.
+    lecteur.preparer();
+
     // Suivi de l'avancement de la parole, a chaque image. Aucun rendu React n'en
     // decoule : l'ecran lit la reference et n'anime que des proprietes CSS.
+    // Garde-fou : au-delà de ce délai après la fin d'émission du modèle, le tour
+    // est clos même si l'audio n'a pas fini de s'écouler. Sans lui, une lecture
+    // qui cale — contexte suspendu, périphérique de sortie changé en cours de
+    // route — laisse le texte figé à mi-phrase, sans rien pour le débloquer.
+    const DELAI_CLOTURE_FORCEE_MS = 12000;
+    let finEmissionA = 0;
+
     const suivre = () => {
       if (wsRef.current !== ws) return;              // session remplacee
       const a = lecteur.avancement();
       avancementRef.current = a;
-      // La derniere syllabe est passee et le modele a fini : on figes le tour.
-      if (a >= 1 && finEmissionRef.current) {
+
+      if (finEmissionRef.current && finEmissionA === 0) finEmissionA = performance.now();
+      const tropLong = finEmissionA > 0
+        && performance.now() - finEmissionA > DELAI_CLOTURE_FORCEE_MS;
+
+      // La derniere syllabe est passee et le modele a fini : on fige le tour.
+      // Ou bien l'audio ne se termine pas : on le fige quand meme.
+      if (finEmissionRef.current && (a >= 1 || tropLong)) {
+        if (tropLong) {
+          // Journalise : un tour clos de force signale un incident de lecture,
+          // pas un fonctionnement normal.
+          // eslint-disable-next-line no-console
+          console.warn('[vocal] lecture audio bloquée — tour clos sans attendre la fin du son.');
+          avancementRef.current = 1;
+        }
         finEmissionRef.current = false;
+        finEmissionA = 0;
         cloreTourAssistant();
       }
       requestAnimationFrame(suivre);
@@ -448,8 +477,16 @@ export function useAssistantVocal() {
           if (micCoupeRef.current) break;
           // Le fondateur reprend la parole : le tour de l'assistante est clos.
           cloreTourAssistant();
-          if (m.partiel === false) finaliserTour('fondateur', m.texte);
-          else ajouterFragment('fondateur', m.texte);
+          if (m.partiel === false) {
+            finaliserTour('fondateur', m.texte);
+            // Sa phrase est close : la machine travaille, l'écran doit le dire.
+            // Sans cette ligne, l'état ne bascule qu'à la première requête SQL —
+            // et sur une question à laquelle l'assistante répond SANS interroger
+            // la base (un refus, une explication), il ne bascule jamais. L'écran
+            // affichait alors « À votre écoute » pendant les dix secondes de
+            // réflexion, comme s'il n'avait rien entendu.
+            majStatut('reflexion');
+          } else ajouterFragment('fondateur', m.texte);
           break;
 
         case 'transcription_assistant':
@@ -469,6 +506,11 @@ export function useAssistantVocal() {
           break;
 
         case 'graphique':
+          // UNE SEULE MODALE À LA FOIS, et c'est la dernière demandée qui gagne :
+          // le fondateur vient de demander ce graphique, il passe devant la fiche
+          // qu'il consultait. Les empiler l'obligerait à fermer deux fois pour
+          // revenir à la conversation.
+          setFicheActive(null);
           setVisuel({ visualisation: m.visualisation, donnees: m.donnees });
           // Le modèle enchaîne souvent son commentaire dans la foulée : sans ce
           // maintien, la forme « construction » disparaîtrait avant d'être vue.
@@ -509,6 +551,7 @@ export function useAssistantVocal() {
           break;
 
         case 'fiche':
+          setVisuel(null);          // voir 'graphique' : une seule modale à la fois
           setFicheActive(m.fiche);
           break;
 
@@ -583,6 +626,10 @@ export function useAssistantVocal() {
    *  redemande d'un mot si besoin, et le rapport Word en garde la trace. */
   const fermerFiche = useCallback(() => setFicheActive(null), []);
 
+  /** Referme le graphique. Il se redemande d'un mot, et les donnees restent
+   *  dans le fil : rien n'est perdu. */
+  const fermerVisuel = useCallback(() => setVisuel(null), []);
+
   const reinitialiser = useCallback(() => {
     setTours([]);
     setRequetes([]);
@@ -602,6 +649,6 @@ export function useAssistantVocal() {
   return {
     statut, erreur, tours, requetes, visuel, budget, fichiers, forme, debriefing, ficheActive, navigation,
     niveauEntree, niveauSortie, micCoupe, avancementRef,
-    demarrer, arreter, envoyerTexte, reinitialiser, basculerMicro, fermerFiche,
+    demarrer, arreter, envoyerTexte, reinitialiser, basculerMicro, fermerFiche, fermerVisuel,
   };
 }

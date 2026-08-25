@@ -20,7 +20,7 @@
 // jour. Le texte est écrit directement dans le DOM depuis une seule boucle
 // d'animation : aucun rendu React pendant toute la construction.
 import { memo, useEffect, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
+import Modale from './Modale';
 import { X, User, ShieldCheck, GraduationCap } from 'lucide-react';
 import { creerSonar } from '../../lib/sonFiche';
 import FicheAnalyse, { AnalyseFiche } from './FicheAnalyse';
@@ -206,30 +206,18 @@ const FichePersonne = ({ fiche, onFermer }: { fiche: Fiche; onFermer: () => void
     };
   }, [fiche.id, fiche.categorie]);
 
-  // ── Fermeture ────────────────────────────────────────────────────────────
-  useEffect(() => {
-    const surTouche = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.stopPropagation(); fermeture.current(); }
-    };
-    // En phase de capture : l'écran vocal écoute aussi Échap pour se fermer, et
-    // c'est la fiche qui doit partir en premier.
-    window.addEventListener('keydown', surTouche, true);
-    panneau.current?.focus();
-    return () => window.removeEventListener('keydown', surTouche, true);
-  }, []);
+  // Fermeture (Échap, clic extérieur, portail) : voir Modale.tsx.
 
   let rang = 0;
 
   const contenu = (
-    <div className="fp-voile" onMouseDown={(e) => { if (e.target === e.currentTarget) onFermer(); }}>
-      <div
-        className={`fp-panneau${etudiant ? '' : ' est-agent'}`}
-        role="dialog"
-        aria-modal="true"
-        aria-label={`Fiche de ${fiche.nom_complet}`}
-        tabIndex={-1}
-        ref={panneau}
-      >
+    <Modale
+      libelle={`Fiche de ${fiche.nom_complet}`}
+      onFermer={onFermer}
+      classe={`fp-panneau${etudiant ? '' : ' est-agent'}`}
+      nu
+    >
+      <div ref={panneau}>
         <span className="fp-eq ht-g" /><span className="fp-eq ht-d" />
         <span className="fp-eq bs-g" /><span className="fp-eq bs-d" />
         <span className="fp-grille" aria-hidden="true" />
@@ -322,12 +310,12 @@ const FichePersonne = ({ fiche, onFermer }: { fiche: Fiche; onFermer: () => void
           <span className="fp-compte">{total} champs — source : base IIPEA</span>
         </footer>
       </div>
-    </div>
+    </Modale>
   );
 
-  // Portail : la fiche se place au-dessus de tout, sans dépendre du contexte
-  // d'empilement du fil de conversation où elle a été demandée.
-  return createPortal(contenu, document.body);
+  // Le portail, le voile flouté et la fermeture sont désormais dans Modale : la
+  // fiche ne décrit plus que son contenu. Rien de ce qu'elle affiche n'a changé.
+  return contenu;
 };
 
 /**

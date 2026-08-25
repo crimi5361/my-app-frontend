@@ -1084,3 +1084,75 @@
 }
 
 .afx-fiche-rappel:focus-visible { outline: 2px solid #a97723; outline-offset: 2px; }
+
+/* ── Copier un message ───────────────────────────────────────────────────── */
+
+.afx-copier {
+  align-self: flex-start;
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink-soft, #5b6478);
+  background: transparent;
+  border: 1px solid var(--mist, #e4e7f1);
+  border-radius: 7px;
+  cursor: pointer;
+  /* Discret au repos : le bouton ne doit pas concurrencer le texte du message.
+     Il apparaît au survol du message, et reste visible au focus clavier. */
+  opacity: 0;
+  transition: opacity 140ms, color 140ms, border-color 140ms, background 140ms;
+}
+
+.afx-msg:hover .afx-copier,
+.afx-copier:focus-visible { opacity: 1; }
+
+.afx-copier:hover { color: var(--ink, #101a33); border-color: #c9cfe0; background: rgba(0, 0, 0, 0.02); }
+.afx-copier:focus-visible { outline: 2px solid var(--ink, #101a33); outline-offset: 2px; }
+
+.afx-copier.est-copie { opacity: 1; color: #1e8e5a; border-color: rgba(30, 142, 90, 0.45); }
+
+/* Sur un support tactile il n'y a pas de survol : le bouton reste visible. */
+@media (hover: none) {
+  .afx-copier { opacity: 0.75; }
+}
+
+/* ── Agrandir un graphique ───────────────────────────────────────────────── */
+
+.afx-visual-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.afx-agrandir {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-soft, #5b6478);
+  background: transparent;
+  border: 1px solid var(--mist, #e4e7f1);
+  border-radius: 7px;
+  cursor: pointer;
+  transition: color 140ms, border-color 140ms, background 140ms;
+}
+
+.afx-agrandir:hover { color: var(--ink, #101a33); border-color: #c9cfe0; background: rgba(0, 0, 0, 0.03); }
+.afx-agrandir:focus-visible { outline: 2px solid var(--ink, #101a33); outline-offset: 2px; }
+
+/* Dans la modale, le graphe est sur fond sombre : il ne porte plus son cadre. */
+.afx-visual.est-agrandi {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.afx-visual.est-agrandi .afx-visual-head { display: none; }

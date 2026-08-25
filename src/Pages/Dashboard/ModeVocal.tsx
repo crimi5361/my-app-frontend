@@ -16,6 +16,7 @@ import {
   PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
 import { useAssistantVocal, StatutVocal } from '../../lib/useAssistantVocal';
+import Modale from './Modale';
 import BlobVocal, { NomForme } from './BlobVocal';
 import FichePersonne from './FichePersonne';
 import { telechargerFichier, FichierAssistant } from '../../lib/assistantFichiers';
@@ -204,7 +205,17 @@ const FichierVocal = ({ fichier }: { fichier: FichierAssistant }) => {
 // ───────────────────────────────────────────────────────────────────────────
 type Visuel = NonNullable<ReturnType<typeof useAssistantVocal>['visuel']>;
 
-const GraphiqueVocal = ({ visuel }: { visuel: Visuel }) => {
+/**
+ * Un graphique, en modale ou en ligne.
+ *
+ * EN MODALE quand le fondateur en demande un : c'est l'objet de sa question, il
+ * mérite tout l'écran. Dans le fil, il était contraint à 720 px de large sous la
+ * conversation, et un classement de trente-trois agents y devenait illisible.
+ *
+ * EN LIGNE pour le débriefing, qui en pousse plusieurs d'affilée : les empiler
+ * en modales obligerait à les fermer un par un. `onFermer` absent = en ligne.
+ */
+const GraphiqueVocal = ({ visuel, onFermer }: { visuel: Visuel; onFermer?: () => void }) => {
   const { visualisation: v, donnees } = visuel;
 
   // PostgreSQL renvoie numeric/bigint en chaîne : sans conversion, Recharts
@@ -214,6 +225,31 @@ const GraphiqueVocal = ({ visuel }: { visuel: Visuel }) => {
     v.series.forEach((s) => { p[s.colonne] = Number(l[s.colonne] ?? 0); });
     return p;
   }), [donnees, v]);
+
+  /**
+   * BARRES HORIZONTALES dès que les libellés ne tiennent pas.
+   *
+   * En vertical, Recharts incline les étiquettes à -20° et les tronque : sur un
+   * classement d'agents — « MOULHYIDINE OUSMANE SALAH », « Syanou Kablan Amed » —
+   * elles se chevauchaient et devenaient illisibles. Constaté en démonstration.
+   *
+   * À l'horizontale, chaque libellé occupe sa propre ligne et se lit sans
+   * rotation. Le seuil combine le NOMBRE de catégories et la LONGUEUR des
+   * libellés : six catégories courtes tiennent très bien en vertical, quatre
+   * noms complets non.
+   */
+  const libelleLePlusLong = useMemo(
+    () => data.reduce((m, l) => Math.max(m, String(l.__x).length), 0),
+    [data],
+  );
+  const horizontal = v.type === 'barres'
+    && (data.length > 6 || libelleLePlusLong > 14);
+
+  // Une ligne par catégorie, plus la place des axes et du titre. Borné pour que
+  // le panneau reste dans l'écran : au-delà, c'est le panneau qui défile.
+  const hauteur = horizontal
+    ? Math.min(Math.max(data.length * 30 + 80, 300), 1400)
+    : 420;
 
   const formater = formatteurs[v.format_valeur] ?? formatteurs.nombre;
   const tooltip = {
@@ -273,6 +309,27 @@ const GraphiqueVocal = ({ visuel }: { visuel: Visuel }) => {
           </AreaChart>
         );
       default:
+        if (horizontal) {
+          return (
+            <BarChart data={data} layout="vertical" margin={{ left: 8, right: 28, top: 4, bottom: 4 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={GRILLE_SOMBRE} horizontal={false} />
+              <XAxis type="number" tick={{ fontSize: 11, fill: AXE_SOMBRE }}
+                tickFormatter={formater} axisLine={false} tickLine={false} />
+              {/* `width` généreux : c'est lui qui donne sa place au libellé.
+                  Calculé sur le plus long, borné pour ne pas manger le graphe. */}
+              <YAxis type="category" dataKey="__x" tick={{ fontSize: 11.5, fill: AXE_SOMBRE }}
+                width={Math.min(Math.max(libelleLePlusLong * 7.2, 90), 260)}
+                interval={0} axisLine={false} tickLine={false} />
+              <Tooltip {...tooltip} cursor={{ fill: 'rgba(255,255,255,.05)' }} />{legende}
+              {v.series.map((s2, i) => (
+                <Bar key={s2.colonne} dataKey={s2.colonne} name={s2.libelle}
+                  stackId={v.type === 'barres_empilees' ? 'pile' : undefined}
+                  fill={PALETTE[i % PALETTE.length]} radius={[0, 5, 5, 0]}
+                  animationDuration={900} />
+              ))}
+            </BarChart>
+          );
+        }
         return (
           <BarChart data={data}>
             {grille}{axeX}{axeY}<Tooltip {...tooltip} cursor={{ fill: 'rgba(255,255,255,.05)' }} />{legende}
@@ -288,16 +345,32 @@ const GraphiqueVocal = ({ visuel }: { visuel: Visuel }) => {
     }
   };
 
+  if (!onFermer) {
+    return (
+      <motion.div
+        className="mv-graphique"
+        initial={{ opacity: 0, y: 26, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        transition={{ type: 'spring', stiffness: 220, damping: 26 }}
+      >
+        <div className="mv-graphique-titre">{v.titre}</div>
+        <ResponsiveContainer width="100%" height={Math.min(hauteur, 300)}>{rendu()}</ResponsiveContainer>
+      </motion.div>
+    );
+  }
+
   return (
-    <motion.div
-      className="mv-graphique"
-      initial={{ opacity: 0, y: 26, scale: 0.96 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ type: 'spring', stiffness: 220, damping: 26 }}
-    >
-      <div className="mv-graphique-titre">{v.titre}</div>
-      <ResponsiveContainer width="100%" height={260}>{rendu()}</ResponsiveContainer>
-    </motion.div>
+    <Modale libelle={v.titre} onFermer={onFermer} classe="md-graphique">
+      <div className="md-graphique-entete">
+        <span className="md-graphique-titre">{v.titre}</span>
+        <button type="button" className="md-fermer" onClick={onFermer} aria-label="Fermer le graphique">
+          &times;
+        </button>
+      </div>
+      <div className="md-graphique-corps">
+        <ResponsiveContainer width="100%" height={hauteur}>{rendu()}</ResponsiveContainer>
+      </div>
+    </Modale>
   );
 };
 
@@ -533,7 +606,9 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
         </AnimatePresence>
 
         <AnimatePresence>
-          {v.visuel && <GraphiqueVocal key={v.visuel.visualisation.titre} visuel={v.visuel} />}
+          {v.visuel && (
+            <GraphiqueVocal key={v.visuel.visualisation.titre} visuel={v.visuel} onFermer={v.fermerVisuel} />
+          )}
         </AnimatePresence>
 
         <AnimatePresence>

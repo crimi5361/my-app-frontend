@@ -232,6 +232,37 @@ export class LecteurAudio {
     return this.contexte;
   }
 
+  /**
+   * Ouvre le contexte audio TOUT DE SUITE, pendant que le geste de l'utilisateur
+   * est encore frais.
+   *
+   * POURQUOI CE N'EST PAS UN DÉTAIL. Le contexte était créé paresseusement, au
+   * premier paquet reçu — c'est-à-dire dix à quarante secondes après le clic
+   * d'ouverture, le temps que le modèle interroge la base et compose sa réponse.
+   * Les navigateurs refusent de démarrer un contexte audio qui n'est pas rattaché
+   * à un geste RÉCENT : `resume()` échouait alors en silence.
+   *
+   * Les conséquences se cumulaient, et c'est ce qui rendait le symptôme
+   * déroutant : aucun son, ET aucun texte. Aucun texte, parce que l'écran
+   * n'affiche que la part déjà prononcée, mesurée sur l'horloge du contexte —
+   * une horloge figée à zéro tant qu'il est suspendu. L'assistante paraissait
+   * muette alors que le serveur avait bien envoyé ses soixante paquets audio.
+   *
+   * Le défaut se voyait d'autant plus sur les questions LENTES : plus la réponse
+   * tardait, plus le geste était loin, plus le contexte restait bloqué.
+   */
+  async preparer(): Promise<void> {
+    const ctx = this.assurerContexte();
+    if (ctx.state === 'suspended') {
+      try { await ctx.resume(); } catch { /* le premier paquet retentera */ }
+    }
+  }
+
+  /** Le son peut-il réellement sortir ? Sert de garde-fou à l'affichage. */
+  estPret(): boolean {
+    return !!this.contexte && this.contexte.state === 'running';
+  }
+
   private boucleNiveau(): void {
     const donnees = new Uint8Array(this.analyseur!.frequencyBinCount);
     const lire = () => {
@@ -287,6 +318,10 @@ export class LecteurAudio {
    */
   avancement(): number {
     if (!this.contexte || this.prochainDebut === 0) return 1;
+    // Contexte suspendu : son horloge ne tourne pas, et l'avancement resterait
+    // bloqué à zéro — donc le texte ne s'afficherait jamais. On rend 1 : mieux
+    // vaut tout afficher d'un coup, sans le son, que de laisser un écran vide.
+    if (this.contexte.state !== 'running') return 1;
     const duree = this.prochainDebut - this.debutPlage;
     if (duree <= 0) return 1;
     const ecoule = this.contexte.currentTime - this.debutPlage;

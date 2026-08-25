@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Mic, ArrowUp, Trash2, Plus, Menu, X, MoreHorizontal, AudioLines,
   FileSpreadsheet, FileText, Download, Loader2, CalendarCheck, Link2Off, IdCard,
+  Maximize2, Copy, Check,
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, LineChart, Line, AreaChart, Area,
@@ -12,6 +13,7 @@ import { apiFetch, ApiError } from '../../lib/api';
 import { telechargerFichier, FichierAssistant } from '../../lib/assistantFichiers';
 import { corrigerTranscription, CONFIG_VIDE, ConfigTranscription } from '../../lib/transcription';
 import FichePersonne, { Fiche } from './FichePersonne';
+import Modale from './Modale';
 import './AssistantFondateur.css';
 
 // Chargé à la demande : l'écran vocal embarque three.js et ses shaders, inutiles
@@ -251,7 +253,67 @@ const FichiersProduits = ({ fichiers }: { fichiers: FichierAssistant[] }) => {
   );
 };
 
-const AssistantVisual = ({ display }: { display: AssistantDisplay }) => {
+/**
+ * Copie du texte d'un message.
+ *
+ * `navigator.clipboard` n'existe que sur une origine sûre (https ou localhost).
+ * En développement sur une IP du réseau — ce que fait `server.host: '0.0.0.0'` —
+ * il est absent : d'où le repli par `document.execCommand`, obsolète mais
+ * universel. Un bouton qui ne fait rien serait pire qu'un bouton absent.
+ */
+const BoutonCopier = ({ texte }: { texte: string }) => {
+  const [copie, setCopie] = useState(false);
+  const minuteur = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => { if (minuteur.current) clearTimeout(minuteur.current); }, []);
+
+  const copier = async () => {
+    let ok = false;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(texte);
+        ok = true;
+      } else {
+        const zone = document.createElement('textarea');
+        zone.value = texte;
+        zone.setAttribute('readonly', '');
+        zone.style.position = 'fixed';
+        zone.style.opacity = '0';
+        document.body.appendChild(zone);
+        zone.select();
+        ok = document.execCommand('copy');
+        document.body.removeChild(zone);
+      }
+    } catch { ok = false; }
+
+    if (!ok) return;
+    setCopie(true);
+    if (minuteur.current) clearTimeout(minuteur.current);
+    minuteur.current = setTimeout(() => setCopie(false), 1600);
+  };
+
+  return (
+    <button
+      type="button"
+      className={`afx-copier${copie ? ' est-copie' : ''}`}
+      onClick={copier}
+      title={copie ? 'Copié' : 'Copier le texte'}
+      aria-label={copie ? 'Texte copié' : 'Copier le texte'}
+    >
+      {copie ? <Check size={13} /> : <Copy size={13} />}
+      <span>{copie ? 'Copié' : 'Copier'}</span>
+    </button>
+  );
+};
+
+const AssistantVisual = ({
+  display, agrandi = false, onAgrandir,
+}: {
+  display: AssistantDisplay;
+  /** Vrai dans la modale : le graphe prend la place et se lit vraiment. */
+  agrandi?: boolean;
+  onAgrandir?: () => void;
+}) => {
   const c = CHART;
   const { visualisation: v, donnees } = display;
 
@@ -262,6 +324,17 @@ const AssistantVisual = ({ display }: { display: AssistantDisplay }) => {
     v.series.forEach((s) => { point[s.colonne] = Number(ligne[s.colonne] ?? 0); });
     return point;
   });
+
+  /**
+   * BARRES HORIZONTALES dès que les libellés ne tiennent pas — même règle que
+   * l'écran vocal. En vertical, un classement d'agents (« MOULHYIDINE OUSMANE
+   * SALAH ») donne des étiquettes inclinées qui se chevauchent et se tronquent.
+   */
+  const libelleLePlusLong = data.reduce((m, l) => Math.max(m, String(l.__x).length), 0);
+  const horizontal = v.type === 'barres' && (data.length > 6 || libelleLePlusLong > 14);
+  const hauteur = agrandi
+    ? (horizontal ? Math.min(Math.max(data.length * 30 + 80, 300), 1400) : 440)
+    : 280;
 
   const formater = formatteurs[v.format_valeur] ?? formatteurs.nombre;
   const tooltipStyle = {
@@ -341,9 +414,17 @@ const AssistantVisual = ({ display }: { display: AssistantDisplay }) => {
   };
 
   return (
-    <div className="afx-visual">
-      <div className="afx-visual-title">{v.titre}</div>
-      <ResponsiveContainer width="100%" height={280}>{rendu()}</ResponsiveContainer>
+    <div className={`afx-visual${agrandi ? ' est-agrandi' : ''}`}>
+      <div className="afx-visual-head">
+        <span className="afx-visual-title">{v.titre}</span>
+        {onAgrandir && (
+          <button type="button" className="afx-agrandir" onClick={onAgrandir}
+            title="Agrandir le graphique" aria-label="Agrandir le graphique">
+            <Maximize2 size={14} />
+          </button>
+        )}
+      </div>
+      <ResponsiveContainer width="100%" height={hauteur}>{rendu()}</ResponsiveContainer>
     </div>
   );
 };
@@ -379,6 +460,9 @@ const AssistantFondateur = () => {
   // Fiche affichee en fenetre. Elle s'ouvre a l'arrivee, et la pastille du fil
   // permet de la rouvrir ensuite sans reposer la question.
   const [ficheOuverte, setFicheOuverte] = useState<Fiche | null>(null);
+  // Graphique agrandi. Il reste AUSSI dans le fil : la modale est une loupe,
+  // pas un deplacement — la conversation garde sa trace.
+  const [visuelAgrandi, setVisuelAgrandi] = useState<AssistantDisplay | null>(null);
   const [dicteeProvisoire, setDicteeProvisoire] = useState('');
   const [erreurDictee, setErreurDictee] = useState<string | null>(null);
 
@@ -618,7 +702,7 @@ const AssistantFondateur = () => {
         ? { visualisation: res.visualisation, donnees: res.donnees }
         : undefined;
       appendAssistantMessage(res.message, display, res.history, res.requetes, res.fichiers, res.fiches);
-      if (res.fiches && res.fiches.length > 0) setFicheOuverte(res.fiches[0]);
+      if (res.fiches && res.fiches.length > 0) { setVisuelAgrandi(null); setFicheOuverte(res.fiches[0]); }
     } catch (e) {
       const errText = e instanceof ApiError ? e.message : "Une erreur est survenue en contactant l'assistant. Réessayez.";
       appendAssistantMessage(errText, undefined, historyForRequest);
@@ -912,13 +996,16 @@ const AssistantFondateur = () => {
                     transition={{ duration: 0.25 }}
                   >
                     <div className="afx-msg-text">{m.text}</div>
-                    {m.display && <AssistantVisual display={m.display} />}
+                    {m.display && (
+                      <AssistantVisual display={m.display} onAgrandir={() => { setFicheOuverte(null); setVisuelAgrandi(m.display!); }} />
+                    )}
+                    <BoutonCopier texte={m.text} />
                     {m.fiches && m.fiches.map((f) => (
                       <button
                         type="button"
                         key={`${f.categorie}-${f.id}`}
                         className="afx-fiche-rappel"
-                        onClick={() => setFicheOuverte(f)}
+                        onClick={() => { setVisuelAgrandi(null); setFicheOuverte(f); }}
                       >
                         <IdCard size={16} />
                         <span>Fiche de {f.nom_complet}</span>
@@ -947,6 +1034,26 @@ const AssistantFondateur = () => {
           fiche={ficheOuverte}
           onFermer={() => setFicheOuverte(null)}
         />
+      )}
+
+      {/* Le graphique agrandi. Il reste aussi dans le fil : cette modale est une
+          loupe, pas un déplacement. Une seule à la fois — ouvrir un graphique
+          referme la fiche, et inversement. */}
+      {visuelAgrandi && (
+        <Modale
+          libelle={visuelAgrandi.visualisation.titre}
+          onFermer={() => setVisuelAgrandi(null)}
+          classe="md-graphique"
+        >
+          <div className="md-graphique-entete">
+            <span className="md-graphique-titre">{visuelAgrandi.visualisation.titre}</span>
+            <button type="button" className="md-fermer" onClick={() => setVisuelAgrandi(null)}
+              aria-label="Fermer le graphique">&times;</button>
+          </div>
+          <div className="md-graphique-corps">
+            <AssistantVisual display={visuelAgrandi} agrandi />
+          </div>
+        </Modale>
       )}
 
       <AnimatePresence>

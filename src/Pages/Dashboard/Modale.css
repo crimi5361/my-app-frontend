@@ -1,0 +1,103 @@
+/* Coquille modale partagée — voir Modale.tsx pour le pourquoi de chaque règle. */
+
+.md-voile {
+  position: fixed;
+  inset: 0;
+  /* Au-dessus de l'écran vocal, qui est lui-même en 1200. Le portail monte la
+     modale sur document.body : elle est donc SŒUR de l'écran vocal, pas fille.
+     En dessous de 1200 elle passerait derrière son fond opaque. */
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  padding: 24px 18px;
+  background: rgba(6, 10, 22, 0.62);
+  backdrop-filter: blur(7px) saturate(0.9);
+  -webkit-backdrop-filter: blur(7px) saturate(0.9);
+  animation: md-apparition 180ms ease-out;
+}
+
+.md-panneau {
+  position: relative;
+  width: min(940px, 100%);
+  /* Hauteur bornée : un graphique de trente lignes doit défiler dans le panneau,
+     pas pousser le voile hors de l'écran. */
+  max-height: min(88vh, 760px);
+  overflow: auto;
+  outline: none;
+  border-radius: 6px;
+  color: #dce9f7;
+  background:
+    linear-gradient(180deg, rgba(79, 216, 255, 0.05), transparent 32%),
+    #070d18;
+  border: 1px solid rgba(79, 216, 255, 0.26);
+  box-shadow:
+    0 40px 90px -40px rgba(0, 0, 0, 0.9),
+    0 0 0 1px rgba(79, 216, 255, 0.06);
+  animation: md-montee 200ms cubic-bezier(0.16, 0.9, 0.3, 1);
+}
+
+@keyframes md-apparition {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes md-montee {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Le mouvement n'apporte rien à qui l'a désactivé, et peut gêner. */
+@media (prefers-reduced-motion: reduce) {
+  .md-voile,
+  .md-panneau { animation: none; }
+}
+
+/* ── Graphique en modale ─────────────────────────────────────────────────── */
+
+.md-panneau.md-graphique {
+  width: min(1080px, 100%);
+  padding: 0;
+}
+
+.md-graphique-entete {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 18px 14px;
+  background: linear-gradient(180deg, #0a1120 72%, rgba(10, 17, 32, 0));
+  border-bottom: 1px solid rgba(79, 216, 255, 0.14);
+}
+
+.md-graphique-titre {
+  font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #9fd7ef;
+}
+
+.md-fermer {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  line-height: 1;
+  color: #9fd7ef;
+  background: transparent;
+  border: 1px solid rgba(79, 216, 255, 0.24);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 140ms, border-color 140ms;
+}
+
+.md-fermer:hover { background: rgba(79, 216, 255, 0.12); border-color: rgba(79, 216, 255, 0.5); }
+.md-fermer:focus-visible { outline: 2px solid #4fd8ff; outline-offset: 2px; }
+
+.md-graphique-corps { padding: 6px 16px 18px; }
