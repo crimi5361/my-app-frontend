@@ -13,53 +13,88 @@
  *
  * Deux échéances, la première atteinte l'emporte :
  *   • 900 ms après qu'elle a cessé de parler — le cas normal ;
- *   • 9 secondes dans tous les cas, garde-fou si le tour ne se referme jamais
- *     (session coupée, audio perdu). Mieux vaut partir un peu tôt que rester
- *     bloqué sur un écran qui a annoncé un départ.
+ *   • un garde-fou, si le tour ne se referme JAMAIS (session coupée, audio
+ *     perdu). Mieux vaut partir un peu tôt que rester bloqué sur un écran qui a
+ *     annoncé un départ.
  *
- * CE QUI CHANGE, et c'est le seul écart assumé : la session est arrêtée au
- * départ, comme avant, mais on ne referme plus d'écran vocal — il n'y en a pas
- * forcément. `ModeVocal`, s'il est ouvert, se referme de lui-même en voyant la
- * session revenir à l'état inactif.
+ * LE GARDE-FOU EST PASSÉ DE 9 À 25 SECONDES, et c'est une correction, pas un
+ * confort. Mesuré le 2026-08-25 : à « emmène-moi sur les effectifs et explique-
+ * moi ce que je vais y trouver », l'assistante parle 14,9 secondes. Le garde-fou
+ * se déclenchait donc EN PLEINE PHRASE et la coupait net — exactement ce que la
+ * temporisation cherchait à éviter.
+ *
+ * Neuf secondes suffisaient quand elle annonçait seulement le départ. Depuis
+ * qu'elle commente aussi l'écran, ses réponses ont doublé de longueur. Un
+ * garde-fou doit rattraper une panne, pas devenir le chemin normal : à 25 s il
+ * ne se déclenche plus que si le tour est réellement bloqué.
+ *
+ * ═══ LA SESSION N'EST PLUS ARRÊTÉE AU DÉPART ═══
+ *
+ * C'était le comportement d'origine, et il avait sa logique : la redirection
+ * fermait l'écran vocal, donc autant couper. Avec le bouton flottant, cette
+ * logique s'inverse — le fondateur demande à être conduit quelque part POUR
+ * continuer à travailler, en parlant. Couper la session à l'arrivée revenait à
+ * raccrocher au nez de quelqu'un à qui l'on vient d'ouvrir la porte.
+ *
+ * Il en découle une règle simple, qui vaut pour tout le module : SEUL LE SECOND
+ * APPUI SUR LA MASCOTTE ferme la session. Ni une navigation, ni la fermeture de
+ * l'écran vocal, ni un changement de page.
  */
 import { useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useVocalOptionnel } from '../../lib/ContexteVocal';
 
 const NavigationVocale = () => {
   const session = useVocalOptionnel();
   const naviguer = useNavigate();
+  const emplacement = useLocation();
 
-  // Une seule fois par destination : sans ce verrou, un nouveau rendu pendant
-  // le délai relancerait le minuteur, et le départ se déclencherait deux fois.
-  const departFait = useRef(false);
+  /**
+   * Verrou par DESTINATION, et non par booléen.
+   *
+   * Un simple drapeau se posait au premier départ et ne se relâchait qu'au
+   * retour de `navigation` à `null` — ce qui n'arrive jamais, rien ne le remet à
+   * zéro côté hook. La deuxième demande de navigation de la session n'aurait
+   * donc pas abouti : le fondateur aurait été conduit une fois, puis plus
+   * jamais, sans le moindre message.
+   *
+   * En mémorisant le chemin traité, chaque nouvelle destination repart propre,
+   * et un re-rendu pendant le délai ne déclenche pas un second départ vers la
+   * même page.
+   */
+  const dernierChemin = useRef<string | null>(null);
 
   const navigation = session?.navigation ?? null;
   const statut = session?.statut ?? 'inactif';
-  const arreter = session?.arreter;
+  const cible = navigation?.chemin ?? null;
 
   useEffect(() => {
-    if (!navigation || departFait.current) return undefined;
-    const cible = navigation.chemin;
+    if (!cible || dernierChemin.current === cible) return undefined;
 
     const partir = () => {
-      if (departFait.current) return;
-      departFait.current = true;
-      arreter?.();
+      if (dernierChemin.current === cible) return;
+      dernierChemin.current = cible;
+      // On NAVIGUE, on ne raccroche pas. La session survit : c'est tout l'objet
+      // du bouton flottant.
       naviguer(cible);
     };
 
-    const delai = statut === 'parle' ? 9000 : 900;
+    const delai = statut === 'parle' ? 25000 : 900;
     const minuteur = window.setTimeout(partir, delai);
     return () => clearTimeout(minuteur);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [navigation, statut]);
+  }, [cible, statut]);
 
-  // La destination consommée, le verrou se relâche : le fondateur peut demander
-  // un autre écran dans la même session de travail.
+  /**
+   * L'ecran courant est annonce au serveur a chaque changement de route ET a
+   * l'ouverture de la session — dans cet ordre d'importance. Sans le second cas,
+   * une session demarree depuis une page quelconque commencerait sans savoir ou
+   * se trouve le fondateur.
+   */
   useEffect(() => {
-    if (!navigation) departFait.current = false;
-  }, [navigation]);
+    if (statut === 'inactif' || statut === 'connexion') return;
+    session?.annoncerPage(emplacement.pathname);
+  }, [emplacement.pathname, statut, session]);
 
   return null;
 };

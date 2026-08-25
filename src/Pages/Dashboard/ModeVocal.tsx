@@ -450,7 +450,18 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
     filRef.current?.scrollTo({ top: filRef.current.scrollHeight, behavior: 'smooth' });
   }, [v.tours, v.visuel]);
 
-  const fermer = () => { v.arreter(); onFermer(); };
+  /**
+   * Fermer CET ÉCRAN, et rien d'autre.
+   *
+   * Il coupait la session. C'était cohérent tant que la conversation vivait
+   * ici : fermer la page, c'était raccrocher. Depuis que la session vit dans le
+   * fournisseur, elle a pu être ouverte par la mascotte et doit continuer après
+   * — le fondateur ferme une fenêtre, il ne met pas fin à l'échange.
+   *
+   * SEUL LE SECOND APPUI SUR LA MASCOTTE arrête la session. Règle unique pour
+   * tout le module, sans exception.
+   */
+  const fermer = () => { onFermer(); };
 
   /**
    * La redirection vocale vit desormais dans le fournisseur

@@ -150,6 +150,10 @@ const PERIODE_NIVEAU_MS = 50;
 // qu'elle soit lisible.
 const MAINTIEN_CONSTRUCTION_MS = 2600;
 
+/** Attentes entre deux tentatives de reprise, en millisecondes. Doublées à
+ *  chaque essai : une coupure qui dure ne se répare pas en insistant vite. */
+const DELAIS_REPRISE_MS = [1000, 2000, 4000];
+
 function limiterCadence(appliquer: (v: number) => void) {
   let dernier = 0;
   return (valeur: number) => {
@@ -203,6 +207,12 @@ export function useAssistantVocal() {
   // coupure réseau ramenait l'écran à « Prêt » sans un mot : le fondateur
   // continuait de parler à une session morte.
   const fermetureVoulueRef = useRef(false);
+  // Reprises consommées depuis la dernière session ouverte avec succès.
+  const reprisesRef = useRef(0);
+  const minuteurRepriseRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // `demarrer` se référence lui-même à travers la reprise : une référence évite
+  // la dépendance circulaire entre les deux `useCallback`.
+  const demarrerRef = useRef<(() => void) | null>(null);
   // Les transcriptions arrivent par fragments : on les accumule dans le dernier
   // tour du bon locuteur plutôt que de créer une bulle par fragment.
   const tourEnCoursRef = useRef<{ fondateur: string | null; assistant: string | null }>({ fondateur: null, assistant: null });
@@ -293,6 +303,10 @@ export function useAssistantVocal() {
     if (minuteurRef.current) { clearTimeout(minuteurRef.current); minuteurRef.current = null; }
     finConstructionRef.current = 0;
     statutDiffereRef.current = null;
+    // Une reprise programmee ne doit pas ressusciter une session que le
+    // fondateur vient d'arreter : c'est le seul geste qui ferme pour de bon.
+    if (minuteurRepriseRef.current) { clearTimeout(minuteurRepriseRef.current); minuteurRepriseRef.current = null; }
+    reprisesRef.current = 0;
     setStatut('inactif');
     setForme('sphere');
     setNiveauEntree(0);
@@ -451,6 +465,10 @@ export function useAssistantVocal() {
               ws.send(JSON.stringify({ type: 'micro', coupe: true }));
             }
             setStatut('ecoute');
+            // Session rétablie : le crédit de reprises repart entier. Trois
+            // coupures espacées dans l'heure ne doivent pas épuiser la
+            // troisième tentative.
+            reprisesRef.current = 0;
 
             // L'accueil est demandé APRÈS l'ouverture du micro : l'assistante
             // pose une question, elle doit pouvoir entendre la réponse. Demandé
@@ -601,16 +619,49 @@ export function useAssistantVocal() {
       micCoupeRef.current = false;
       setMicCoupe(false);
 
-      // Fermeture non demandée : c'est une panne, pas une fin de conversation.
-      // Le dire, plutôt que de revenir à « Prêt » comme si de rien n'était.
+      // ── Fermeture non demandée : on tente de reprendre ────────────────────
+      //
+      // Elle était traitée comme une fin de conversation : message d'erreur, et
+      // au fondateur de cliquer « Réessayer ». C'était tenable quand la session
+      // vivait dans un écran dédié qu'il regardait. Depuis la mascotte, il parle
+      // en travaillant : une micro-coupure du réseau ne doit pas le laisser
+      // devant un bouton qu'il ne regarde pas.
+      //
+      // TROIS TENTATIVES, espacées de 1, 2 puis 4 secondes. Au-delà, ce n'est
+      // plus un incident passager et il faut le dire. Le compteur se remet à
+      // zéro dès qu'une session s'ouvre : trois coupures espacées dans l'heure
+      // ne doivent pas épuiser le crédit de la troisième.
+      //
+      // CE QUE LA REPRISE NE RATTRAPE PAS, et il faut le savoir : une nouvelle
+      // session Live démarre SANS l'historique de la précédente. L'assistante
+      // reprend le micro, pas le fil de la conversation — elle ne saura pas ce
+      // qui vient d'être dit. Y remédier demande `sessionResumption` côté
+      // serveur, qui n'est pas configuré.
       if (!fermetureVoulueRef.current) {
-        setErreur('La connexion vocale a été interrompue. Reprenez avec « Réessayer ».');
+        const essai = reprisesRef.current;
+        if (essai < DELAIS_REPRISE_MS.length) {
+          reprisesRef.current = essai + 1;
+          setStatut('connexion');
+          // eslint-disable-next-line no-console
+          console.warn(`[vocal] connexion perdue — reprise ${essai + 1}/${DELAIS_REPRISE_MS.length}`);
+          minuteurRepriseRef.current = setTimeout(() => {
+            // Une fermeture volontaire a pu survenir pendant l'attente.
+            if (!fermetureVoulueRef.current) demarrerRef.current?.();
+          }, DELAIS_REPRISE_MS[essai]);
+          return;
+        }
+        setErreur("La connexion vocale a été interrompue et n'a pas pu être rétablie. "
+          + 'Touchez la mascotte pour reprendre.');
         setStatut('erreur');
         return;
       }
       setStatut((s) => (s === 'erreur' ? s : 'inactif'));
     };
   }, [ajouterFragment, arreter, majStatut, cloreTourAssistant, finaliserTour]);
+
+  // La reprise automatique rappelle `demarrer` depuis le gestionnaire de
+  // fermeture, qui est defini AVANT lui : la reference casse le cycle.
+  demarrerRef.current = demarrer;
 
   /** Permet de poser une question au clavier sans couper la session vocale. */
   const envoyerTexte = useCallback((texte: string) => {
@@ -619,6 +670,24 @@ export function useAssistantVocal() {
       setTours((t) => [...t, { id: uid(), rôle: 'fondateur', texte }]);
       wsRef.current.send(JSON.stringify({ type: 'texte', texte }));
       setStatut('reflexion');
+    }
+  }, []);
+
+  /**
+   * Annonce au serveur l'ecran ou se trouve le fondateur.
+   *
+   * L'assistante ne VOIT pas l'ecran. Elle sait seulement OU il est, ce qui lui
+   * permet de dire « sur cette page vous avez… » et d'interroger les vues
+   * correspondantes. La distinction est portee par le prompt : sans elle, un
+   * modele a qui l'on donne un nom d'ecran se met a decrire ce qu'il imagine y
+   * figurer.
+   *
+   * Sans effet si la session n'est pas ouverte : naviguer sans avoir active la
+   * mascotte ne doit rien envoyer.
+   */
+  const annoncerPage = useCallback((chemin: string) => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      wsRef.current.send(JSON.stringify({ type: 'page', chemin }));
     }
   }, []);
 
@@ -644,11 +713,15 @@ export function useAssistantVocal() {
   }, []);
 
   // Une session laissée ouverte continue de consommer : on ferme au démontage.
-  useEffect(() => () => arreter(), [arreter]);
+  useEffect(() => () => {
+    if (minuteurRepriseRef.current) clearTimeout(minuteurRepriseRef.current);
+    arreter();
+  }, [arreter]);
 
   return {
     statut, erreur, tours, requetes, visuel, budget, fichiers, forme, debriefing, ficheActive, navigation,
     niveauEntree, niveauSortie, micCoupe, avancementRef,
     demarrer, arreter, envoyerTexte, reinitialiser, basculerMicro, fermerFiche, fermerVisuel,
+    annoncerPage,
   };
 }
