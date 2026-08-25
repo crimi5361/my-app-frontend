@@ -1,0 +1,93 @@
+/* Bouton mascotte — voir BoutonMascotte.tsx pour le pourquoi de chaque règle. */
+
+.bm-bouton {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+
+  /* AU-DESSUS du contenu, SOUS les modales (voile en 2000) : une fiche ou un
+     graphique ouvert doit passer devant la mascotte, pas derrière. */
+  z-index: 1100;
+
+  width: 72px;
+  height: 72px;
+  padding: 0;
+
+  /* AUCUN habillage. Les deux fichiers sont détourés : on doit voir le robot
+     découpé sur la page, pas un robot dans une pastille. */
+  background: none;
+  border: none;
+  border-radius: 0;
+  -webkit-appearance: none;
+  appearance: none;
+
+  cursor: pointer;
+  line-height: 0;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.3, 1);
+  /* Le navigateur ne doit pas attendre 300 ms pour distinguer un double-tap. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bm-bouton:hover { transform: scale(1.07); }
+.bm-bouton:active { transform: scale(0.94); }
+
+.bm-bouton:focus-visible {
+  outline: 2px solid #4fd8ff;
+  outline-offset: 6px;
+  border-radius: 12px;
+}
+
+.bm-image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+
+  /* L'ombre suit la SILHOUETTE et non le cadre : `drop-shadow` retient le canal
+     alpha, là où `box-shadow` dessinerait un rectangle sous une image détourée.
+     Deux couches — une proche et dense, une lointaine et diffuse — pour décoller
+     la mascotte sans lui donner de contour net. */
+  filter:
+    drop-shadow(0 3px 5px rgba(10, 18, 38, 0.28))
+    drop-shadow(0 12px 22px rgba(10, 18, 38, 0.22));
+
+  transition: opacity 200ms ease;
+}
+
+/* Les deux images se croisent en fondu : basculer un `src` produirait un
+   clignotement au changement de fichier. */
+.bm-repos { opacity: 1; }
+.bm-anime { opacity: 0; }
+
+.bm-bouton.est-actif .bm-repos { opacity: 0; }
+.bm-bouton.est-actif .bm-anime { opacity: 1; }
+
+/* Halo froid quand la session est ouverte : il reprend le cyan des yeux, et
+   double le signal du cadre néon pour qui regarde la mascotte plutôt que les
+   bords de l'écran. Il suit lui aussi la silhouette. */
+.bm-bouton.est-actif .bm-anime {
+  filter:
+    drop-shadow(0 3px 5px rgba(10, 18, 38, 0.28))
+    drop-shadow(0 12px 22px rgba(10, 18, 38, 0.22))
+    drop-shadow(0 0 14px rgba(79, 216, 255, 0.5));
+}
+
+@media (max-width: 720px) {
+  .bm-bouton {
+    right: 16px;
+    bottom: 16px;
+    width: 60px;
+    height: 60px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bm-bouton,
+  .bm-image { transition: none; }
+  .bm-bouton:hover,
+  .bm-bouton:active { transform: none; }
+}

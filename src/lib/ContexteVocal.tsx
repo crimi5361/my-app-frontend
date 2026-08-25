@@ -35,6 +35,7 @@
  */
 import { createContext, ReactNode, useContext } from 'react';
 import { useAssistantVocal } from './useAssistantVocal';
+import BoutonMascotte from '../Components/Vocal/BoutonMascotte';
 
 export type SessionVocale = ReturnType<typeof useAssistantVocal>;
 
@@ -52,7 +53,15 @@ export const roleAAccesVocal = (role?: string | null): boolean =>
  */
 const SessionActive = ({ children }: { children: ReactNode }) => {
   const session = useAssistantVocal();
-  return <ContexteVocal.Provider value={session}>{children}</ContexteVocal.Provider>;
+  return (
+    <ContexteVocal.Provider value={session}>
+      {children}
+      {/* Montés ICI et non dans une page : ils doivent suivre le fondateur d'un
+          écran à l'autre. Sous le fournisseur, donc ils lisent la session sans
+          jamais en créer une seconde. */}
+      <BoutonMascotte />
+    </ContexteVocal.Provider>
+  );
 };
 
 export const FournisseurVocal = ({
