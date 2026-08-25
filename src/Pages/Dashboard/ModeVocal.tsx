@@ -5,7 +5,6 @@
 // chargé est déroutant. Ici, une seule chose se passe, et l'orbe central dit
 // en permanence où on en est — écoute, recherche, réponse.
 import { useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   X, Mic, MicOff, Database, BarChart3, Volume2, Loader2, AlertTriangle,
@@ -431,11 +430,21 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
   // tuerait celle du bouton flottant, sans le moindre message d'erreur.
   const v = useVocal();
   const filRef = useRef<HTMLDivElement>(null);
-  const naviguer = useNavigate();
 
-  // Une seule session est démarrée au montage : ouvrir le mode vocal EST le
-  // consentement à parler, un bouton « démarrer » de plus serait redondant.
-  useEffect(() => { v.demarrer(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+  /**
+   * Ouvrir cet écran EST le consentement à parler : on démarre au montage,
+   * un bouton « démarrer » de plus serait redondant.
+   *
+   * MAIS SEULEMENT SI RIEN N'EST EN COURS. Depuis que la session vit dans le
+   * fournisseur, le fondateur peut l'avoir ouverte par le bouton flottant puis
+   * venir sur cet écran. `demarrer()` commence par `arreter()` : rappelé sur une
+   * session vivante, il couperait la conversation au moment précis où le
+   * fondateur vient la regarder de plus près.
+   */
+  useEffect(() => {
+    if (v.statut === 'inactif') v.demarrer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     filRef.current?.scrollTo({ top: filRef.current.scrollHeight, behavior: 'smooth' });
@@ -444,37 +453,24 @@ const ModeVocal = ({ onFermer }: { onFermer: () => void }) => {
   const fermer = () => { v.arreter(); onFermer(); };
 
   /**
-   * Redirection demandée par l'assistante.
+   * La redirection vocale vit desormais dans le fournisseur
+   * (Components/Vocal/NavigationVocale) : elle doit fonctionner depuis
+   * n'importe quel ecran, pas seulement quand cette page est ouverte. La
+   * temporisation — 900 ms apres la fin de parole, 9 s de garde-fou — n'a pas
+   * change d'un chiffre.
    *
-   * ON ATTEND QU'ELLE AIT FINI DE PARLER. Le message de navigation arrive avec
-   * la réponse d'outil, donc AVANT qu'elle ait prononcé « je vous y conduis » :
-   * partir aussitôt couperait sa phrase, et le fondateur arriverait sur l'écran
-   * sans savoir pourquoi.
-   *
-   * Deux échéances, la première atteinte l'emporte :
-   *   • 900 ms après qu'elle a cessé de parler — le cas normal ;
-   *   • 9 secondes dans tous les cas, garde-fou si le tour ne se referme jamais
-   *     (session coupée, audio perdu). Mieux vaut partir un peu tôt que rester
-   *     bloqué sur un écran qui a annoncé un départ.
+   * Consequence ici : c'est le fournisseur qui arrete la session, et cet ecran
+   * doit s'effacer en la voyant s'eteindre. Sans quoi il resterait affiche par
+   * dessus l'ecran de destination, et le fondateur arriverait derriere un voile
+   * noir. On ne referme QUE sur `inactif` : `erreur` doit rester lisible, c'est
+   * le seul endroit ou le fondateur peut lire ce qui a echoue.
    */
-  const departFait = useRef(false);
+  const etaitActif = useRef(false);
   useEffect(() => {
-    if (!v.navigation || departFait.current) return undefined;
-    const cible = v.navigation.chemin;
-
-    const partir = () => {
-      if (departFait.current) return;
-      departFait.current = true;
-      v.arreter();
-      onFermer();
-      naviguer(cible);
-    };
-
-    const delai = v.statut === 'parle' ? 9000 : 900;
-    const minuteur = window.setTimeout(partir, delai);
-    return () => clearTimeout(minuteur);
+    if (v.statut !== 'inactif') { etaitActif.current = true; return; }
+    if (etaitActif.current) { etaitActif.current = false; onFermer(); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [v.navigation, v.statut]);
+  }, [v.statut]);
 
   // Échap ferme : le fondateur a les mains libres, pas forcément la souris.
   useEffect(() => {
