@@ -1,0 +1,147 @@
+/* Cadre néon — voir CadreNeon.tsx pour le pourquoi. */
+
+/*
+ * L'angle est déclaré comme une PROPRIÉTÉ TYPÉE, et c'est ce qui rend
+ * l'animation possible. Une variable CSS ordinaire est du texte pour le
+ * moteur : il ne sait pas interpoler entre « 0deg » et « 360deg », et
+ * l'animation saute d'une valeur à l'autre. Déclarée `<angle>`, elle
+ * s'interpole comme un vrai angle.
+ */
+@property --bord-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.cn-cadre {
+  position: fixed;
+  inset: 0;
+
+  /* AU-DESSUS DE TOUT, modales comprises (voile en 2000) : le cadre dit que le
+     micro est ouvert, et cette information ne doit jamais être masquée par une
+     fiche ou un graphique. */
+  z-index: 3000;
+
+  /* CRITIQUE : le cadre couvre tout le viewport. Sans ceci, il intercepterait
+     chaque clic de la page — le tableau de bord deviendrait inerte. */
+  pointer-events: none;
+
+  opacity: 0;
+  transition: opacity 300ms ease;
+
+  /* PROMOTION SUR SON PROPRE CALQUE, et ce n'est pas une optimisation de
+     confort. L'animation fait tourner un dégradé : c'est une REPEINTURE, pas
+     une simple composition — seuls `transform` et `opacity` évitent de
+     repeindre. Un élément fixe couvrant tout le viewport et repeint soixante
+     fois par seconde obligerait le navigateur à réexaminer ce qu'il y a
+     dessous. `will-change` et `contain` l'isolent : la repeinture reste
+     confinée au cadre, le contenu du tableau de bord n'est pas retouché. */
+  will-change: opacity;
+  /* `layout paint style` et NON `strict` : ce dernier ajoute `size`, qui fait
+     calculer la boîte comme si elle n'avait pas de contenu. Sur une superposition
+     plein écran, c'est un risque d'aplatissement inutile — on ne prend que
+     l'isolation dont on a besoin. */
+  contain: layout paint style;
+}
+
+.cn-cadre.est-visible { opacity: 1; }
+
+/*
+ * Les deux couches sont peintes par des pseudo-éléments plutôt que par des
+ * div : rien à monter ni démonter côté React, et le navigateur les traite
+ * comme de simples calques.
+ */
+.cn-cadre::before,
+.cn-cadre::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+
+  /* Dégradé CONTINU sur 360° : la dernière couleur est identique à la
+     première. Sans cela, une couture nette tourne avec l'animation. Cyan,
+     bleu électrique, violet, magenta, retour au cyan — les couleurs des yeux
+     et du casque de la mascotte. */
+  background: conic-gradient(
+    from var(--bord-angle),
+    #4fd8ff 0deg,
+    #4c7fff 90deg,
+    #b48cff 180deg,
+    #ff6ad5 270deg,
+    #4fd8ff 360deg
+  );
+
+  /* DOUBLE MASQUE. Une couche pleine, une couche évidée sur la boîte de
+     remplissage ; `exclude` ne garde que leur différence, c'est-à-dire la
+     bordure seule. C'est ce qui transforme un dégradé plein écran en liseré
+     de 2 px, sans le moindre élément supplémentaire. */
+  padding: 2px;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+/* La couche du dessous, floutée, fait le halo. Elle est SOUS le liseré net :
+   l'effet néon vient de ce que la lumière déborde du trait, pas du trait
+   lui-même. */
+.cn-cadre::before {
+  padding: 3px;
+  filter: blur(7px);
+  opacity: 0.55;
+}
+
+/*
+ * L'ANIMATION NE PORTE QUE SUR --bord-angle.
+ *
+ * Aucune géométrie ne change : ni position, ni taille, ni marge. Le navigateur
+ * ne recalcule donc aucune mise en page. Il repeint les deux pseudo-éléments,
+ * qui sont sur leur propre calque et ne contiennent rien — le contenu de la
+ * page n'est jamais retouché.
+ */
+@keyframes cn-rotation {
+  to { --bord-angle: 360deg; }
+}
+
+.cn-cadre::before,
+.cn-cadre::after { animation: cn-rotation 4s linear infinite; }
+
+/*
+ * DÉGRADATION, EN DEUX TEMPS ET SANS DÉTECTION FRAGILE.
+ *
+ * Il n'existe pas de test `@supports` fiable pour `@property` : `at-rule()`
+ * n'est lui-même pris en charge que par des navigateurs très récents, et
+ * tester `(--x: 0deg)` ne dit rien — toute variable CSS accepte n'importe quel
+ * texte. On s'appuie donc sur la dégradation NATURELLE, qui tombe juste :
+ *
+ *   1. Sans `@property`, `--bord-angle` reste du texte. L'animation existe mais
+ *      n'a rien d'interpolable : l'angle demeure à sa valeur initiale, et le
+ *      cadre s'affiche en dégradé conique IMMOBILE. Mêmes couleurs, même
+ *      liseré, simplement sans rotation. C'est exactement le repli voulu.
+ *   2. Sans `conic-gradient` — navigateurs bien plus anciens — la déclaration
+ *      entière est invalide et rien ne serait peint. Le `@supports` ci-dessous
+ *      couvre ce cas avec un dégradé linéaire fixe.
+ *
+ * Le signal d'état fonctionne donc partout : animé, figé, ou linéaire.
+ */
+@supports not (background: conic-gradient(from 0deg, red, blue)) {
+  .cn-cadre::before,
+  .cn-cadre::after {
+    animation: none;
+    background: linear-gradient(120deg, #4fd8ff, #4c7fff, #b48cff, #ff6ad5, #4fd8ff);
+  }
+}
+
+/* Un cadre qui tourne en permanence dans le champ de vision est précisément ce
+   que ce réglage sert à éviter. Le signal demeure, immobile. */
+@media (prefers-reduced-motion: reduce) {
+  .cn-cadre::before,
+  .cn-cadre::after {
+    animation: none;
+    background: linear-gradient(120deg, #4fd8ff, #4c7fff, #b48cff, #ff6ad5, #4fd8ff);
+  }
+  .cn-cadre { transition: none; }
+}

@@ -36,6 +36,7 @@
 import { createContext, ReactNode, useContext } from 'react';
 import { useAssistantVocal } from './useAssistantVocal';
 import BoutonMascotte from '../Components/Vocal/BoutonMascotte';
+import CadreNeon from '../Components/Vocal/CadreNeon';
 
 export type SessionVocale = ReturnType<typeof useAssistantVocal>;
 
@@ -60,6 +61,7 @@ const SessionActive = ({ children }: { children: ReactNode }) => {
           écran à l'autre. Sous le fournisseur, donc ils lisent la session sans
           jamais en créer une seconde. */}
       <BoutonMascotte />
+      <CadreNeon />
     </ContexteVocal.Provider>
   );
 };
