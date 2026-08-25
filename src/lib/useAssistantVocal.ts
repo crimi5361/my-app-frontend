@@ -83,6 +83,33 @@ export interface BudgetVocal {
 const uid = () => Math.random().toString(36).slice(2, 10);
 
 /**
+ * L'assistante ouvre-t-elle la conversation d'elle-même ?
+ *
+ * MIS À FAUX LE 25 AOÛT 2026, POUR LA DÉMONSTRATION. À REMETTRE À `true` APRÈS.
+ *
+ * L'ouverture automatique était mesurée ainsi, session réelle à l'appui :
+ *
+ *   10 s — « Bonjour Monsieur Koné Ismaël […] Voulez-vous que je vous fasse un
+ *          débriefing des mouvements d'hier ? »
+ *   28 s — « Aucun mouvement enregistré hier. […] Voulez-vous que je fasse le
+ *          point sur vos messages ou votre agenda ? »
+ *
+ * Trois échecs d'affilée, en pilote automatique, dans les quarante-cinq
+ * premières secondes : un débriefing vide (le dernier acte tracé remonte au
+ * 4 août), puis une proposition d'agenda et de messagerie que l'accès Google
+ * non configuré fait refuser.
+ *
+ * Aucun de ces trois points n'est un défaut de l'accueil lui-même : le
+ * protocole a été écrit en supposant une base vivante, et la base est gelée.
+ * On le suspend donc plutôt que de le réécrire la veille — l'assistante attend
+ * simplement la première question.
+ *
+ * Le rétablir suppose d'abord de conditionner la proposition de débriefing à
+ * l'existence réelle de mouvements (voir assistantDebriefing.service.js).
+ */
+const ACCUEIL_AUTOMATIQUE = false;
+
+/**
  * L'accueil nominatif a-t-il déjà été joué depuis la connexion ?
  *
  * Le serveur ne peut pas répondre : il voit une nouvelle session Live à chaque
@@ -399,7 +426,13 @@ export function useAssistantVocal() {
             // L'accueil est demandé APRÈS l'ouverture du micro : l'assistante
             // pose une question, elle doit pouvoir entendre la réponse. Demandé
             // avant, le début du « oui » tombait dans le vide.
-            if (!accueilDejaJoue()) ws.send(JSON.stringify({ type: 'accueil' }));
+            //
+            // `accueilDejaJoue()` n'est appelée que si l'accueil est actif : elle
+            // POSE une marque en sessionStorage, et la poser sans jouer l'accueil
+            // empêcherait le rétablissement de fonctionner dans le même onglet.
+            if (ACCUEIL_AUTOMATIQUE && !accueilDejaJoue()) {
+              ws.send(JSON.stringify({ type: 'accueil' }));
+            }
           } catch {
             setErreur("Micro inaccessible. Autorisez l'accès au microphone puis réessayez.");
             setStatut('erreur');
