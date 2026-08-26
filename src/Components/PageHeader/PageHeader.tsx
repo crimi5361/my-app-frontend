@@ -4,6 +4,10 @@ import { useLocation } from "react-router-dom";
 const titles: Record<string, string> = {
   // Dashboard
   "/dashboard": "Vue générale du tableau de bord",
+
+  // Console d'administration de l'assistante
+  "/console-assistant": "Santé de l'assistante",
+  "/console-assistant/donnees": "Ce que l'assistante peut lire",
   "/dashboard/ListePec": "Liste des PEC",
   "/dashboard/PEC_traiter": "Prise en charge traiter",
 

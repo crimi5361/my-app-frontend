@@ -1,0 +1,107 @@
+/* Console d'administration de l'assistante — mise en forme partagée par les
+   deux écrans. Tout ce qui n'est pas ici vient d'Ant Design : on ne redéfinit
+   que ce que le thème ne sait pas faire. */
+
+.console-entete {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.console-fraicheur {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+}
+
+/* Les voyants. Le point coloré ne porte JAMAIS l'information à lui seul : il est
+   toujours accompagné du mot (« répond », « lent », « muet »). Un administrateur
+   daltonien doit lire cet écran aussi vite qu'un autre, et c'est un écran qu'on
+   ouvre quand quelque chose ne va pas. */
+.console-voyant {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 0;
+}
+
+.console-pastille {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex: 0 0 12px;
+}
+
+.console-pastille.est-vert { background: #389e0d; }
+.console-pastille.est-orange { background: #d46b08; }
+.console-pastille.est-rouge { background: #cf1322; }
+
+.console-voyant-nom {
+  flex: 1;
+  min-width: 0;
+}
+
+.console-voyant-mesure {
+  color: rgba(0, 0, 0, 0.55);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Un montant se compare colonne par colonne : les chiffres doivent avoir la même
+   largeur, sans quoi l'œil ne peut pas aligner deux lignes superposées. */
+.console-montant {
+  font-variant-numeric: tabular-nums;
+  font-size: 18px;
+}
+
+.console-ligne-montant {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 6px 0;
+}
+
+.console-ligne-montant.est-total {
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  margin-top: 6px;
+  padding-top: 10px;
+  font-weight: 600;
+}
+
+/* Un échec du journal : la question au-dessus, ce qui a manqué en dessous. */
+.console-echec {
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.console-echec:last-child { border-bottom: none; }
+
+.console-echec-question {
+  font-style: italic;
+  margin: 4px 0;
+}
+
+.console-echec-detail {
+  color: rgba(0, 0, 0, 0.55);
+  font-size: 13px;
+}
+
+/* La table des sujets peut être large : elle défile dans son propre cadre plutôt
+   que de faire défiler la page entière. */
+.console-tableau {
+  overflow-x: auto;
+}
+
+/* Réserve visible pour un chiffre qui n'en est pas tout à fait un. */
+.console-reserve {
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 8px;
+}
+
+@media (max-width: 720px) {
+  .console-entete { flex-direction: column; align-items: stretch; }
+}

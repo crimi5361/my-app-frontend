@@ -7,6 +7,7 @@ import DashboardComptabilite from "../../Pages/Dashboard/DashboardComptabilite";
 import DashboardAdministrateur from "../../Pages/Dashboard/DashboardAdministrateur";
 import DashboardFondateur from "../../Pages/Dashboard/DashboardFondateur";
 import AssistantFondateur from "../../Pages/Dashboard/AssistantFondateur";
+import ConsoleSante from "../../Pages/Console/ConsoleSante";
 import DashboardMoyensGeneraux from "../../Pages/Dashboard/DashboardMoyensGeneraux";
 import Accessoires from "../../Pages/MoyensGeneraux/Accessoires";
 import Fournisseurs from "../../Pages/MoyensGeneraux/Fournisseurs";
@@ -134,6 +135,18 @@ const AppRoutes = () => {
       <Route path="/dashboard/fondateur/assistant" element={
         <ProtectedRoute requiredPermission={["admin", "fondateur"]}>
           <AssistantFondateur />
+        </ProtectedRoute>
+      } />
+
+      {/* Console d'administration de l'assistante — ADMIN SEUL, et le fondateur
+          en est exclu alors qu'il a accès à tout le reste de l'assistante. Ces
+          écrans parlent de modèles, de crédits et de facturation : précisément
+          ce que l'instruction système s'applique à taire jusque sous la question
+          directe. Le serveur refuse déjà le rôle `fondateur` sur ces routes ;
+          le filtre ci-dessous évite d'afficher un écran qui ne se remplira pas. */}
+      <Route path="/console-assistant" element={
+        <ProtectedRoute requiredPermission={["admin"]}>
+          <ConsoleSante />
         </ProtectedRoute>
       } />
 
