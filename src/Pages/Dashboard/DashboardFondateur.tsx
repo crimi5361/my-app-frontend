@@ -9,6 +9,7 @@ import {
 } from 'recharts';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import { apiFetch, ApiError } from '../../lib/api';
+import { formatFcfa, formatMontantCourt } from '../../lib/montants';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -58,7 +59,7 @@ const getUserInfo = () => {
   }
 };
 
-const formatFcfa = (v: number) => `${Number(v).toLocaleString('fr-FR')} FCFA`;
+
 
 const DashboardFondateur = () => {
   const currentUser = getUserInfo();
@@ -187,7 +188,11 @@ const DashboardFondateur = () => {
                 <LineChart data={data.finance.evolution_recettes}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="mois" tickFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' })} />
-                  <YAxis tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                  {/* Échelle adaptative : la courbe couvre quatre ordres de
+                      grandeur depuis qu'elle dit la vérité (80 000 -> 1,67 Md).
+                      Un « /1000 + k » fixe donnait « 1668090k », tronqué à
+                      « 000000k » dans les 60 px de la gouttière. */}
+                  <YAxis tickFormatter={formatMontantCourt} width={72} />
                   <Tooltip formatter={(v: number) => formatFcfa(v)} labelFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })} />
                   <Line type="monotone" dataKey="total" stroke="var(--mod-comptabilite)" strokeWidth={2} />
                 </LineChart>
