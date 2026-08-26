@@ -11,24 +11,21 @@
 // le dit noir sur blanc, sans quoi un compteur à zéro se lirait « aucune
 // erreur » alors qu'il signifie « aucune erreur de cette nature ».
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Card, Row, Col, Button, Alert, Spin, Progress, Typography, Space, Modal,
-  InputNumber, DatePicker, Input, Form, Empty, Tag, Radio, message,
+  InputNumber, DatePicker, Input, Form, Empty, Tag, message,
 } from 'antd';
-import {
-  ReloadOutlined, PlusOutlined, BellOutlined, WarningOutlined,
-} from '@ant-design/icons';
+import { PlusOutlined, BellOutlined, WarningOutlined } from '@ant-design/icons';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, CartesianGrid,
 } from 'recharts';
 import dayjs from 'dayjs';
-import PageHeader from '../../Components/PageHeader/PageHeader';
 import { apiFetch } from '../../lib/api';
 import { formatNombre } from '../../lib/montants';
+import CadreConsole from './CadreConsole';
 import './Console.css';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 type EtatVoyant = 'repond' | 'lent' | 'muet';
 
@@ -109,27 +106,6 @@ function secondes(ms: number): string {
   return `${(ms / 1000).toFixed(1).replace('.', ',')} s`;
 }
 
-/**
- * Passage d'un écran à l'autre.
- *
- * Deux écrans qui ne se citent pas sont deux écrans dont le second n'est jamais
- * ouvert : rien, depuis le premier, n'indique qu'il existe. La navigation est
- * donc dans l'entête, à côté du titre, et non réservée au menu latéral.
- */
-function NavigationConsole({ courant }: { courant: 'sante' | 'donnees' }) {
-  const naviguer = useNavigate();
-  return (
-    <Radio.Group
-      value={courant}
-      onChange={(e) => naviguer(e.target.value === 'sante' ? '/console-assistant' : '/console-assistant/donnees')}
-      size="small"
-    >
-      <Radio.Button value="sante">Santé</Radio.Button>
-      <Radio.Button value="donnees">Ce qu'elle peut lire</Radio.Button>
-    </Radio.Group>
-  );
-}
-
 export default function ConsoleSante() {
   const [donnees, setDonnees] = useState<Sante | null>(null);
   const [chargement, setChargement] = useState(true);
@@ -195,10 +171,9 @@ export default function ConsoleSante() {
 
   if (chargement && !donnees) {
     return (
-      <div style={{ padding: 24 }}>
-        <PageHeader />
+      <CadreConsole courant="sante" onRafraichir={charger} chargement libelleRafraichir="Vérifier">
         <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>
-      </div>
+      </CadreConsole>
     );
   }
 
@@ -223,24 +198,13 @@ export default function ConsoleSante() {
   }
 
   return (
-    <div style={{ padding: 24 }}>
-      <PageHeader />
-
-      <div className="console-entete">
-        <Space>
-          <Title level={4} style={{ margin: 0 }}>Santé de l'assistante</Title>
-          <NavigationConsole courant="sante" />
-        </Space>
-        <Space>
-          <Text className="console-fraicheur">
-            {donnees ? `mesuré à ${dayjs(donnees.mesure_le).format('HH:mm:ss')}` : ''}
-          </Text>
-          <Button icon={<ReloadOutlined />} onClick={charger} loading={chargement}>
-            Vérifier maintenant
-          </Button>
-        </Space>
-      </div>
-
+    <CadreConsole
+      courant="sante"
+      fraicheur={donnees ? dayjs(donnees.mesure_le).format('HH:mm:ss') : null}
+      onRafraichir={charger}
+      chargement={chargement}
+      libelleRafraichir="Vérifier maintenant"
+    >
       {erreur && <Alert type="error" showIcon message={erreur} style={{ marginBottom: 16 }} />}
 
       {c?.alerte && (
@@ -510,6 +474,6 @@ export default function ConsoleSante() {
           </Form.Item>
         </Form>
       </Modal>
-    </div>
+    </CadreConsole>
   );
 }

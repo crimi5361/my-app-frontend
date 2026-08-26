@@ -7,6 +7,9 @@ import Layout from "./Components/Layout/Layout";
 import Login from "./Components/Login/Login";
 import AppRoutes from "./Components/AppRoutes/AppRoutes";
 import Hub from "./Pages/Hub/Hub";
+import ProtectedRoute from "./Components/ProtectedRoute";
+import ConsoleSante from "./Pages/Console/ConsoleSante";
+import ConsoleDonnees from "./Pages/Console/ConsoleDonnees";
 import { UserProvider, UserContext } from "./context/UserContext";
 import { useTheme } from "./context/ThemeContext";
 import { getDashboardRouteForRole } from "./lib/access";
@@ -135,6 +138,30 @@ function AppContent() {
       <Route
         path="/hub"
         element={isAuthenticated ? <Hub /> : <Navigate to="/login" replace />}
+      />
+
+      {/* Console de l'assistante — HORS du Layout, comme l'espace étudiant.
+          Elle ne gère qu'un sujet : rendue dans le cadre de l'ERP, elle
+          s'entourait du menu des inscriptions, des paiements et du stock, soit
+          vingt portes vers autre chose autour d'un écran qui n'en a qu'une.
+
+          ADMIN SEUL, et le fondateur en est exclu bien qu'il ait accès à tout
+          le reste de l'assistante : ces écrans parlent de modèles, de crédits
+          et de facturation, précisément ce que l'instruction système
+          s'applique à taire devant lui. Le serveur refuse déjà ce rôle sur les
+          routes correspondantes ; ce filtre évite d'ouvrir un écran qui ne se
+          remplirait pas. */}
+      <Route
+        path="/console-assistant"
+        element={isAuthenticated
+          ? <ProtectedRoute requiredPermission={["admin"]}><ConsoleSante /></ProtectedRoute>
+          : <Navigate to="/login" replace />}
+      />
+      <Route
+        path="/console-assistant/donnees"
+        element={isAuthenticated
+          ? <ProtectedRoute requiredPermission={["admin"]}><ConsoleDonnees /></ProtectedRoute>
+          : <Navigate to="/login" replace />}
       />
 
       {/* Routes de l'espace étudiant - Layout indépendant */}

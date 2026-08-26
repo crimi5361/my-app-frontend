@@ -19,15 +19,14 @@ import {
   Card, Row, Col, Button, Alert, Spin, Table, Typography, Space, Radio, Tag,
   Modal, Statistic, Empty,
 } from 'antd';
-import { ReloadOutlined, EyeOutlined, WarningOutlined } from '@ant-design/icons';
-import { useNavigate } from 'react-router-dom';
+import { EyeOutlined, WarningOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import PageHeader from '../../Components/PageHeader/PageHeader';
 import { apiFetch } from '../../lib/api';
 import { formatNombre } from '../../lib/montants';
+import CadreConsole from './CadreConsole';
 import './Console.css';
 
-const { Title, Text, Paragraph } = Typography;
+const { Text, Paragraph } = Typography;
 
 interface Sujet {
   vue: string;
@@ -85,27 +84,6 @@ function raisonEcart(s: Sujet): string {
     + 'autre site, ou sans rattachement';
 }
 
-/**
- * Passage d'un écran à l'autre.
- *
- * Deux écrans qui ne se citent pas sont deux écrans dont le second n'est jamais
- * ouvert : rien, depuis le premier, n'indique qu'il existe. La navigation est
- * donc dans l'entête, à côté du titre, et non réservée au menu latéral.
- */
-function NavigationConsole({ courant }: { courant: 'sante' | 'donnees' }) {
-  const naviguer = useNavigate();
-  return (
-    <Radio.Group
-      value={courant}
-      onChange={(e) => naviguer(e.target.value === 'sante' ? '/console-assistant' : '/console-assistant/donnees')}
-      size="small"
-    >
-      <Radio.Button value="sante">Santé</Radio.Button>
-      <Radio.Button value="donnees">Ce qu'elle peut lire</Radio.Button>
-    </Radio.Group>
-  );
-}
-
 export default function ConsoleDonnees() {
   const [donnees, setDonnees] = useState<Couverture | null>(null);
   const [chargement, setChargement] = useState(true);
@@ -142,10 +120,9 @@ export default function ConsoleDonnees() {
 
   if (chargement && !donnees) {
     return (
-      <div style={{ padding: 24 }}>
-        <PageHeader />
+      <CadreConsole courant="donnees" onRafraichir={charger} chargement libelleRafraichir="Mesurer">
         <div style={{ textAlign: 'center', padding: 80 }}><Spin size="large" /></div>
-      </div>
+      </CadreConsole>
     );
   }
 
@@ -201,24 +178,13 @@ export default function ConsoleDonnees() {
   ];
 
   return (
-    <div style={{ padding: 24 }}>
-      <PageHeader />
-
-      <div className="console-entete">
-        <Space>
-          <Title level={4} style={{ margin: 0 }}>Ce que l'assistante peut lire</Title>
-          <NavigationConsole courant="donnees" />
-        </Space>
-        <Space>
-          <Text className="console-fraicheur">
-            {donnees ? `mesuré à ${dayjs(donnees.mesure_le).format('HH:mm:ss')}` : ''}
-          </Text>
-          <Button icon={<ReloadOutlined />} onClick={charger} loading={chargement}>
-            Mesurer à nouveau
-          </Button>
-        </Space>
-      </div>
-
+    <CadreConsole
+      courant="donnees"
+      fraicheur={donnees ? dayjs(donnees.mesure_le).format('HH:mm:ss') : null}
+      onRafraichir={charger}
+      chargement={chargement}
+      libelleRafraichir="Mesurer à nouveau"
+    >
       {erreur && <Alert type="error" showIcon message={erreur} style={{ marginBottom: 16 }} />}
 
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
@@ -368,6 +334,6 @@ export default function ConsoleDonnees() {
           </>
         )}
       </Modal>
-    </div>
+    </CadreConsole>
   );
 }

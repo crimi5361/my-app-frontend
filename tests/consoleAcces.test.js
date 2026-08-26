@@ -22,17 +22,24 @@ import { fileURLToPath } from 'node:url';
 const ICI = path.dirname(fileURLToPath(import.meta.url));
 const lire = (...p) => fs.readFileSync(path.join(ICI, '..', ...p), 'utf8');
 
-const ROUTES = lire('src', 'Components', 'AppRoutes', 'AppRoutes.tsx');
+// Les routes de la console vivent dans App.tsx et NON dans AppRoutes.tsx : elles
+// sont declarees hors du Layout, pour que la console n'herite pas du menu et de
+// l'en-tete de l'ERP. Les deux fichiers sont lus, et un test verifie qu'elles ne
+// sont pas revenues dans le cadre par megarde.
+const APP = lire('src', 'App.tsx');
+const APP_ROUTES = lire('src', 'Components', 'AppRoutes', 'AppRoutes.tsx');
 const ACCESS = lire('src', 'lib', 'access.ts');
 
 /** Les chemins de la console tels que les routes les déclarent. */
 function routesConsole() {
   const trouvees = [];
-  const motif = /<Route\s+path="(\/console-assistant[^"]*)"\s+element=\{([\s\S]*?)\}\s*\/>/g;
-  let m = motif.exec(ROUTES);
+  // Le corps est délimité par le `/>` de la balise : `[\s\S]*?` est paresseux,
+  // il s'arrête donc au premier, celui de la route en cours.
+  const motif = /<Route\s+path="(\/console-assistant[^"]*)"([\s\S]*?)\/>/g;
+  let m = motif.exec(APP);
   while (m) {
     trouvees.push({ chemin: m[1], corps: m[2] });
-    m = motif.exec(ROUTES);
+    m = motif.exec(APP);
   }
   return trouvees;
 }
@@ -77,7 +84,18 @@ test('la tuile du hub mène à une route qui existe', () => {
 // console en fermant son assistante par la même occasion serait une régression
 // que personne ne verrait avant lui.
 test('l\'assistante reste ouverte au fondateur', () => {
-  const assistant = ROUTES.match(/<Route\s+path="\/dashboard\/fondateur\/assistant"[\s\S]*?\/>/);
+  const assistant = APP_ROUTES.match(/<Route\s+path="\/dashboard\/fondateur\/assistant"[\s\S]*?\/>/);
   assert.ok(assistant, 'route de l\'assistante introuvable');
   assert.match(assistant[0], /requiredPermission=\{\[[^\]]*"fondateur"[^\]]*\]\}/);
+});
+
+// La console est HORS du Layout, et doit le rester. La remettre dans AppRoutes
+// suffirait a lui rendre le menu lateral et l'en-tete de l'ERP : vingt portes
+// vers autre chose autour d'un ecran qui n'a qu'un sujet. Le defaut serait
+// visuel, donc invisible pour un test qui ne regarderait que les roles.
+test("la console reste hors du cadre de l'ERP", () => {
+  assert.ok(
+    !/console-assistant/.test(APP_ROUTES),
+    'une route de console est revenue dans AppRoutes.tsx : elle serait rendue dans le Layout',
+  );
 });

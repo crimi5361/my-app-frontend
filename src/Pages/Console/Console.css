@@ -2,14 +2,47 @@
    deux écrans. Tout ce qui n'est pas ici vient d'Ant Design : on ne redéfinit
    que ce que le thème ne sait pas faire. */
 
-.console-entete {
+/* LE CADRE AUTONOME. Cette console sort du tableau de bord : elle ne gere qu'un
+   sujet, et l'entourer du menu des inscriptions, des paiements et du stock
+   revenait a poser vingt portes vers autre chose autour d'un ecran qui n'en a
+   qu'une. Voir CadreConsole.tsx. */
+.console-cadre {
+  min-height: 100vh;
+  background: var(--paper, #f4f5f9);
   display: flex;
-  align-items: baseline;
+  flex-direction: column;
+}
+
+/* La barre reste visible quand la page defile : sur l'ecran des donnees, le
+   tableau des 74 sujets est long, et la sortie ne doit jamais demander de
+   remonter jusqu'en haut. */
+.console-barre {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  padding: 12px 24px;
+  background: var(--surface, #ffffff);
+  border-bottom: 1px solid var(--mist, #e4e7f1);
 }
+
+.console-titre {
+  margin: 0 !important;
+  white-space: nowrap;
+}
+
+.console-contenu {
+  flex: 1;
+  padding: 24px;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+}
+
 
 .console-fraicheur {
   color: rgba(0, 0, 0, 0.45);
