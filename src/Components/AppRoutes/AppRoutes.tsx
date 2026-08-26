@@ -8,6 +8,7 @@ import DashboardAdministrateur from "../../Pages/Dashboard/DashboardAdministrate
 import DashboardFondateur from "../../Pages/Dashboard/DashboardFondateur";
 import AssistantFondateur from "../../Pages/Dashboard/AssistantFondateur";
 import ConsoleSante from "../../Pages/Console/ConsoleSante";
+import ConsoleDonnees from "../../Pages/Console/ConsoleDonnees";
 import DashboardMoyensGeneraux from "../../Pages/Dashboard/DashboardMoyensGeneraux";
 import Accessoires from "../../Pages/MoyensGeneraux/Accessoires";
 import Fournisseurs from "../../Pages/MoyensGeneraux/Fournisseurs";
@@ -147,6 +148,11 @@ const AppRoutes = () => {
       <Route path="/console-assistant" element={
         <ProtectedRoute requiredPermission={["admin"]}>
           <ConsoleSante />
+        </ProtectedRoute>
+      } />
+      <Route path="/console-assistant/donnees" element={
+        <ProtectedRoute requiredPermission={["admin"]}>
+          <ConsoleDonnees />
         </ProtectedRoute>
       } />
 

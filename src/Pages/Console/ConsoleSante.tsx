@@ -11,9 +11,10 @@
 // le dit noir sur blanc, sans quoi un compteur à zéro se lirait « aucune
 // erreur » alors qu'il signifie « aucune erreur de cette nature ».
 import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Card, Row, Col, Button, Alert, Spin, Progress, Typography, Space, Modal,
-  InputNumber, DatePicker, Input, Form, Empty, Tag, message,
+  InputNumber, DatePicker, Input, Form, Empty, Tag, Radio, message,
 } from 'antd';
 import {
   ReloadOutlined, PlusOutlined, BellOutlined, WarningOutlined,
@@ -106,6 +107,27 @@ const usd = (v: number) => `${v.toFixed(2)} $`;
 /** Un délai en millisecondes, dit comme on le lit : « 1,4 s » et non « 1389 ms ». */
 function secondes(ms: number): string {
   return `${(ms / 1000).toFixed(1).replace('.', ',')} s`;
+}
+
+/**
+ * Passage d'un écran à l'autre.
+ *
+ * Deux écrans qui ne se citent pas sont deux écrans dont le second n'est jamais
+ * ouvert : rien, depuis le premier, n'indique qu'il existe. La navigation est
+ * donc dans l'entête, à côté du titre, et non réservée au menu latéral.
+ */
+function NavigationConsole({ courant }: { courant: 'sante' | 'donnees' }) {
+  const naviguer = useNavigate();
+  return (
+    <Radio.Group
+      value={courant}
+      onChange={(e) => naviguer(e.target.value === 'sante' ? '/console-assistant' : '/console-assistant/donnees')}
+      size="small"
+    >
+      <Radio.Button value="sante">Santé</Radio.Button>
+      <Radio.Button value="donnees">Ce qu'elle peut lire</Radio.Button>
+    </Radio.Group>
+  );
 }
 
 export default function ConsoleSante() {
@@ -205,7 +227,10 @@ export default function ConsoleSante() {
       <PageHeader />
 
       <div className="console-entete">
-        <Title level={4} style={{ margin: 0 }}>Santé de l'assistante</Title>
+        <Space>
+          <Title level={4} style={{ margin: 0 }}>Santé de l'assistante</Title>
+          <NavigationConsole courant="sante" />
+        </Space>
         <Space>
           <Text className="console-fraicheur">
             {donnees ? `mesuré à ${dayjs(donnees.mesure_le).format('HH:mm:ss')}` : ''}

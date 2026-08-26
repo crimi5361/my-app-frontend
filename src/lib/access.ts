@@ -1,4 +1,4 @@
-import { GraduationCap, Coins, Landmark, Award, Settings2, Package, CalendarRange, BriefcaseBusiness, type LucideIcon } from 'lucide-react';
+import { GraduationCap, Coins, Landmark, Award, Settings2, Package, CalendarRange, BriefcaseBusiness, Activity, type LucideIcon } from 'lucide-react';
 
 /**
  * Source unique de vérité pour les accès par rôle.
@@ -105,6 +105,20 @@ export const HUB_APPS: HubApp[] = [
     description: 'Agents, rôles, cloisonnement par école, structure académique',
     icon: Settings2,
     landingRoute: '/dashboard/administrateur',
+    roles: ['admin'],
+  },
+  {
+    // ADMIN SEUL, et le fondateur en est deliberement absent bien qu'il ait
+    // acces a tout le reste de l'assistante. Cet ecran parle de credits, de
+    // facturation et de replis de modele : precisement ce que l'assistante
+    // s'applique a ne jamais lui dire. Le serveur refuse deja ce role sur les
+    // routes correspondantes ; l'omettre ici evite de lui montrer une porte
+    // qui se fermerait devant lui.
+    slug: 'console-assistant',
+    label: "Console de l'assistante",
+    description: "Sante des services, credits, et ce que l'assistante peut lire",
+    icon: Activity,
+    landingRoute: '/console-assistant',
     roles: ['admin'],
   },
   {
