@@ -64,6 +64,40 @@ export interface HubApp {
   icon: LucideIcon;
   landingRoute: string;
   roles: string[];
+  /**
+   * Tuile invisible a qui n'y a pas droit, au lieu d'etre montree cadenassee.
+   *
+   * Le hub affiche NORMALEMENT toutes les tuiles, verrouillees pour les roles
+   * qui n'y ont pas acces : c'est voulu, cela dit ce que la plateforme sait
+   * faire. Mais une tuile « Console de l'assistante » cadenassee devant le
+   * fondateur lui apprend qu'une console existe, et qu'elle lui est refusee.
+   * C'est deja trop : il ne doit rien savoir de la technique qui le sert.
+   */
+  discret?: boolean;
+}
+
+/**
+ * Modules RETIRES DE L'ECRAN, sans etre retires du code.
+ *
+ * Ni tuile dans le hub, ni groupe dans le menu lateral. Les routes, elles,
+ * continuent de fonctionner : c'est un masquage, pas une suppression, et il se
+ * defait en retirant une ligne d'ici.
+ *
+ * CE QUE CE MASQUAGE COUTE, ET QU'IL FAUT SAVOIR : quatre comptes actifs portent
+ * ces deux roles (deux charges pedagogiques, deux RH). Masquer leur module leur
+ * laisse une interface sans rien a cliquer — ils se connectent et ne voient
+ * aucun menu. Si ces comptes doivent continuer a servir, il faut soit les
+ * desactiver, soit retirer leur module de cette liste.
+ *
+ * Les deux vocabulaires cohabitent dans le code — le hub dit
+ * « charge-pedagogique », le menu dit « charge_pedagogique ». `estMasque`
+ * normalise, pour qu'un seul endroit suffise a decider.
+ */
+export const MODULES_MASQUES: string[] = ['charge_pedagogique', 'rh'];
+
+/** Ce module est-il retire de l'ecran ? Tirets et soulignes y sont equivalents. */
+export function estMasque(cle: string): boolean {
+  return MODULES_MASQUES.includes(String(cle).replace(/-/g, '_'));
 }
 
 export const HUB_APPS: HubApp[] = [
@@ -115,6 +149,7 @@ export const HUB_APPS: HubApp[] = [
     // routes correspondantes ; l'omettre ici evite de lui montrer une porte
     // qui se fermerait devant lui.
     slug: 'console-assistant',
+    discret: true,
     label: "Console de l'assistante",
     description: "Sante des services, credits, et ce que l'assistante peut lire",
     icon: Activity,
@@ -146,3 +181,19 @@ export const HUB_APPS: HubApp[] = [
     roles: ['admin', 'rh'],
   },
 ];
+
+/**
+ * Les tuiles qu'un role donne doit VOIR sur le hub.
+ *
+ * Trois regles, dans cet ordre : un module masque ne parait jamais ; une tuile
+ * discrete ne parait qu'a qui y a droit ; tout le reste parait, cadenasse au
+ * besoin. Le hub ne decide plus rien lui-meme — le calcul est ici, en un seul
+ * endroit, pour qu'un test puisse le verifier sans monter React.
+ */
+export function appsVisiblesPour(role?: string | null): HubApp[] {
+  return HUB_APPS.filter((app) => {
+    if (estMasque(app.slug)) return false;
+    if (app.discret) return app.roles.includes(role || '');
+    return true;
+  });
+}

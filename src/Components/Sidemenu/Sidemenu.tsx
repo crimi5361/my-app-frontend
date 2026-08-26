@@ -31,7 +31,7 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { BookDashedIcon, Sparkles } from "lucide-react";
-import { PAGE_PERMISSIONS, getDashboardRouteForRole } from "../../lib/access";
+import { PAGE_PERMISSIONS, getDashboardRouteForRole, estMasque } from "../../lib/access";
 
 interface SidemenuProps {
   isSidemenuOpen: boolean;
@@ -256,6 +256,9 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
     ...(allowedKeys.includes("dashboard") ? [dashboardMenuItem] : []),
     ...(currentUserRole === "fondateur" ? [fondateurAssistantItem, fondateurStatsItem] : []),
     ...menuItems
+      // Un module masque disparait du menu avant meme le controle de role : le
+      // retirer de l'ecran ne depend pas de qui regarde. Voir MODULES_MASQUES.
+      .filter((item) => !estMasque(item.key))
       .filter((item) => allowedKeys.includes(item.key))
       .map((item) => ({ ...item, children: filterChildren(item.children) }))
       .filter((item) => item.children.length > 0),

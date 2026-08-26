@@ -8,7 +8,7 @@ import { RiLockPasswordLine } from 'react-icons/ri';
 import { Lock } from 'lucide-react';
 import { UserContext } from '../../context/UserContext';
 import { useChangePassword, ChangePasswordModal } from '../../Components/ChangePasswordModal';
-import { HUB_APPS } from '../../lib/access';
+import { HUB_APPS, appsVisiblesPour } from '../../lib/access';
 import './Hub.css';
 
 const Hub = () => {
@@ -123,7 +123,11 @@ const Hub = () => {
         </motion.p>
 
         <div className="hub-tiles">
-          {HUB_APPS.map((app, index) => {
+          {/* `appsVisiblesPour` et non `HUB_APPS` : un module masque ne parait
+              jamais, et une tuile discrete ne parait qu'a qui y a droit. Les
+              autres restent affichees cadenassees, comme avant — c'est voulu,
+              cela dit ce que la plateforme sait faire. */}
+          {appsVisiblesPour(user?.role).map((app, index) => {
             const Icon = app.icon;
             const authorized = app.roles.includes(user?.role || '');
             return (
