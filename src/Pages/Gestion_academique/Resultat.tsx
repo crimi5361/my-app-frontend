@@ -60,12 +60,50 @@ interface NavigationCard {
   type: 'pv' | 'bulletin';
 }
 
+// ✅ Filtrage sélection avant impression (2026-08-26) — décision académique (source unique :
+// calculerRecapitulatifComplet côté backend, jamais recalculée ici) × statut de scolarité
+// (source unique : vue_position_academique.statut_paiement, même donnée que Caisse/Scolarité).
+// Slugs ASCII envoyés au backend, alignés sur PV.controller.js::DECISION_SLUG_VERS_VALEUR.
+interface CompteursBulletins {
+  tous: number;
+  admisSolde: number;
+  admisNonSolde: number;
+  ajourneSolde: number;
+  ajourneNonSolde: number;
+  derogeSolde: number;
+  derogeNonSolde: number;
+}
+
+interface CategorieFiltreBulletin {
+  key: keyof Omit<CompteursBulletins, 'tous'>;
+  label: string;
+  decisions: 'ADMIS' | 'AJOURNE' | 'DEROGE';
+  statutScolarite: 'SOLDE' | 'NON_SOLDE';
+}
+
+const CATEGORIES_FILTRE_BULLETIN: CategorieFiltreBulletin[] = [
+  { key: 'admisSolde', label: 'Admis — Soldés', decisions: 'ADMIS', statutScolarite: 'SOLDE' },
+  { key: 'admisNonSolde', label: 'Admis — Non soldés', decisions: 'ADMIS', statutScolarite: 'NON_SOLDE' },
+  { key: 'ajourneSolde', label: 'Ajournés — Soldés', decisions: 'AJOURNE', statutScolarite: 'SOLDE' },
+  { key: 'ajourneNonSolde', label: 'Ajournés — Non soldés', decisions: 'AJOURNE', statutScolarite: 'NON_SOLDE' },
+  { key: 'derogeSolde', label: 'Dérogés — Soldés', decisions: 'DEROGE', statutScolarite: 'SOLDE' },
+  { key: 'derogeNonSolde', label: 'Dérogés — Non soldés', decisions: 'DEROGE', statutScolarite: 'NON_SOLDE' },
+];
+
 const Resultat: React.FC = () => {
   const [groupe, setGroupe] = useState<GroupeDetail | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [generatingDocument, setGeneratingDocument] = useState<boolean>(false);
   const [selectedSemestre, setSelectedSemestre] = useState<number | null>(null);
+
+  // ✅ Filtrage sélection avant impression — état par carte (id de carte = clé), chargé
+  // paresseusement (uniquement à l'ouverture du panneau, jamais au chargement de la page) pour
+  // éviter de déclencher un calcul de décision pour tout le groupe sans action de l'agent.
+  const [filtresOuverts, setFiltresOuverts] = useState<Record<number, boolean>>({});
+  const [compteursParCarte, setCompteursParCarte] = useState<Record<number, CompteursBulletins | null>>({});
+  const [chargementCompteurs, setChargementCompteurs] = useState<Record<number, boolean>>({});
+  const [generationFiltreEnCours, setGenerationFiltreEnCours] = useState<string | null>(null);
 
   const { id: groupeId } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -223,6 +261,81 @@ const Resultat: React.FC = () => {
   // Gestionnaire de navigation
   const handleNavigation = (card: NavigationCard) => {
     handleGenerateDocument(card);
+  };
+
+  // ✅ Filtrage sélection avant impression — charge les 7 compteurs (TOUS + 6 catégories) pour
+  // une carte "bulletins" donnée, via /api/PV/vue/groupe/:groupeId/bulletins/semestre/:semestreId/
+  // compteurs (même moteur de décision que l'impression, voir audit). Ne recharge pas si déjà
+  // chargé pour cette carte.
+  const chargerCompteursBulletins = async (card: NavigationCard) => {
+    if (compteursParCarte[card.id] || chargementCompteurs[card.id]) return;
+    try {
+      setChargementCompteurs(prev => ({ ...prev, [card.id]: true }));
+      const token = localStorage.getItem('token') || '';
+      const response = await fetch(
+        `${API_URL}/api/PV/vue/groupe/${groupeId}/bulletins/semestre/${card.semestre}/compteurs`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+      const result = await response.json();
+      setCompteursParCarte(prev => ({ ...prev, [card.id]: result.compteurs }));
+    } catch (err) {
+      console.error('Erreur chargement compteurs bulletins:', err);
+      message.error('Impossible de charger les effectifs par catégorie.');
+    } finally {
+      setChargementCompteurs(prev => ({ ...prev, [card.id]: false }));
+    }
+  };
+
+  const toggleFiltresBulletins = (card: NavigationCard) => {
+    const ouvertAvant = !!filtresOuverts[card.id];
+    setFiltresOuverts(prev => ({ ...prev, [card.id]: !ouvertAvant }));
+    if (!ouvertAvant) {
+      chargerCompteursBulletins(card);
+    }
+  };
+
+  // ✅ Génère les bulletins d'UNE catégorie (décision × statut scolarité) — même mécanisme
+  // window.open que handleGenerateDocument (moteur d'impression existant, inchangé), avec
+  // simplement les paramètres decisions/statutScolarite ajoutés à l'URL. Le comportement du
+  // bouton "TOUS" (handleGenerateDocument) n'est pas modifié par cette fonction.
+  const handleGenerateDocumentFiltre = async (
+    card: NavigationCard,
+    categorie: CategorieFiltreBulletin,
+    count: number | undefined
+  ) => {
+    if (count === 0) {
+      message.warning('Aucun étudiant ne correspond à ce filtre.');
+      return;
+    }
+    const cle = `${card.id}_${categorie.key}`;
+    try {
+      setGenerationFiltreEnCours(cle);
+      const token = localStorage.getItem('token') || '';
+      if (!token) {
+        throw new Error('Token non trouvé. Veuillez vous reconnecter.');
+      }
+      const encodedToken = encodeURIComponent(token);
+      const documentUrl = `${API_URL}/api/PV/vue/groupe/${groupeId}/bulletins/semestre/${card.semestre}?token=${encodedToken}&decisions=${categorie.decisions}&statutScolarite=${categorie.statutScolarite}`;
+
+      const newWindow = window.open(documentUrl, '_blank');
+      if (!newWindow) {
+        throw new Error('Le navigateur a bloqué la fenêtre popup. Autorisez les popups pour ce site.');
+      }
+      message.success(`${categorie.label} — bulletins ouverts dans un nouvel onglet`);
+    } catch (err: any) {
+      message.error(err.message || 'Erreur lors de la génération du document');
+      console.error('Erreur génération filtrée:', err);
+    } finally {
+      setGenerationFiltreEnCours(null);
+    }
   };
 
   // Retour à la page précédente
@@ -449,12 +562,66 @@ const Resultat: React.FC = () => {
                         }}
                         icon={card.type === 'pv' ? <FileDoneOutlined /> : <FileTextOutlined />}
                       >
-                        {generatingDocument && selectedSemestre === card.semestre 
-                          ? 'Génération en cours...' 
-                          : card.type === 'pv' 
-                            ? '📄 Générer le PV' 
+                        {generatingDocument && selectedSemestre === card.semestre
+                          ? 'Génération en cours...'
+                          : card.type === 'pv'
+                            ? '📄 Générer le PV'
                             : '📚 Générer les bulletins'}
                       </Button>
+
+                      {card.type === 'bulletin' && (
+                        <div className="mt-3">
+                          <Button
+                            type="link"
+                            size="small"
+                            onClick={() => toggleFiltresBulletins(card)}
+                            style={{ paddingLeft: 0 }}
+                          >
+                            {filtresOuverts[card.id]
+                              ? '▲ Masquer le filtrage avant impression'
+                              : '▼ Filtrer avant impression (décision / scolarité)'}
+                          </Button>
+
+                          {filtresOuverts[card.id] && (
+                            <div
+                              className="mt-2 p-3"
+                              style={{ background: '#fafafa', borderRadius: 8, border: '1px solid #f0f0f0' }}
+                            >
+                              {chargementCompteurs[card.id] ? (
+                                <div className="flex items-center justify-center py-2">
+                                  <Spin size="small" />
+                                  <Text type="secondary" className="ml-2 text-xs">
+                                    Calcul des effectifs par catégorie…
+                                  </Text>
+                                </div>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                  {[0, 2, 4].map((debut) => (
+                                    <div key={debut} style={{ display: 'flex', gap: 8 }}>
+                                      {CATEGORIES_FILTRE_BULLETIN.slice(debut, debut + 2).map((categorie) => {
+                                        const count = compteursParCarte[card.id]?.[categorie.key];
+                                        const cle = `${card.id}_${categorie.key}`;
+                                        return (
+                                          <Button
+                                            key={categorie.key}
+                                            size="small"
+                                            className="flex-1"
+                                            onClick={() => handleGenerateDocumentFiltre(card, categorie, count)}
+                                            loading={generationFiltreEnCours === cle}
+                                            disabled={generationFiltreEnCours !== null || count === 0}
+                                          >
+                                            {categorie.label}{typeof count === 'number' ? ` (${count})` : ''}
+                                          </Button>
+                                        );
+                                      })}
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </Card>
