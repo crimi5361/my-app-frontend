@@ -22,12 +22,19 @@ import FichePersonne from './FichePersonne';
 import { telechargerFichier, FichierAssistant } from '../../lib/assistantFichiers';
 import './ModeVocal.css';
 
-// Palette relevée pour le fond sombre. Recharts ne lit pas les variables CSS :
-// toutes ces couleurs doivent être fournies en dur, et celles du thème clair
-// disparaissaient sur #050a14.
-const PALETTE = ['#4fd8ff', '#ffb454', '#6ee7b7', '#b48cff', '#ff8a9b', '#7fd4c1', '#ffd48a'];
-const AXE_SOMBRE = '#6f8299';
-const GRILLE_SOMBRE = 'rgba(255,255,255,0.09)';
+// Recharts ne lit pas les variables CSS : ces couleurs doivent être données en
+// dur, et elles suivent donc le thème à la main.
+//
+// REPRISES POUR LE FOND CLAIR. Les teintes précédentes étaient des néons pensés
+// pour #050a14 : sur #eef2f7 elles tombent entre 1,3:1 et 2,3:1 de contraste,
+// c'est-à-dire invisibles. Chaque teinte est ici la version foncée de la même
+// couleur — l'identité chromatique est conservée, la lisibilité regagnée.
+//
+// La grille était BLANCHE à 9 % : sur clair elle disparaissait purement et
+// simplement. Elle devient un bleu d'encre très dilué.
+const PALETTE = ['#0b7fa8', '#a8650a', '#0d7a54', '#6d3fd4', '#b02a4a', '#0f766e', '#8a5108'];
+const AXE_SOMBRE = '#546276';
+const GRILLE_SOMBRE = 'rgba(24, 44, 74, 0.10)';
 
 // Chaque état a sa couleur et son libellé : c'est le seul retour visuel dont
 // dispose quelqu'un qui parle sans regarder l'écran de près.
@@ -253,12 +260,15 @@ const GraphiqueVocal = ({ visuel, onFermer }: { visuel: Visuel; onFermer?: () =>
 
   const formater = formatteurs[v.format_valeur] ?? formatteurs.nombre;
   const tooltip = {
+    // L'infobulle était une carte SOMBRE, cohérente avec l'ancien fond. Posée
+    // sur du clair elle devient un trou noir au milieu du graphe : elle passe
+    // en surface blanche, avec une ombre basse plutôt qu'un contour marqué.
     contentStyle: {
-      background: '#0a1424', border: '1px solid rgba(79,216,255,0.32)', borderRadius: 4,
-      boxShadow: '0 12px 32px -12px rgba(0,0,0,.8)',
+      background: '#ffffff', border: '1px solid rgba(12,140,178,0.28)', borderRadius: 4,
+      boxShadow: '0 10px 28px -14px rgba(24,44,74,.45)',
     },
     labelStyle: { color: AXE_SOMBRE, fontSize: 11 },
-    itemStyle: { color: '#dce9f7', fontSize: 12.5 },
+    itemStyle: { color: '#0f1b2d', fontSize: 12.5 },
     formatter: (val: number) => formater(val),
   };
   const axeX = (
@@ -320,7 +330,7 @@ const GraphiqueVocal = ({ visuel, onFermer }: { visuel: Visuel; onFermer?: () =>
               <YAxis type="category" dataKey="__x" tick={{ fontSize: 11.5, fill: AXE_SOMBRE }}
                 width={Math.min(Math.max(libelleLePlusLong * 7.2, 90), 260)}
                 interval={0} axisLine={false} tickLine={false} />
-              <Tooltip {...tooltip} cursor={{ fill: 'rgba(255,255,255,.05)' }} />{legende}
+              <Tooltip {...tooltip} cursor={{ fill: 'rgba(24,44,74,.06)' }} />{legende}
               {v.series.map((s2, i) => (
                 <Bar key={s2.colonne} dataKey={s2.colonne} name={s2.libelle}
                   stackId={v.type === 'barres_empilees' ? 'pile' : undefined}
@@ -332,7 +342,7 @@ const GraphiqueVocal = ({ visuel, onFermer }: { visuel: Visuel; onFermer?: () =>
         }
         return (
           <BarChart data={data}>
-            {grille}{axeX}{axeY}<Tooltip {...tooltip} cursor={{ fill: 'rgba(255,255,255,.05)' }} />{legende}
+            {grille}{axeX}{axeY}<Tooltip {...tooltip} cursor={{ fill: 'rgba(24,44,74,.06)' }} />{legende}
             {v.series.map((s, i) => (
               <Bar key={s.colonne} dataKey={s.colonne} name={s.libelle}
                 stackId={v.type === 'barres_empilees' ? 'pile' : undefined}

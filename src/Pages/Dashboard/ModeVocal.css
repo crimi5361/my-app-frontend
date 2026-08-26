@@ -10,19 +10,41 @@
    page blanche, et le vocabulaire HUD — équerres, réticules, monospace, trame —
    dit qu'on est devant un instrument, pas devant un document.
 
-   Palette accordée à la fiche d'identité, déjà sombre : cyan #4fd8ff sur
-   #050a14. Les couleurs d'état de la sphère 3D, elles, ne bougent PAS — le
+   Palette accordée à la fiche d'identité, déjà sombre : cyan var(--mv-cyan-vif) sur
+   var(--mv-nuit). Les couleurs d'état de la sphère 3D, elles, ne bougent PAS — le
    fondateur les aime, et leurs cœurs sont déjà sombres. */
 
 .mv-fond {
-  --mv-nuit: #050a14;
-  --mv-cyan: #4fd8ff;
-  --mv-cyan-voile: rgba(79, 216, 255, 0.14);
-  --mv-or: #ffb454;
-  --mv-texte: #dce9f7;
-  --mv-sourdine: #6f8299;
-  --mv-trait: rgba(79, 216, 255, 0.16);
-  --mv-surface: rgba(255, 255, 255, 0.028);
+  /* ── Plans ─────────────────────────────────────────────────────────────
+     `--mv-nuit` garde son nom : il désigne le PLAN DU FOND, pas une couleur.
+     Le renommer aurait touché quarante déclarations pour un gain nul. */
+  --mv-nuit: #eef2f7;              /* fond, très clair et légèrement froid   */
+  --mv-surface-rvb: 255, 255, 255; /* surfaces posées dessus                 */
+  --mv-panneau-rvb: 255, 255, 255; /* panneaux opaques (infobulles, cartes)  */
+  --mv-ombre-rvb: 24, 44, 74;      /* ombres bleutées, jamais du noir pur    */
+
+  /* ── Accents lisibles : contraste mesuré sur #eef2f7 ─────────────────── */
+  --mv-cyan: #0b6f8a;              /* 5,11:1  texte, traits, icônes          */
+  --mv-or: #8a5108;                /* 5,73:1  état « à votre écoute »        */
+  --mv-vert: #0d7a54;              /* 4,75:1  état « transmission »          */
+  --mv-rouge: #b02a1c;             /* 5,85:1  erreur, micro coupé            */
+  --mv-rouge-clair: #8f2417;       /* 7,0:1   texte long sur fond d'erreur   */
+  --mv-texte: #0f1b2d;             /* 15,4:1  corps                          */
+  --mv-texte-vif: #060d18;         /* 18,0:1  ce qui doit ressortir          */
+  --mv-sourdine: #546276;          /* 5,52:1  libellés secondaires           */
+  --mv-sourdine-rvb: 84, 98, 118;
+
+  /* ── Accents lumineux : DÉCORATIFS, jamais sous du texte ─────────────── */
+  --mv-cyan-vif: #4fd8ff;          /* l'orbe, et elle seule                  */
+  --mv-lueur-rvb: 12, 140, 178;    /* cyan resaturé : un halo clair sur clair
+                                      ne se voit pas, il faut le foncer      */
+  --mv-or-rvb: 190, 120, 20;
+  --mv-vert-rvb: 13, 122, 84;
+  --mv-rouge-rvb: 176, 42, 28;
+
+  --mv-cyan-voile: rgba(var(--mv-lueur-rvb), 0.10);
+  --mv-trait: rgba(var(--mv-lueur-rvb), 0.22);
+  --mv-surface: rgba(var(--mv-surface-rvb), 0.72);
 
   position: fixed;
   inset: 0;
@@ -30,9 +52,9 @@
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(900px 520px at 50% 4%, rgba(79, 216, 255, 0.10), transparent 62%),
-    radial-gradient(760px 480px at 88% 96%, rgba(79, 216, 255, 0.055), transparent 60%),
-    radial-gradient(640px 420px at 6% 88%, rgba(255, 180, 84, 0.045), transparent 62%),
+    radial-gradient(900px 520px at 50% 4%, rgba(var(--mv-lueur-rvb), 0.10), transparent 62%),
+    radial-gradient(760px 480px at 88% 96%, rgba(var(--mv-lueur-rvb), 0.055), transparent 60%),
+    radial-gradient(640px 420px at 6% 88%, rgba(var(--mv-or-rvb), 0.045), transparent 62%),
     var(--mv-nuit);
   color: var(--mv-texte);
   font-family: 'Manrope', ui-sans-serif, system-ui, sans-serif;
@@ -49,22 +71,27 @@
   pointer-events: none;
   z-index: 0;
   background-image:
-    linear-gradient(rgba(79, 216, 255, 0.022) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(79, 216, 255, 0.022) 1px, transparent 1px);
+    linear-gradient(rgba(var(--mv-lueur-rvb), 0.022) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--mv-lueur-rvb), 0.022) 1px, transparent 1px);
   background-size: 46px 46px;
   mask-image: radial-gradient(circle at 50% 40%, #000 0%, transparent 78%);
   -webkit-mask-image: radial-gradient(circle at 50% 40%, #000 0%, transparent 78%);
 }
 
-/* Vignette : elle referme l'écran et ramène le regard au centre, là où est la
-   sphère. */
+/* Vignette : elle referme l'écran et ramène le regard au centre, là où est
+   l'orbe.
+   INVERSÉE POUR LE CLAIR. Sur fond sombre elle assombrissait les bords ; posée
+   telle quelle sur du clair, elle les BLANCHISSAIT — le cadre s'effaçait au
+   lieu de se fermer, et l'écran paraissait déborder. Elle teinte désormais les
+   bords d'un bleu froid très dilué : assez pour refermer, trop peu pour se
+   remarquer. */
 .mv-fond::after {
   content: "";
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  background: radial-gradient(circle at 50% 46%, transparent 42%, rgba(2, 5, 12, 0.72) 100%);
+  background: radial-gradient(circle at 50% 46%, transparent 46%, rgba(var(--mv-ombre-rvb), 0.07) 100%);
 }
 
 /* ── Équerres d'écran ────────────────────────────────────────────────────── */
@@ -91,7 +118,7 @@
   gap: 20px;
   padding: 16px 30px;
   border-bottom: 1px solid var(--mv-trait);
-  background: linear-gradient(180deg, rgba(79, 216, 255, 0.05), transparent);
+  background: linear-gradient(180deg, rgba(var(--mv-lueur-rvb), 0.05), transparent);
   backdrop-filter: blur(8px);
 }
 
@@ -132,8 +159,8 @@
   height: 8px;
   border-radius: 2px;
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.055);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(var(--mv-surface-rvb), 0.055);
+  border: 1px solid rgba(var(--mv-surface-rvb), 0.08);
 }
 
 .mv-budget-barre::after {
@@ -142,7 +169,7 @@
   inset: 0;
   pointer-events: none;
   background-image: repeating-linear-gradient(
-    90deg, transparent 0 5px, rgba(5, 10, 20, 0.85) 5px 7px);
+    90deg, transparent 0 5px, rgba(var(--mv-panneau-rvb), 0.85) 5px 7px);
 }
 
 .mv-budget-remplissage {
@@ -150,9 +177,9 @@
   transition: background-color 0.5s ease;
 }
 
-.mv-budget.niveau-vert   .mv-budget-remplissage { background-color: #34d399; box-shadow: 0 0 12px rgba(52, 211, 153, 0.55); }
-.mv-budget.niveau-orange .mv-budget-remplissage { background-color: var(--mv-or); box-shadow: 0 0 12px rgba(255, 180, 84, 0.5); }
-.mv-budget.niveau-rouge  .mv-budget-remplissage { background-color: #f87171; box-shadow: 0 0 12px rgba(248, 113, 113, 0.55); }
+.mv-budget.niveau-vert   .mv-budget-remplissage { background-color: var(--mv-vert); box-shadow: 0 0 12px rgba(var(--mv-vert-rvb), 0.55); }
+.mv-budget.niveau-orange .mv-budget-remplissage { background-color: var(--mv-or); box-shadow: 0 0 12px rgba(var(--mv-or-rvb), 0.5); }
+.mv-budget.niveau-rouge  .mv-budget-remplissage { background-color: var(--mv-rouge); box-shadow: 0 0 12px rgba(var(--mv-rouge-rvb), 0.55); }
 
 .mv-budget.niveau-rouge .mv-budget-remplissage {
   animation: mv-jauge-alerte 1.8s ease-in-out infinite;
@@ -187,12 +214,12 @@
 }
 
 .mv-micro.est-coupe {
-  background: rgba(248, 113, 113, 0.12);
-  border-color: rgba(248, 113, 113, 0.45);
-  color: #fca5a5;
+  background: rgba(var(--mv-rouge-rvb), 0.12);
+  border-color: rgba(var(--mv-rouge-rvb), 0.45);
+  color: var(--mv-rouge-clair);
 }
 
-.mv-micro.est-coupe:hover { background: rgba(248, 113, 113, 0.2); }
+.mv-micro.est-coupe:hover { background: rgba(var(--mv-rouge-rvb), 0.2); }
 
 .mv-micro-libelle {
   font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
@@ -221,9 +248,9 @@
 }
 
 .mv-fermer:hover {
-  background: rgba(248, 113, 113, 0.14);
-  border-color: rgba(248, 113, 113, 0.45);
-  color: #fca5a5;
+  background: rgba(var(--mv-rouge-rvb), 0.14);
+  border-color: rgba(var(--mv-rouge-rvb), 0.45);
+  color: var(--mv-rouge-clair);
   transform: rotate(90deg);
 }
 
@@ -268,7 +295,7 @@
 
 .mv-reticule.anneau-2 {
   inset: -6%;
-  border-color: rgba(79, 216, 255, 0.09);
+  border-color: rgba(var(--mv-lueur-rvb), 0.09);
   animation: mv-tourne-lent 96s linear infinite reverse;
 }
 
@@ -302,7 +329,7 @@
   z-index: 1;
   display: grid;
   place-items: center;
-  filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.7));
+  filter: drop-shadow(0 2px 12px rgba(var(--mv-ombre-rvb), 0.7));
   pointer-events: none;
 }
 
@@ -346,12 +373,12 @@
   gap: 12px;
   align-items: center;
   scrollbar-width: thin;
-  scrollbar-color: rgba(79, 216, 255, 0.25) transparent;
+  scrollbar-color: rgba(var(--mv-lueur-rvb), 0.25) transparent;
 }
 
 .mv-fil::-webkit-scrollbar { width: 6px; }
 .mv-fil::-webkit-scrollbar-thumb {
-  background: rgba(79, 216, 255, 0.25);
+  background: rgba(var(--mv-lueur-rvb), 0.25);
   border-radius: 99px;
 }
 
@@ -366,8 +393,8 @@
   font-size: 19.5px;
   line-height: 1.78;
   letter-spacing: -0.005em;
-  color: #eaf4ff;
-  text-shadow: 0 0 26px rgba(79, 216, 255, 0.12);
+  color: var(--mv-texte-vif);
+  text-shadow: 0 0 26px rgba(var(--mv-lueur-rvb), 0.12);
   text-wrap: pretty;
 }
 
@@ -427,28 +454,28 @@
   border-radius: inherit;
   pointer-events: none;
   z-index: -1;
-  background: radial-gradient(120% 80% at 18% 0%, rgba(79, 216, 255, 0.14) 0%, transparent 58%);
+  background: radial-gradient(120% 80% at 18% 0%, rgba(var(--mv-lueur-rvb), 0.14) 0%, transparent 58%);
 }
 
 .mv-bulle-fondateur {
   align-self: flex-end;
   margin-right: max(0px, calc(50% - 340px));
   border-radius: 4px 4px 14px 4px;
-  color: #cfe6f5;
-  background: linear-gradient(135deg, rgba(79, 216, 255, 0.13), rgba(79, 216, 255, 0.05));
-  border: 1px solid rgba(79, 216, 255, 0.28);
+  color: var(--mv-texte);
+  background: linear-gradient(135deg, rgba(var(--mv-lueur-rvb), 0.13), rgba(var(--mv-lueur-rvb), 0.05));
+  border: 1px solid rgba(var(--mv-lueur-rvb), 0.28);
   border-right: 2px solid var(--mv-cyan);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.09),
-    0 8px 30px -16px rgba(79, 216, 255, 0.5);
+    inset 0 1px 0 rgba(var(--mv-surface-rvb), 0.09),
+    0 8px 30px -16px rgba(var(--mv-lueur-rvb), 0.5);
 }
 
 .mv-bulle-fondateur.est-partiel {
   color: var(--mv-sourdine);
   font-style: italic;
-  background: rgba(79, 216, 255, 0.045);
-  border-color: rgba(79, 216, 255, 0.14);
-  border-right-color: rgba(79, 216, 255, 0.3);
+  background: rgba(var(--mv-lueur-rvb), 0.045);
+  border-color: rgba(var(--mv-lueur-rvb), 0.14);
+  border-right-color: rgba(var(--mv-lueur-rvb), 0.3);
   box-shadow: none;
 }
 
@@ -458,10 +485,10 @@
   width: min(720px, 96%);
   border-radius: 5px;
   background:
-    linear-gradient(180deg, rgba(79, 216, 255, 0.045), transparent 40%),
-    rgba(255, 255, 255, 0.022);
+    linear-gradient(180deg, rgba(var(--mv-lueur-rvb), 0.045), transparent 40%),
+    rgba(var(--mv-surface-rvb), 0.022);
   border: 1px solid var(--mv-trait);
-  box-shadow: 0 22px 60px -34px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 22px 60px -34px rgba(var(--mv-ombre-rvb), 0.9);
 }
 
 .mv-debriefing {
@@ -506,7 +533,7 @@
 .mv-debriefing-limite {
   margin: 16px 0 14px;
   padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  border-top: 1px solid rgba(var(--mv-surface-rvb), 0.07);
   color: var(--mv-sourdine);
   font-size: 12px;
   line-height: 1.5;
@@ -539,7 +566,7 @@
   display: block;
   font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
   font-size: 12px;
-  color: rgba(111, 130, 153, 0.75);
+  color: rgba(var(--mv-sourdine-rvb), 0.75);
 }
 
 /* ── Fichiers annoncés à l'oral ──────────────────────────────────────────── */
@@ -552,7 +579,7 @@
   border: 1px solid var(--mv-trait);
   border-left: 2px solid var(--mv-cyan);
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.028);
+  background: rgba(var(--mv-surface-rvb), 0.028);
   color: var(--mv-texte);
   text-align: left;
   cursor: pointer;
@@ -573,8 +600,8 @@
   flex-shrink: 0;
 }
 
-.mv-fichier-icone.est-tableur  { background: rgba(52, 211, 153, 0.13); color: #6ee7b7; }
-.mv-fichier-icone.est-document { background: rgba(79, 216, 255, 0.13); color: var(--mv-cyan); }
+.mv-fichier-icone.est-tableur  { background: rgba(var(--mv-vert-rvb), 0.13); color: var(--mv-vert); }
+.mv-fichier-icone.est-document { background: rgba(var(--mv-lueur-rvb), 0.13); color: var(--mv-cyan); }
 
 .mv-fichier-corps { flex: 1; min-width: 0; }
 
@@ -609,21 +636,21 @@
   max-width: 92vw;
   padding: 12px 16px;
   border-radius: 4px;
-  background: rgba(30, 10, 10, 0.9);
-  border: 1px solid rgba(248, 113, 113, 0.4);
-  border-left: 2px solid #f87171;
-  box-shadow: 0 16px 44px -20px rgba(0, 0, 0, 0.9);
-  color: #fca5a5;
+  background: rgba(var(--mv-panneau-rvb), 0.9);
+  border: 1px solid rgba(var(--mv-rouge-rvb), 0.4);
+  border-left: 2px solid var(--mv-rouge);
+  box-shadow: 0 16px 44px -20px rgba(var(--mv-ombre-rvb), 0.9);
+  color: var(--mv-rouge-clair);
   font-size: 13.5px;
   backdrop-filter: blur(8px);
 }
 
 .mv-erreur button {
   padding: 5px 13px;
-  border: 1px solid rgba(248, 113, 113, 0.4);
+  border: 1px solid rgba(var(--mv-rouge-rvb), 0.4);
   border-radius: 3px;
-  background: rgba(248, 113, 113, 0.1);
-  color: #fca5a5;
+  background: rgba(var(--mv-rouge-rvb), 0.1);
+  color: var(--mv-rouge-clair);
   font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
   font-size: 10.5px;
   font-weight: 700;
@@ -634,7 +661,7 @@
   transition: background 0.18s;
 }
 
-.mv-erreur button:hover { background: rgba(248, 113, 113, 0.22); }
+.mv-erreur button:hover { background: rgba(var(--mv-rouge-rvb), 0.22); }
 
 /* ── Écrans étroits ──────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
@@ -671,10 +698,10 @@
   gap: 11px;
   padding: 12px 20px;
   border-radius: 4px;
-  background: rgba(6, 20, 32, 0.92);
+  background: rgba(var(--mv-panneau-rvb), 0.92);
   border: 1px solid var(--mv-trait);
   border-left: 2px solid var(--mv-cyan);
-  box-shadow: 0 16px 44px -20px rgba(0, 0, 0, 0.9);
+  box-shadow: 0 16px 44px -20px rgba(var(--mv-ombre-rvb), 0.9);
   color: var(--mv-cyan);
   font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
   font-size: 11.5px;
