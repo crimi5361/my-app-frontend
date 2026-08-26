@@ -60,21 +60,38 @@
   /* Dégradé CONTINU sur 360° : la dernière couleur est identique à la
      première. Sans cela, une couture nette tourne avec l'animation. Cyan,
      bleu électrique, violet, magenta, retour au cyan — les couleurs des yeux
-     et du casque de la mascotte. */
+     et du casque de la mascotte.
+
+     TEINTES FONCÉES POUR LE PASSAGE AU CLAIR. Mesuré sur le fond réel du
+     tableau de bord (#f4f5f9), les néons d'origine ne tenaient pas :
+
+       #4fd8ff  1,53:1      #b48cff  2,37:1      #ff6ad5  2,33:1
+
+     Trois sur quatre en dessous du seuil de 3:1 exigé d'un élément graphique
+     porteur de sens — et celui-ci en porte un : il dit que le micro est ouvert.
+     Un signal d'état qu'on ne distingue pas ne signale rien.
+
+     Les valeurs ci-dessous sont les MÊMES teintes, assombries jusqu'à passer
+     le seuil : 3,56 / 5,15 / 5,52 / 4,64. L'identité chromatique de la
+     mascotte est conservée, la lisibilité regagnée. */
   background: conic-gradient(
     from var(--bord-angle),
-    #4fd8ff 0deg,
-    #4c7fff 90deg,
-    #b48cff 180deg,
-    #ff6ad5 270deg,
-    #4fd8ff 360deg
+    #0c8cb2 0deg,
+    #2b5fd9 90deg,
+    #7a3fd4 180deg,
+    #c22e9b 270deg,
+    #0c8cb2 360deg
   );
 
   /* DOUBLE MASQUE. Une couche pleine, une couche évidée sur la boîte de
      remplissage ; `exclude` ne garde que leur différence, c'est-à-dire la
-     bordure seule. C'est ce qui transforme un dégradé plein écran en liseré
-     de 2 px, sans le moindre élément supplémentaire. */
-  padding: 2px;
+     bordure seule. C'est ce qui transforme un dégradé plein écran en simple
+     liseré, sans le moindre élément supplémentaire.
+
+     3 px et non 2 : sur fond sombre le liseré gagnait le halo de son propre
+     rayonnement, ce qui l'épaississait optiquement. Sur clair il n'a plus que
+     sa largeur réelle, et 2 px se lisaient comme un défaut de bordure. */
+  padding: 3px;
   -webkit-mask:
     linear-gradient(#000 0 0) content-box,
     linear-gradient(#000 0 0);
@@ -87,11 +104,15 @@
 
 /* La couche du dessous, floutée, fait le halo. Elle est SOUS le liseré net :
    l'effet néon vient de ce que la lumière déborde du trait, pas du trait
-   lui-même. */
+   lui-même.
+
+   SUR CLAIR IL DOIT RESTER DISCRET. Une lumière diffuse sur fond lumineux ne
+   rayonne pas, elle salit : le halo est resserré et atténué. C'est le liseré
+   net qui porte le signal, le halo ne fait que l'adoucir. */
 .cn-cadre::before {
-  padding: 3px;
-  filter: blur(7px);
-  opacity: 0.55;
+  padding: 5px;
+  filter: blur(5px);
+  opacity: 0.35;
 }
 
 /*
@@ -131,7 +152,7 @@
   .cn-cadre::before,
   .cn-cadre::after {
     animation: none;
-    background: linear-gradient(120deg, #4fd8ff, #4c7fff, #b48cff, #ff6ad5, #4fd8ff);
+    background: linear-gradient(120deg, #0c8cb2, #2b5fd9, #7a3fd4, #c22e9b, #0c8cb2);
   }
 }
 
@@ -141,7 +162,7 @@
   .cn-cadre::before,
   .cn-cadre::after {
     animation: none;
-    background: linear-gradient(120deg, #4fd8ff, #4c7fff, #b48cff, #ff6ad5, #4fd8ff);
+    background: linear-gradient(120deg, #0c8cb2, #2b5fd9, #7a3fd4, #c22e9b, #0c8cb2);
   }
   .cn-cadre { transition: none; }
 }

@@ -49,11 +49,21 @@
 
   /* L'ombre suit la SILHOUETTE et non le cadre : `drop-shadow` retient le canal
      alpha, là où `box-shadow` dessinerait un rectangle sous une image détourée.
-     Deux couches — une proche et dense, une lointaine et diffuse — pour décoller
-     la mascotte sans lui donner de contour net. */
+     Trois couches — un liseré serré, une ombre de contact, une ombre lointaine.
+
+     RENFORCÉE POUR LES FONDS CLAIRS, sur mesure et non au jugé : le PNG a été
+     décodé et échantillonné. Luminance médiane 156/255, mais 30 % des pixels
+     opaques dépassent 200 — le casque et les flancs sont presque blancs. Posés
+     sur un fond à 240, ces bords-là disparaissent purement et simplement.
+
+     La première couche, à 1 px et sans décalage, ne sert qu'à cela : redessiner
+     le contour là où la matière est trop claire pour se distinguer. Elle reste
+     une ombre portée, donc épouse la découpe — on ne réintroduit aucune
+     pastille, les fichiers restent détourés. */
   filter:
-    drop-shadow(0 3px 5px rgba(10, 18, 38, 0.28))
-    drop-shadow(0 12px 22px rgba(10, 18, 38, 0.22));
+    drop-shadow(0 0 1px rgba(24, 44, 74, 0.38))
+    drop-shadow(0 3px 6px rgba(24, 44, 74, 0.26))
+    drop-shadow(0 14px 26px rgba(24, 44, 74, 0.20));
 
   transition: opacity 200ms ease;
 }
@@ -68,12 +78,17 @@
 
 /* Halo froid quand la session est ouverte : il reprend le cyan des yeux, et
    double le signal du cadre néon pour qui regarde la mascotte plutôt que les
-   bords de l'écran. Il suit lui aussi la silhouette. */
+   bords de l'écran. Il suit lui aussi la silhouette.
+
+   LE CYAN A ÉTÉ FONCÉ. `#4fd8ff` sur un fond à 240 de luminance donne 1,5:1 :
+   le halo existait dans le code et pas à l'écran. `rgba(12, 140, 178)` est la
+   même teinte, assez dense pour se voir sans devenir une bordure. */
 .bm-bouton.est-actif .bm-anime {
   filter:
-    drop-shadow(0 3px 5px rgba(10, 18, 38, 0.28))
-    drop-shadow(0 12px 22px rgba(10, 18, 38, 0.22))
-    drop-shadow(0 0 14px rgba(79, 216, 255, 0.5));
+    drop-shadow(0 0 1px rgba(24, 44, 74, 0.38))
+    drop-shadow(0 3px 6px rgba(24, 44, 74, 0.26))
+    drop-shadow(0 14px 26px rgba(24, 44, 74, 0.20))
+    drop-shadow(0 0 10px rgba(12, 140, 178, 0.55));
 }
 
 @media (max-width: 720px) {
