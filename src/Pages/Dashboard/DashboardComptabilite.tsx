@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Card, Row, Col, Statistic, Select, Table, Spin, Empty, Typography, Alert, Progress } from 'antd';
-import { DollarCircleOutlined, ClockCircleOutlined, GiftOutlined } from '@ant-design/icons';
+import { DollarCircleOutlined, ClockCircleOutlined, GiftOutlined, TeamOutlined } from '@ant-design/icons';
 import {
   ResponsiveContainer, AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend,
 } from 'recharts';
@@ -24,7 +24,9 @@ interface DashboardComptabiliteData {
   recettesSemaineDerniere: number;
   recettesMois: number;
   recettesAnnee: number;
-  evolutionEncaissements: { jour: string; total: number }[];
+  // ✅ Chantier Dashboards financiers par type (2026-08-27) : `parType` ventile `total` par
+  // type_frais réellement présent — total reste la somme de parType, calculé côté backend.
+  evolutionEncaissements: { jour: string; total: number; parType: Record<string, number> }[];
   repartitionMethode: { methode: string; total: number }[];
   parCaisse: { caisse: string; aujourd_hui: number; ce_mois: number }[];
   enAttente: { admissions: number; reinscriptions: number };
@@ -32,6 +34,9 @@ interface DashboardComptabiliteData {
     total_scolarite: number; total_verse: number; total_restant: number; total_pec: number; nombre_pec: number;
   };
   kit: StatistiquesKit;
+  // ✅ Chantier Dashboards financiers par type (2026-08-27) — même source unique que le Dashboard
+  // Fondateur (services/statistiquesInscriptions.service.js::getTotalInscrits).
+  totalInscrits: number;
 }
 
 const getUserInfo = () => {
@@ -52,6 +57,18 @@ const getUserInfo = () => {
 const COULEURS_METHODE = ['var(--mod-scolarite)', 'var(--success)', 'var(--gold)', 'var(--warning)', 'var(--mod-comptabilite)'];
 
 const formatFcfa = (v: number) => `${Number(v).toLocaleString('fr-FR')} FCFA`;
+
+// ✅ Chantier Dashboards financiers par type (2026-08-27) — libellés d'affichage pour les valeurs
+// réelles de `type_frais` déjà présentes en base (aucun nouveau type créé ici). Toute valeur non
+// listée (future) s'affiche telle quelle, capitalisée — jamais masquée.
+const LIBELLE_TYPE_FRAIS: Record<string, string> = {
+  scolarite: 'Scolarité',
+  accessoire_supplementaire: 'Accessoires supplémentaires',
+  kit_ecole: 'Kit école',
+  pec_institutionnelle: 'Prise en charge',
+};
+const libelleTypeFrais = (slug: string) => LIBELLE_TYPE_FRAIS[slug] ?? (slug.charAt(0).toUpperCase() + slug.slice(1).replace(/_/g, ' '));
+const COULEURS_TYPE_FRAIS = ['var(--mod-comptabilite)', 'var(--success)', 'var(--gold)', 'var(--warning)', 'var(--mod-scolarite)', 'var(--danger)'];
 
 const DashboardComptabilite = () => {
   const currentUser = getUserInfo();
@@ -178,6 +195,23 @@ const DashboardComptabilite = () => {
 
           <KitStatsCard kit={data.kit} />
 
+          {/* ✅ Chantier Dashboards financiers par type (2026-08-27) : "Étudiants inscrits" —
+              même source unique que le Dashboard Fondateur
+              (services/statistiquesInscriptions.service.js::getTotalInscrits), aucune deuxième
+              logique de comptage. */}
+          <Row gutter={16} style={{ marginBottom: 16 }}>
+            <Col span={24}>
+              <Card>
+                <Statistic
+                  title="Étudiants inscrits — admissions et réinscriptions officiellement finalisées à la caisse"
+                  value={data.totalInscrits}
+                  prefix={<TeamOutlined style={{ color: 'var(--mod-scolarite)' }} />}
+                  valueStyle={{ fontSize: 36 }}
+                />
+              </Card>
+            </Col>
+          </Row>
+
           <Row gutter={16} style={{ marginBottom: 24 }}>
             <Col span={6}>
               <Card>
@@ -205,18 +239,40 @@ const DashboardComptabilite = () => {
 
           <Row gutter={16} style={{ marginBottom: 24 }}>
             <Col span={14}>
-              <Card title="Évolution des encaissements (14 derniers jours)" style={{ height: 340 }}>
-                {data.evolutionEncaissements.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={260}>
-                    <AreaChart data={data.evolutionEncaissements}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                      <XAxis dataKey="jour" tickFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} />
-                      <YAxis tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                      <Tooltip formatter={(v: number) => formatFcfa(v)} labelFormatter={(v) => new Date(v).toLocaleDateString('fr-FR')} />
-                      <Area type="monotone" dataKey="total" stroke="var(--mod-comptabilite)" fill="var(--mod-comptabilite)" fillOpacity={0.15} strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                ) : <Empty description="Aucun encaissement sur la période" style={{ marginTop: 60 }} />}
+              <Card title="Évolution des encaissements par type de paiement (14 derniers jours)" style={{ height: 340 }}>
+                {data.evolutionEncaissements.length > 0 ? (() => {
+                  // ✅ Chantier Dashboards financiers par type (2026-08-27) — une aire empilée par
+                  // type de paiement RÉELLEMENT présent sur la période (jamais une liste figée) ;
+                  // empilées, leur somme visuelle = le total (calculé côté backend, même requête).
+                  const typesPresents = Array.from(
+                    new Set(data.evolutionEncaissements.flatMap((r) => Object.keys(r.parType || {})))
+                  ).sort();
+                  const chartData = data.evolutionEncaissements.map((r) => ({ jour: r.jour, total: r.total, ...r.parType }));
+                  return (
+                    <ResponsiveContainer width="100%" height={260}>
+                      <AreaChart data={chartData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                        <XAxis dataKey="jour" tickFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} />
+                        <YAxis tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                        <Tooltip formatter={(v: number) => formatFcfa(v)} labelFormatter={(v) => new Date(v).toLocaleDateString('fr-FR')} />
+                        <Legend />
+                        {typesPresents.map((type, i) => (
+                          <Area
+                            key={type}
+                            type="monotone"
+                            dataKey={type}
+                            name={libelleTypeFrais(type)}
+                            stackId="recettes"
+                            stroke={COULEURS_TYPE_FRAIS[i % COULEURS_TYPE_FRAIS.length]}
+                            fill={COULEURS_TYPE_FRAIS[i % COULEURS_TYPE_FRAIS.length]}
+                            fillOpacity={0.35}
+                            strokeWidth={2}
+                          />
+                        ))}
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  );
+                })() : <Empty description="Aucun encaissement sur la période" style={{ marginTop: 60 }} />}
               </Card>
             </Col>
             <Col span={10}>

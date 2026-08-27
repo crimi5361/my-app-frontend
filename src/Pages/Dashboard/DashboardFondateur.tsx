@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Card, Row, Col, Statistic, Select, Spin, Empty, Typography, Alert, Progress } from 'antd';
+import { Card, Row, Col, Statistic, Select, Spin, Empty, Typography, Alert, Progress, Button, Tag } from 'antd';
 import {
   TeamOutlined, RiseOutlined, DollarCircleOutlined, WalletOutlined, GiftOutlined,
   TrophyOutlined, ToolOutlined, CheckCircleOutlined, HourglassOutlined, InboxOutlined, WarningOutlined,
@@ -20,6 +20,27 @@ interface AcademicYear {
   etat: string;
 }
 
+// ✅ Chantier Dashboards financiers par type (2026-08-27, corrigé le même jour) — la ventilation
+// est désormais par année académique (paiement.annee_academique_id, jamais déduite de la date)
+// puis par type de frais, sur toute la durée de la session (pas seulement "aujourd'hui").
+interface RepartitionAnnee {
+  annee_academique_id: number;
+  annee: string;
+  total_annee: number;
+  parType: { type_frais: string; total: number }[];
+}
+interface SessionOuverteDetail {
+  session_id: number;
+  caisse_libelle: string;
+  caissier_nom: string;
+  caissier_code: string;
+  date_ouverture: string;
+  encaisse_aujourd_hui: number;
+  nb_transactions_aujourd_hui: number;
+  total_session: number;
+  repartition_par_annee: RepartitionAnnee[];
+}
+
 interface DashboardFondateurData {
   etudiants: {
     total_inscrits: number; total_en_attente: number;
@@ -37,9 +58,16 @@ interface DashboardFondateurData {
   finance: {
     total_scolarite: number; total_verse: number; total_restant: number; total_pec: number; nombre_pec: number;
     // Chantier Statistiques (2026-08-18) : quotidien (plus mensuel) — { jour, total }.
-    evolution_recettes: { jour: string; total: number }[];
+    // ✅ Chantier Dashboards financiers par type (2026-08-27) : `parType` ventile `total` par
+    // type_frais réellement présent (scolarite/accessoire_supplementaire/kit_ecole/
+    // pec_institutionnelle/...) — total reste la somme de parType, calculé côté backend.
+    evolution_recettes: { jour: string; total: number; parType: Record<string, number> }[];
   };
-  caisses: { nb_caisses: number; sessions_ouvertes: number; encaisse_jour: number; encaisse_mois: number };
+  caisses: {
+    nb_caisses: number; sessions_ouvertes: number; encaisse_jour: number; encaisse_mois: number;
+    // ✅ Chantier Dashboards financiers par type (2026-08-27) — détail par session ouverte.
+    sessions_ouvertes_detail: SessionOuverteDetail[];
+  };
   dossiersEnAttente: {
     admissions: { total: number; par_origine: Record<string, number> };
     reinscriptions: { total: number; par_origine: Record<string, number> };
@@ -70,6 +98,18 @@ const getUserInfo = () => {
 
 const formatFcfa = (v: number) => `${Number(v).toLocaleString('fr-FR')} FCFA`;
 
+// ✅ Chantier Dashboards financiers par type (2026-08-27) — libellés d'affichage pour les valeurs
+// réelles de `type_frais` déjà présentes en base (aucun nouveau type créé ici). Toute valeur non
+// listée (future) s'affiche telle quelle, capitalisée — jamais masquée.
+const LIBELLE_TYPE_FRAIS: Record<string, string> = {
+  scolarite: 'Scolarité',
+  accessoire_supplementaire: 'Accessoires supplémentaires',
+  kit_ecole: 'Kit école',
+  pec_institutionnelle: 'Prise en charge',
+};
+const libelleTypeFrais = (slug: string) => LIBELLE_TYPE_FRAIS[slug] ?? (slug.charAt(0).toUpperCase() + slug.slice(1).replace(/_/g, ' '));
+const COULEURS_TYPE_FRAIS = ['var(--mod-comptabilite)', 'var(--success)', 'var(--gold)', 'var(--warning)', 'var(--mod-scolarite)', 'var(--danger)'];
+
 // Libellés d'affichage pour `source_inscription` — 'web'/'agent' sont les valeurs connues
 // aujourd'hui, mais toute autre valeur réellement présente en base s'affiche telle quelle
 // (jamais masquée) plutôt que d'être filtrée silencieusement.
@@ -89,6 +129,9 @@ const DashboardFondateur = () => {
   const [loadingYears, setLoadingYears] = useState(true);
   const [loadingStats, setLoadingStats] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // ✅ Chantier Dashboards financiers par type (2026-08-27) — filtre d'affichage pur (aucune
+  // requête, aucune donnée modifiée) sur la répartition déjà transmise par session.
+  const [filtreTypeCaisses, setFiltreTypeCaisses] = useState<string | null>(null);
 
   useEffect(() => {
     if (!departementId) {
@@ -199,19 +242,32 @@ const DashboardFondateur = () => {
               </div>
             )}
             <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 8 }}>
-              Évolution des recettes — année académique {academicYears.find((y) => y.id === selectedYearId)?.annee ?? ''} (votre site)
+              Évolution des recettes par type de paiement — année académique {academicYears.find((y) => y.id === selectedYearId)?.annee ?? ''} (votre site)
             </Text>
-            {data.finance.evolution_recettes.length > 0 ? (
-              <ResponsiveContainer width="100%" height={240}>
-                <LineChart data={data.finance.evolution_recettes}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                  <XAxis dataKey="jour" tickFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} />
-                  <YAxis tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v: number) => formatFcfa(v)} labelFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} />
-                  <Line type="monotone" dataKey="total" name="Recettes du jour" stroke="var(--mod-comptabilite)" strokeWidth={2} dot={{ r: 2 }} />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : <Empty description="Aucun encaissement sur l'année sélectionnée" style={{ marginTop: 40 }} />}
+            {data.finance.evolution_recettes.length > 0 ? (() => {
+              // ✅ Chantier Dashboards financiers par type (2026-08-27) — une courbe par type de
+              // paiement RÉELLEMENT présent sur la période (jamais une liste figée), aplati en
+              // clés plates pour recharts. `total` reste affiché tel quel (= somme des types,
+              // calculée côté backend dans la même requête).
+              const typesPresents = Array.from(
+                new Set(data.finance.evolution_recettes.flatMap((r) => Object.keys(r.parType || {})))
+              ).sort();
+              const chartData = data.finance.evolution_recettes.map((r) => ({ jour: r.jour, total: r.total, ...r.parType }));
+              return (
+                <ResponsiveContainer width="100%" height={260}>
+                  <LineChart data={chartData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis dataKey="jour" tickFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} />
+                    <YAxis tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} />
+                    <Tooltip formatter={(v: number) => formatFcfa(v)} labelFormatter={(v) => new Date(v).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })} />
+                    <Legend />
+                    {typesPresents.map((type, i) => (
+                      <Line key={type} type="monotone" dataKey={type} name={libelleTypeFrais(type)} stroke={COULEURS_TYPE_FRAIS[i % COULEURS_TYPE_FRAIS.length]} strokeWidth={2} dot={{ r: 2 }} />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              );
+            })() : <Empty description="Aucun encaissement sur l'année sélectionnée" style={{ marginTop: 40 }} />}
           </Card>
 
           {/* Vue globale étudiants — "Étudiants inscrits" = admissions + réinscriptions
@@ -436,6 +492,84 @@ const DashboardFondateur = () => {
                 <Statistic title="Encaissé ce mois" value={data.caisses.encaisse_mois} formatter={(v) => formatFcfa(Number(v))} />
               </Col>
             </Row>
+
+            {/* ✅ Chantier Dashboards financiers par type (2026-08-27, corrigé le même jour) —
+                détail par session ouverte, ventilé par ANNÉE ACADÉMIQUE (paiement.
+                annee_academique_id, jamais déduite de la date) puis par type de frais, sur toute
+                la durée de la session. Filtre d'affichage pur (pure vue/agrégation, aucune donnée
+                modifiée) : sélectionne quel type est mis en avant à l'intérieur de chaque année. */}
+            {data.caisses.sessions_ouvertes_detail.length > 0 && (() => {
+              const typesPresents = Array.from(
+                new Set(data.caisses.sessions_ouvertes_detail.flatMap(
+                  (s) => s.repartition_par_annee.flatMap((a) => a.parType.map((t) => t.type_frais))
+                ))
+              ).sort();
+              return (
+                <div style={{ marginTop: 20 }}>
+                  <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 8 }}>
+                    Sessions ouvertes — détail par année académique et type de paiement
+                  </Text>
+                  <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <Button size="small" type={filtreTypeCaisses === null ? 'primary' : 'default'} onClick={() => setFiltreTypeCaisses(null)}>
+                      Tous
+                    </Button>
+                    {typesPresents.map((type) => (
+                      <Button key={type} size="small" type={filtreTypeCaisses === type ? 'primary' : 'default'} onClick={() => setFiltreTypeCaisses(type)}>
+                        {libelleTypeFrais(type)}
+                      </Button>
+                    ))}
+                  </div>
+                  <Row gutter={[16, 16]}>
+                    {data.caisses.sessions_ouvertes_detail.map((s) => (
+                      <Col xs={24} sm={12} lg={8} key={s.session_id}>
+                        <Card size="small" style={{ height: '100%' }}>
+                          <Tag color="green" style={{ marginBottom: 8 }}>SESSION OUVERTE</Tag>
+                          <div><Text strong>Caissier : </Text><Text>{s.caissier_nom}{s.caissier_code ? ` (${s.caissier_code})` : ''}</Text></div>
+                          <div><Text type="secondary" style={{ fontSize: 12 }}>{s.caisse_libelle} — ouverte le {new Date(s.date_ouverture).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</Text></div>
+                          <div style={{ marginTop: 10 }}>
+                            <Text type="secondary" style={{ fontSize: 12 }}>Encaissé aujourd'hui</Text>
+                            <div style={{ fontSize: 20, fontWeight: 600, color: 'var(--success)' }}>{formatFcfa(s.encaisse_aujourd_hui)}</div>
+                            <Text type="secondary" style={{ fontSize: 12 }}>{s.nb_transactions_aujourd_hui} transaction(s) aujourd'hui</Text>
+                          </div>
+
+                          {s.repartition_par_annee.length > 0 && (
+                            <div style={{ marginTop: 10, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+                                Détail par année académique
+                              </Text>
+                              {s.repartition_par_annee.map((a) => {
+                                const typesAffiches = filtreTypeCaisses === null
+                                  ? a.parType
+                                  : a.parType.filter((t) => t.type_frais === filtreTypeCaisses);
+                                return (
+                                  <div key={a.annee_academique_id} style={{ marginBottom: 8 }}>
+                                    <Text strong style={{ fontSize: 12 }}>{a.annee}</Text>
+                                    {typesAffiches.map((t) => (
+                                      <div key={t.type_frais} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, paddingLeft: 8 }}>
+                                        <Text type="secondary">{libelleTypeFrais(t.type_frais)}</Text>
+                                        <Text>{formatFcfa(t.total)}</Text>
+                                      </div>
+                                    ))}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, paddingLeft: 8, fontWeight: 600 }}>
+                                      <Text>Total {a.annee}</Text>
+                                      <Text>{formatFcfa(a.total_annee)}</Text>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontWeight: 700, marginTop: 6, borderTop: '1px dashed var(--border)', paddingTop: 6 }}>
+                                <Text strong>Total session</Text>
+                                <Text strong>{formatFcfa(s.total_session)}</Text>
+                              </div>
+                            </div>
+                          )}
+                        </Card>
+                      </Col>
+                    ))}
+                  </Row>
+                </div>
+              );
+            })()}
           </Card>
 
           <KitStatsCard kit={data.kit} />
