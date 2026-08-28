@@ -104,6 +104,9 @@ const DetailClasse = () => {
   const [loading, setLoading] = useState(true);
   const [loadingMaquettes, setLoadingMaquettes] = useState(false);
   const [loadingMaquetteDetail, setLoadingMaquetteDetail] = useState(false);
+  // ✅ Correctif 2026-08-28 — message explicite quand le backend ne trouve aucune maquette pour
+  // le parcours réel de la classe (jamais de repli vers une autre maquette).
+  const [maquetteMessage, setMaquetteMessage] = useState<string | null>(null);
   const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
 
   useEffect(() => {
@@ -142,111 +145,37 @@ const DetailClasse = () => {
     }
   };
 
-  // Fonction pour normaliser les noms (supprimer les sigles et espaces superflus)
-  //   const normalizeName = (name: string): string => {
-  //   return name
-  //     .toLowerCase()
-  //     .replace(/\s+/g, ' ') // Remplacer les espaces multiples par un seul
-  //     .trim()
-  //     .replace(/[^a-z0-9\s]/g, '') // Supprimer les caractères spéciaux
-  //     .replace(/\b(scj|sic|adaf|lic|licence|master|doctorat)\b/gi, '') // Supprimer les sigles communs
-  //     .replace(/\s+/g, ' ') // Nettoyer à nouveau les espaces
-  //     .trim();
-  // };
-
-  // Fonction pour extraire le niveau du nom (Licence/Master/Doctorat + numéro).
-  // Ne matche pas "BTS X" (pas de numéro après une abréviation à 3 lettres dans ce
-  // motif) — dans ce cas les deux côtés renvoient '' et se retrouvent "égaux" par
-  // coïncidence plutôt que par vérification réelle ; s'appuyer alors surtout sur
-  // correspondanceFiliere pour départager. Garde défensive : une maquette dont le
-  // niveau a été supprimé/recréé (édition de filière) peut avoir niveau_libelle=null.
-  const extractNiveau = (name: string | null | undefined): string => {
-    if (!name) return '';
-    const niveauMatch = name.match(/(licence|master|doctorat)\s*(\d+)/i);
-    return niveauMatch ? `${niveauMatch[1]} ${niveauMatch[2]}`.toLowerCase() : '';
-  };
-
-  // Fonction pour extraire la filière du nom (sans le niveau)
-  const extractFiliere = (name: string | null | undefined): string => {
-    if (!name) return '';
-    return name
-      .replace(/(licence|master|doctorat)\s*\d+/gi, '') // Supprimer le niveau
-      .replace(/\b(scj|sic|adaf)\b/gi, '') // Supprimer les sigles
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
-  };
-
-  // Fonction pour extraire le type de parcours (Jour ou Soir)
-  const extractRegime = (text: string): string => {
-    if (!text) return '';
-    const match = text.match(/(Jour|Soir)/i);
-    return match ? match[1].toLowerCase() : '';
-  };
-
+  /**
+   * ✅ CORRECTIF (2026-08-28, bug "maquette JOUR affichée pour un groupe SOIR") — la résolution
+   * par correspondance textuelle (filière/niveau extraits par regex du nom de classe, régime
+   * départagé seulement si plusieurs candidats) a été ENTIÈREMENT déplacée côté backend
+   * (GET /api/PV/vue/classe/:classeId/structure, PV.controller.js::getStructureClasse), seule
+   * source de vérité : elle résout le parcours réel de la classe (curcus d'un étudiant inscrit
+   * dans l'un de ses groupes) puis la maquette correspondant EXACTEMENT à ce parcours — jamais un
+   * repli vers une autre maquette. `maquette_id: null` si aucune maquette n'est configurée pour ce
+   * parcours précis : `maquettes` reste alors vide (l'état vide existant de cet écran s'affiche),
+   * sans fallback frontend.
+   */
   const fetchMaquettesForClasse = async () => {
     if (!classe) return;
-    
+
     setLoadingMaquettes(true);
     try {
-      // Ne récupérer QUE les maquettes de l'année académique de cette classe — sans ce filtre,
-      // le matching par texte (filière+niveau) ci-dessous pouvait faire remonter par erreur la
-      // maquette d'une autre année portant le même nom (ex: classe 2026-2027 affichant la
-      // maquette 2025-2026). Le backend supporte déjà ce filtre (voir Maquettes.tsx).
-      const data = await apiFetch(`/api/maquettes?annee_id=${classe.annee_academique_id}`);
+      const data = await apiFetch(`/api/PV/vue/classe/${classe.id}/structure`);
 
-      if (Array.isArray(data)) {
-
-        // Filtrer les maquettes avec une correspondance plus intelligente.
-        // Le régime (Jour/Soir) n'est utilisé que pour départager plusieurs maquettes
-        // candidates pour une même filière+niveau (ex: Licence 1 Pro Jour vs Soir) —
-        // jamais comme condition bloquante. La description de la classe embarque le
-        // type de filière ("Universitaire"/"Professionnelles"), pas le régime du
-        // parcours réellement affecté à l'étudiant (ex: BTS est toujours en
-        // "Professionnel jour" côté maquette) : les deux textes ne décrivent pas la
-        // même chose, donc les comparer en ET bloquant masquait des correspondances
-        // par ailleurs valides (filière + niveau identiques) dès que l'un des deux
-        // textes ne mentionnait pas "Jour"/"Soir".
-        const candidats = data.filter(maquette => {
-          const filiereClasse = extractFiliere(classe.nom);
-          const filiereMaquette = extractFiliere(maquette.filiere_nom);
-          const niveauClasse = extractNiveau(classe.nom);
-          const niveauMaquette = extractNiveau(maquette.niveau_libelle);
-
-          const correspondanceFiliere = filiereClasse.includes(filiereMaquette) ||
-                                      filiereMaquette.includes(filiereClasse);
-          const correspondanceNiveau = niveauClasse === niveauMaquette;
-
-          return correspondanceFiliere && correspondanceNiveau;
-        });
-
-        // Si plusieurs candidats subsistent (même filière+niveau, régimes jour/soir
-        // distincts), on affine avec le régime pour ne garder que le bon.
-        let maquettesFiltrees = candidats;
-        if (candidats.length > 1) {
-          const regimeClasse = extractRegime(classe.description);
-          const parRegime = candidats.filter(m => extractRegime(m.parcour || '') === regimeClasse);
-          if (parRegime.length > 0) maquettesFiltrees = parRegime;
-        }
-
-        setMaquettes(maquettesFiltrees);
-
-        // Si une maquette correspond, charger ses détails
-        if (maquettesFiltrees.length > 0) {
-          fetchMaquetteDetail(maquettesFiltrees[0].id);
-        } else {
-          // Debug: Afficher pourquoi aucune correspondance n'a été trouvée
-          console.warn('Aucune maquette trouvée. Raisons possibles:');
-          console.warn('- Les noms ne correspondent pas');
-          console.warn('- Différence de format (sigles, espaces)');
-          console.warn('- Données de maquettes vides:', data.length === 0);
-        }
+      if (data.maquette_id) {
+        setMaquetteMessage(null);
+        setMaquettes([{ id: data.maquette_id } as Maquette]);
+        fetchMaquetteDetail(data.maquette_id);
       } else {
         setMaquettes([]);
+        setMaquetteDetail(null);
+        setMaquetteMessage(data.message || "Aucune maquette pédagogique n'est configurée pour ce parcours.");
       }
     } catch (error) {
-      console.error('Erreur lors du chargement des maquettes:', error);
-      message.warning('Impossible de charger les maquettes associées');
+      console.error('Erreur lors de la résolution de la maquette:', error);
+      message.warning('Impossible de résoudre la maquette associée à cette classe');
+      setMaquettes([]);
     } finally {
       setLoadingMaquettes(false);
     }
@@ -648,16 +577,16 @@ const DetailClasse = () => {
                 <Empty
                   description={
                     <div>
-                      <Text>Aucune maquette pédagogique n'a encore été créée pour cette année académique{classe.annee_academique ? ` (${classe.annee_academique})` : ''}.</Text>
+                      <Text>{maquetteMessage || "Aucune maquette pédagogique n'a encore été créée pour cette année académique/ce parcours."}</Text>
                       <br />
                       <Text type="secondary" style={{ fontSize: '12px' }}>
-                        Aucune maquette d'une autre année n'est proposée à la place.
+                        Aucune maquette d'un autre parcours ou d'une autre année n'est proposée à la place.
                       </Text>
                     </div>
                   }
                 >
-                  <Button 
-                    type="primary" 
+                  <Button
+                    type="primary"
                     icon={<FileTextOutlined />}
                     onClick={() => navigate('/Gestion_academique/Maquettes')}
                   >

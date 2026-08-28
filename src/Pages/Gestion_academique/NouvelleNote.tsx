@@ -148,6 +148,9 @@ const NouvelleNote = () => {
   const [showResultModal, setShowResultModal] = useState(false);
   const [existingNotesInfo, setExistingNotesInfo] = useState<ExistingNotesInfo | null>(null);
   const [checkingExistingNotes, setCheckingExistingNotes] = useState(false);
+  // ✅ Correctif 2026-08-28 — message explicite quand le backend ne trouve aucune maquette pour
+  // le parcours réel du groupe (jamais de repli vers une autre maquette).
+  const [maquetteMessage, setMaquetteMessage] = useState<string | null>(null);
 
   // Récupérer le token du localStorage
   const getToken = () => {
@@ -237,7 +240,7 @@ const NouvelleNote = () => {
         };
 
         setGroupeInfo(groupeInfo);
-        await fetchMaquetteForClasse(data.nom, data.classe_description, data.filiere_id, data.niveau_id, data.annee_academique_id);
+        await fetchMaquetteForGroupe(id);
         
       } catch (error: any) {
         console.error('Erreur chargement groupe:', error);
@@ -253,128 +256,30 @@ const NouvelleNote = () => {
   }, [id]);
 
   /**
-   * Extrait la filière depuis un nom de classe ou de maquette.
-   * Supprime : le niveau (Licence/Master/Doctorat/BTS + chiffre),
-   *            "Groupe N", les sigles connus, les espaces superflus.
+   * ✅ CORRECTIF (2026-08-28, bug "maquette JOUR affichée pour un groupe SOIR") — la résolution de
+   * la maquette (candidats par filière/niveau + repli implicite sur le premier candidat trouvé
+   * quand un seul résultat existait) a été ENTIÈREMENT déplacée côté backend
+   * (GET /api/PV/vue/groupe/:groupeId/structure, PV.controller.js::getStructureGroupe), seule
+   * source de vérité : elle résout le parcours réel du groupe (curcus d'un étudiant inscrit) puis
+   * la maquette correspondant EXACTEMENT à ce parcours — jamais un repli vers une autre maquette
+   * (JOUR/SOIR/etc.). `maquette_id: null` (avec un message explicite) si aucune maquette n'est
+   * configurée pour ce parcours précis : `matieres` reste alors vide, sans fallback frontend.
    */
-  const extractFiliere = (name: string | null | undefined): string => {
-    if (!name) return '';
-    return name
-      .replace(/(licence|master|doctorat)\s*\d+/gi, '')   // Licence 1, Master 2...
-      .replace(/\bbts\s*\d+/gi, '')                        // BTS 1, BTS 2, BTS1...
-      .replace(/\bgroupe\s*\d+/gi, '')                     // Groupe 1, Groupe 2...
-      .replace(/\b(scj|sic|adaf|ang|lmo)\b/gi, '')         // Sigles spécifiques
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
-  };
-
-  /**
-   * Extrait le régime (Jour/Soir) d'un texte.
-   */
-  const extractRegime = (text: string): string => {
-    if (!text) return '';
-    const match = text.match(/(Jour|Soir)/i);
-    return match ? match[1].toLowerCase() : '';
-  };
-
-  /**
-   * Extrait le niveau depuis un nom de classe ou de maquette.
-   * Gère : Licence/Master/Doctorat + chiffre  ET  BTS + chiffre.
-   * Retourne une chaîne normalisée ex: "bts 1", "licence 2", "master 1".
-   * Retourne '' si aucun niveau reconnu.
-   */
-  const extractNiveau = (name: string | null | undefined): string => {
-    if (!name) return '';
-    // Licence 1 / Master 2 / Doctorat 3
-    const matchLMD = name.match(/\b(licence|master|doctorat)\s*(\d+)/i);
-    if (matchLMD) {
-      return `${matchLMD[1].toLowerCase()} ${matchLMD[2]}`;
-    }
-
-    // BTS 1 / BTS 2 / BTS1 / BTS2
-    const matchBTS = name.match(/\bbts\s*(\d+)/i);
-    if (matchBTS) {
-      return `bts ${matchBTS[1]}`;
-    }
-
-    return '';
-  };
-
-  const fetchMaquetteForClasse = async (
-    classeNom: string,
-    classeDescription?: string,
-    filiereId?: number | null,
-    niveauId?: number | null,
-    anneeAcademiqueId?: number | null
-  ) => {
+  const fetchMaquetteForGroupe = async (groupeId: string) => {
     try {
+      const data = await apiFetch(`/api/PV/vue/groupe/${groupeId}/structure`);
 
-      const data = await apiFetch('/api/maquettes');
-
-      if (Array.isArray(data)) {
-        const regimeClasse = extractRegime(classeDescription || '');
-
-        // Identifiants fiables (filiere_id/niveau_id/annee_academique_id de la classe, via le
-        // groupe) — prioritaires sur toute extraction textuelle : le nom d'un groupe est un champ
-        // libre choisi par l'agent (ex: "Groupe A", "TD1") et ne contient pas forcément le
-        // filière/niveau, contrairement à ce que l'ancienne extraction par regex supposait. Cette
-        // même correspondance par ID évite aussi de matcher, par coïncidence de nom, la maquette
-        // d'une AUTRE année académique.
-        let maquettesCandidates: any[] = [];
-        if (filiereId && niveauId && anneeAcademiqueId) {
-          maquettesCandidates = data.filter((maquette: any) =>
-            maquette.filiere_id === filiereId &&
-            maquette.niveau_id === niveauId &&
-            maquette.anneeacademique_id === anneeAcademiqueId
-          );
-        }
-
-        // Repli sur l'ancienne extraction textuelle si les IDs sont indisponibles (compatibilité).
-        if (maquettesCandidates.length === 0 && (!filiereId || !niveauId || !anneeAcademiqueId)) {
-          const filiereClasse = extractFiliere(classeNom);
-          const niveauClasse = extractNiveau(classeNom);
-          if (!niveauClasse) {
-            console.warn('⚠️ Niveau non reconnu dans le nom du groupe:', classeNom);
-            message.warning('Impossible de détecter le niveau depuis le nom du groupe');
-            return;
-          }
-          maquettesCandidates = data.filter((maquette: any) => {
-            const filiereMaquette = extractFiliere(maquette.filiere_nom);
-            const niveauMaquette = extractNiveau(maquette.niveau_libelle);
-            const correspondanceFiliere =
-              filiereClasse.includes(filiereMaquette) ||
-              filiereMaquette.includes(filiereClasse);
-            const correspondanceNiveau =
-              niveauClasse !== '' &&
-              niveauMaquette !== '' &&
-              niveauClasse === niveauMaquette;
-            return correspondanceFiliere && correspondanceNiveau;
-          });
-        }
-
-        let maquetteTrouvee = null;
-
-        if (maquettesCandidates.length > 1 && regimeClasse) {
-          // Plusieurs maquettes possibles (jour/soir) : on filtre par régime
-          maquetteTrouvee = maquettesCandidates.find((m: any) => extractRegime(m.parcour || '') === regimeClasse);
-        }
-
-        // Fallback si un seul candidat, ou si le régime n'a pas permis de trancher
-        if (!maquetteTrouvee) {
-          maquetteTrouvee = maquettesCandidates[0];
-        }
-
-        if (maquetteTrouvee) {
-          await fetchMaquetteDetail(maquetteTrouvee.id);
-        } else {
-          console.warn('⚠️ Aucune maquette correspondante trouvée');
-          message.warning('Aucune maquette correspondante trouvée');
-        }
+      if (data.maquette_id) {
+        setMaquetteMessage(null);
+        await fetchMaquetteDetail(data.maquette_id);
+      } else {
+        setMatieres([]);
+        setMaquetteDetail(null);
+        setMaquetteMessage(data.message || "Aucune maquette pédagogique n'est configurée pour ce parcours.");
       }
     } catch (error: any) {
-      console.error('Erreur recherche maquette:', error);
-      message.error('Erreur lors de la recherche de la maquette');
+      console.error('Erreur résolution maquette:', error);
+      message.error('Erreur lors de la résolution de la maquette');
     }
   };
 
@@ -798,6 +703,14 @@ const NouvelleNote = () => {
                 </span>
               }
             >
+              {maquetteMessage && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  message={maquetteMessage}
+                  style={{ marginBottom: '16px' }}
+                />
+              )}
               <Form.Item
                 name="matiereId"
                 rules={[{ required: true, message: 'Sélection obligatoire' }]}
