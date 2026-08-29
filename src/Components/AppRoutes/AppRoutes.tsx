@@ -45,6 +45,7 @@ import Reinscription from "../../Pages/Etudiant/Reinscription";
 import Verification from "../../Pages/Etudiant/Verification";
 import Maquettes from "../../Pages/Gestion_academique/Maquettes";
 import GesEquivalences from "../../Pages/Gestion_academique/GesEquivalences";
+import OrientationsReinscription from "../../Pages/Gestion_academique/OrientationsReinscription";
 import Resultats from "../../Pages/Gestion_academique/Professeur";
 
 import Parametres from "../../Pages/Parametres/Parametres";
@@ -331,7 +332,13 @@ const AppRoutes = () => {
           <GesEquivalences />
         </ProtectedRoute>
       } />
-      
+
+      <Route path="/Gestion_academique/OrientationsReinscription" element={
+        <ProtectedRoute requiredPermission="admin">
+          <OrientationsReinscription />
+        </ProtectedRoute>
+      } />
+
       <Route path="/Gestion_academique/Memoires" element={
         <ProtectedRoute requiredPermission={["admin", "Gestion_academique"]}>
           <GesMemoire />

@@ -48,6 +48,7 @@ const titles: Record<string, string> = {
   "/Gestion_academique/Maquettes": "Maquettes pédagogiques",
   "/Gestion_academique/Resultats": "Résultats académiques",
   "/Gestion_academique/Migrations": "Gestion des équivalences",
+  "/Gestion_academique/OrientationsReinscription": "Orientations de réinscription",
   "/Gestion_academique/Fusion": "Fusion des classes ou filières",
   "/Gestion_academique/DetailMaquette/": "Détails de la maquette",
   "/Gestion_academique/Groupe-Evaluation/:id": "Evaluation du Groupe",

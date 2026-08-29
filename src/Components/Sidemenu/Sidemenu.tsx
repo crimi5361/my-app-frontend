@@ -178,6 +178,7 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
         { key: "/Gestion_academique/GestionGroupes", label: "Gestion des groupes", icon: <UsergroupAddOutlined />, permission: "admin" },
         { key: "/Gestion_academique/Maquettes", label: "Maquettes", icon: <AppstoreAddOutlined />, permission: ["admin", "Gestion_academique"] },
         { key: "/Gestion_academique/Migrations", label: "Équivalence", icon: <AppstoreAddOutlined />, permission: ["admin", "Gestion_academique"] },
+        { key: "/Gestion_academique/OrientationsReinscription", label: "Orientations de réinscription", icon: <AppstoreAddOutlined />, permission: "admin" },
         { key: "/Gestion_academique/Memoires", label: "Memoires", icon: <BookDashedIcon />, permission: ["admin", "Gestion_academique"] },
         { key: "/Gestion_academique/Professeur", label: "Professeur", icon: <TeamOutlined />, permission: ["admin", "Gestion_academique"] },
       ],
