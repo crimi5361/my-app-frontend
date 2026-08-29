@@ -18,7 +18,6 @@ interface ResultatEtudiantKit {
   filiere: string;
   niveau: string;
   annee_academique: string;
-  concerne: boolean;
   suspendu: boolean;
   statut: 'NON_TRAITE' | 'KIT_APPORTE' | 'KIT_PAYE' | null;
 }
@@ -62,7 +61,6 @@ const GestionKits = () => {
   };
 
   const statutAffichage = (row: ResultatEtudiantKit): { label: string; tone: StatusTone } => {
-    if (!row.concerne) return { label: 'Non requis (1ère année)', tone: 'neutral' };
     if (row.suspendu) return { label: 'Module suspendu', tone: 'warning' };
     if (row.statut === 'KIT_PAYE') return { label: 'Payé', tone: 'success' };
     if (row.statut === 'KIT_APPORTE') return { label: 'Apporté', tone: 'info' };
@@ -120,7 +118,7 @@ const GestionKits = () => {
                 title: 'Action',
                 key: 'action',
                 render: (_, row) => {
-                  const traitable = row.concerne && !row.suspendu && row.statut === 'NON_TRAITE';
+                  const traitable = !row.suspendu && row.statut === 'NON_TRAITE';
                   if (!peutTraiter) return null;
                   return (
                     <Button

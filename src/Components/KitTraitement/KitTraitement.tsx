@@ -7,7 +7,6 @@ import { METHODES_PAIEMENT } from "../../lib/methodesPaiement";
 const { Option } = Select;
 
 interface EtatKit {
-  concerne: boolean;
   suspendu: boolean;
   statut: "NON_TRAITE" | "KIT_APPORTE" | "KIT_PAYE" | null;
   annee_academique_id: number | null;
@@ -22,14 +21,16 @@ interface KitTraitementProps {
   onTraite?: () => void;
 }
 
-// Chantier Kit étudiant (rames + marqueurs) — Phase 1 (2026-08-21). Composant PARTAGÉ entre
-// Scolarite/EffectuerPayement.tsx et CAISSE/Encaisser.tsx (admission + réinscription) — un seul
-// endroit pour ce comportement, jamais dupliqué entre les parcours (cf. architecture validée §5).
-// Indépendant du module Moyens Généraux : n'importe rien de ce module.
+// Chantier Kit étudiant (rames + marqueurs) — Phase 1 (2026-08-21), puis retrait de l'exemption
+// 1ère année (2026-08-29, décision validée). Composant PARTAGÉ entre Scolarite/EffectuerPayement.tsx
+// et CAISSE/Encaisser.tsx (admission + réinscription) — un seul endroit pour ce comportement,
+// jamais dupliqué entre les parcours (cf. architecture validée §5). Indépendant du module Moyens
+// Généraux : n'importe rien de ce module.
 //
-// Masque entièrement la section si l'étudiant n'est pas concerné (LICENCE 1 / BTS 1 / LICENCE 1
-// PRO) ou si le module est suspendu pour son année académique (KIT_ANNEES_SUSPENDUES) — jamais un
-// appel à /traiter dans ces cas. Le backend revalide de toute façon systématiquement.
+// Masque la section uniquement si le module est suspendu pour l'année académique de l'étudiant
+// (KIT_ANNEES_SUSPENDUES) — jamais un appel à /traiter dans ce cas. Le backend revalide de toute
+// façon systématiquement. Plus d'exemption 1ère année : LICENCE 1 / BTS 1 / LICENCE 1 PRO suivent
+// désormais exactement le même parcours que les autres niveaux.
 const KitTraitement = ({ etudiantId, onTraite }: KitTraitementProps) => {
   const [etat, setEtat] = useState<EtatKit | null>(null);
   const [loading, setLoading] = useState(true);
@@ -103,12 +104,8 @@ const KitTraitement = ({ etudiantId, onTraite }: KitTraitementProps) => {
     );
   }
 
-  if (!etat || !etat.concerne) {
-    return (
-      <Card size="small" title={<span><GiftOutlined /> Kit (rames + marqueurs)</span>} style={{ marginTop: 16 }}>
-        <Tag>Non concerné (première année)</Tag>
-      </Card>
-    );
+  if (!etat) {
+    return null;
   }
 
   if (etat.suspendu) {

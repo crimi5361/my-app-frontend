@@ -1,13 +1,14 @@
 import { Card, Row, Col, Statistic } from 'antd';
 import { GiftOutlined, CheckCircleOutlined, ShoppingOutlined, ClockCircleOutlined } from '@ant-design/icons';
 
-// Chantier Kit étudiant — Phase Statistiques (2026-08-21). Carte PARTAGÉE, réutilisée à
-// l'identique par les 4 dashboards (Fondateur, Administrateur, Comptabilité, Caisse) — un seul
-// affichage pour un seul service backend (services/kitStatistiques.service.js), jamais une
-// deuxième mise en forme divergente par dashboard.
+// Chantier Kit étudiant — Phase Statistiques (2026-08-21), puis retrait de l'exemption 1ère année
+// (2026-08-29, décision validée : plus aucune exemption automatique, la catégorie "Exemptés" a
+// donc été retirée de cette carte). Carte PARTAGÉE, réutilisée à l'identique par les 4 dashboards
+// (Fondateur, Administrateur, Comptabilité, Caisse) — un seul affichage pour un seul service
+// backend (services/kitStatistiques.service.js), jamais une deuxième mise en forme divergente par
+// dashboard.
 export interface StatistiquesKit {
   eligibles: number;
-  exemptes: number;
   apportes: number;
   payes: number;
   sans_kit: number;
@@ -21,9 +22,6 @@ const KitStatsCard = ({ kit }: { kit: StatistiquesKit }) => (
     <Row gutter={[16, 16]}>
       <Col xs={12} sm={8} md={4}>
         <Statistic title="Éligibles" value={kit.eligibles} />
-      </Col>
-      <Col xs={12} sm={8} md={4}>
-        <Statistic title="Exemptés (1ère année)" value={kit.exemptes} />
       </Col>
       <Col xs={12} sm={8} md={4}>
         <Statistic title="Sans kit" value={kit.sans_kit} valueStyle={{ color: 'var(--warning)' }} prefix={<ClockCircleOutlined />} />
