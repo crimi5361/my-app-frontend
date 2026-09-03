@@ -25,6 +25,7 @@ import {
   UsergroupAddOutlined,
   FundOutlined,
   SwapOutlined,
+  FileExcelOutlined,
 } from "@ant-design/icons";
 
 import { useLocation, useNavigate } from "react-router-dom";
@@ -224,6 +225,7 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
         { key: "/Parametres/gestion_utilisateur", label: "Gestion utilisateurs", icon: <TeamOutlined />, permission: ["admin", "Parametres"] },
         { key: "/Parametres/gestion_permission", label: "Gestion permissions", icon: <TeamOutlined />, permission: ["admin", "Parametres"] },
         { key: "/Parametres/dossiers_en_attente", label: "Dossiers en attente", icon: <DatabaseOutlined />, permission: "admin" },
+        { key: "/Parametres/export_comptes_etudiants", label: "Export des comptes étudiants", icon: <FileExcelOutlined />, permission: "admin" },
       ],
     },
   ];

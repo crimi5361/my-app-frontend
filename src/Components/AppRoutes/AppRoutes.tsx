@@ -50,6 +50,7 @@ import Resultats from "../../Pages/Gestion_academique/Professeur";
 
 import Parametres from "../../Pages/Parametres/Parametres";
 import DossiersEnAttente from "../../Pages/Parametres/DossiersEnAttente";
+import ExportComptesEtudiants from "../../Pages/Parametres/ExportComptesEtudiants";
 import ProtectedRoute from "../ProtectedRoute";
 import Permission_user from "../../Pages/Parametres/Permission_user";
 import Etudiant from "../../Pages/Etudiant/Etudiant";
@@ -555,6 +556,14 @@ const AppRoutes = () => {
       <Route path="/Parametres/dossiers_en_attente" element={
         <ProtectedRoute requiredPermission="admin">
           <DossiersEnAttente />
+        </ProtectedRoute>
+      } />
+
+      {/* Réservé exclusivement à l'administrateur, même principe que dossiers_en_attente ci-dessus
+          — chantier "Export des comptes étudiants par année académique" (2026-09-03). */}
+      <Route path="/Parametres/export_comptes_etudiants" element={
+        <ProtectedRoute requiredPermission="admin">
+          <ExportComptesEtudiants />
         </ProtectedRoute>
       } />
 
