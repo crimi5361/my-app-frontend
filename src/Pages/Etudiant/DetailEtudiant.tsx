@@ -82,6 +82,24 @@ interface PriseEnCharge {
   motif_refus: string | null;
 }
 
+// Chantier "Fiche étudiant + Historique PEC + Certificats par année" (2026-09-04) — une ligne par
+// demande, toutes années confondues (prise_en_charge.annee_academique_id porte déjà sa propre
+// année, fiable à 100% — voir audit). Purement additif : PriseEnCharge ci-dessus (PEC de l'année
+// courante) reste inchangée.
+interface PriseEnChargeHistorique {
+  id: number;
+  reference: string | null;
+  type: string | null;
+  pourcentage_reduction: number | null;
+  montant_reduction: number | null;
+  statut: string | null;
+  date_demande: string | null;
+  date_validation: string | null;
+  motif_refus: string | null;
+  annee_academique_id: number;
+  annee_academique: string;
+}
+
 interface EtudiantDetails {
   numero_table: string;
   id: string;
@@ -143,6 +161,7 @@ interface EtudiantDetails {
   };
   kit: Kit | null;
   prise_en_charge: PriseEnCharge | null;
+  prise_en_charge_historique: PriseEnChargeHistorique[];
   documents_justificatifs: DocumentJustificatif[];
 }
 
@@ -214,6 +233,7 @@ const DetailEtudiant = () => {
   const [editForm] = Form.useForm();
   const [pays, setPays] = useState<{ code_iso: string; nom: string; nationalite: string }[]>([]);
   const [villes, setVilles] = useState<{ id: number; nom: string }[]>([]);
+  const [etablissements, setEtablissements] = useState<{ id: number; nom_etablissement: string }[]>([]);
   const [anneesFinance, setAnneesFinance] = useState<AnneePaiement[]>([]);
   const [paiementsAnneeCourante, setPaiementsAnneeCourante] = useState<LignePaiement[]>([]);
   const [loadingFinance, setLoadingFinance] = useState(false);
@@ -254,6 +274,10 @@ const DetailEtudiant = () => {
   useEffect(() => {
     apiFetch('/api/data/pays').then(d => { if (d.success) setPays(d.data); }).catch(() => {});
     apiFetch('/api/data/villes').then(d => { if (d.success) setVilles(d.data); }).catch(() => {});
+    // Chantier "Fiche étudiant + Historique PEC + Certificats par année" (2026-09-04) — endpoint
+    // déjà existant, déjà utilisé par NouvelleAdmission.tsx (renvoie un tableau brut, pas une
+    // enveloppe {success, data}).
+    apiFetch('/api/etablissements-origine').then(setEtablissements).catch(() => {});
   }, []);
 
   // Historique financier — endpoints déjà existants côté caisse
@@ -604,9 +628,14 @@ const DetailEtudiant = () => {
           </Col>
           <Col xs={24} sm={12}>
             <Card title={<Space><InsuranceOutlined />Prise en Charge</Space>} size="small"
-              extra={etudiant.prise_en_charge && (
+              // ✅ Le bouton historique doit rester accessible même sans PEC sur l'année courante
+              // (ex. DIALLO : PEC 2025-2026, aucune en 2026-2027) — sinon l'historique des années
+              // passées devient inatteignable dès que l'étudiant n'a plus de PEC active.
+              extra={(etudiant.prise_en_charge || etudiant.prise_en_charge_historique?.length > 0) && (
                 <Space>
-                  <StatusTag tone={getStatutTone(etudiant.prise_en_charge.statut)} label={etudiant.prise_en_charge.statut || 'Non défini'} />
+                  {etudiant.prise_en_charge && (
+                    <StatusTag tone={getStatutTone(etudiant.prise_en_charge.statut)} label={etudiant.prise_en_charge.statut || 'Non défini'} />
+                  )}
                   <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => setModalPECVisible(true)} />
                 </Space>
               )}>
@@ -617,7 +646,7 @@ const DetailEtudiant = () => {
                     {etudiant.prise_en_charge.pourcentage_reduction ? `${etudiant.prise_en_charge.pourcentage_reduction}%` : formatCurrency(etudiant.prise_en_charge.montant_reduction)}
                   </Descriptions.Item>
                 </Descriptions>
-              ) : <Text type="secondary">Aucune prise en charge</Text>}
+              ) : <Text type="secondary">Aucune prise en charge cette année{etudiant.prise_en_charge_historique?.length > 0 ? ' — voir historique' : ''}</Text>}
             </Card>
           </Col>
         </Row>
@@ -709,6 +738,31 @@ const DetailEtudiant = () => {
             {etudiant.prise_en_charge.motif_refus && <Descriptions.Item label="Motif de refus">{etudiant.prise_en_charge.motif_refus}</Descriptions.Item>}
           </Descriptions>
         )}
+
+        {/* ── Historique par année — Chantier "Fiche étudiant + Historique PEC + Certificats par
+            année" (2026-09-04) : une entrée par demande, la plus récente en premier, jamais
+            uniquement la PEC de l'année courante (voir audit validé). ── */}
+        {etudiant.prise_en_charge_historique && etudiant.prise_en_charge_historique.length > 0 ? (
+          <>
+            <Divider orientation="left" style={{ marginTop: etudiant.prise_en_charge ? 24 : 0 }}>Historique par année</Divider>
+            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              {etudiant.prise_en_charge_historique.map((pec) => (
+                <Card key={pec.id} size="small" title={pec.annee_academique}
+                  extra={<StatusTag tone={getStatutTone(pec.statut)} label={pec.statut || 'Non défini'} />}>
+                  <Descriptions column={2} size="small">
+                    <Descriptions.Item label="Type">{pec.type || '-'}</Descriptions.Item>
+                    <Descriptions.Item label="Réduction">{pec.pourcentage_reduction ? `${pec.pourcentage_reduction}%` : '-'}</Descriptions.Item>
+                    <Descriptions.Item label="Montant réduction">{formatCurrency(pec.montant_reduction)}</Descriptions.Item>
+                    <Descriptions.Item label="Date demande">{formatDate(pec.date_demande)}</Descriptions.Item>
+                    {pec.motif_refus && <Descriptions.Item label="Motif de refus" span={2}>{pec.motif_refus}</Descriptions.Item>}
+                  </Descriptions>
+                </Card>
+              ))}
+            </Space>
+          </>
+        ) : !etudiant.prise_en_charge && (
+          <Text type="secondary">Aucune prise en charge, pour aucune année.</Text>
+        )}
       </Modal>
 
       {/* ── Modal Édition informations personnelles ── */}
@@ -764,6 +818,11 @@ const DetailEtudiant = () => {
           </Row>
           <Row gutter={16}>
             <Col span={8}><Form.Item name="contact_parent_2" label="Contact parent 2" rules={[{ pattern: /^[0-9]{10,15}$/, message: 'Numéro invalide' }]}><Input /></Form.Item></Col>
+            <Col span={16}><Form.Item name="etablissement_origine" label="Établissement d'origine">
+              <Select showSearch optionFilterProp="children" allowClear loading={etablissements.length === 0}>
+                {etablissements.map(e => <Option key={e.id} value={e.nom_etablissement}>{e.nom_etablissement}</Option>)}
+              </Select>
+            </Form.Item></Col>
           </Row>
 
           <Text strong style={{ display: 'block', margin: '16px 0 12px' }}>Parents / Tuteurs</Text>

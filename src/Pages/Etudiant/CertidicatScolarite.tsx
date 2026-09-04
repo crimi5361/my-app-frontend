@@ -1,16 +1,17 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Row, 
-  Col, 
-  Typography, 
-  Spin, 
-  Button, 
+import {
+  Card,
+  Row,
+  Col,
+  Typography,
+  Spin,
+  Button,
   message,
   Image,
   Space,
-  Table
+  Table,
+  Select
 } from 'antd';
 import { 
   PrinterOutlined, 
@@ -92,23 +93,66 @@ interface CertificatData {
   };
 }
 
+// Chantier "Fiche étudiant + Historique PEC + Certificats par année" (2026-09-04) — année
+// académique sélectionnable, année courante par défaut (comportement identique à avant ce
+// chantier si l'agent ne touche pas le sélecteur). Liste des années réutilisée telle quelle
+// depuis /api/caisse/etudiant/:id/annees (déjà utilisée par DetailEtudiant.tsx pour l'historique
+// financier) — précisément les années où CET étudiant a une position, pas la liste globale du site.
+interface AnneeOption {
+  annee_academique_id: number;
+  annee: string;
+  is_current: boolean;
+}
+
 const CertificatScolarite = () => {
   const [certificatData, setCertificatData] = useState<CertificatData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [annees, setAnnees] = useState<AnneeOption[]>([]);
+  const [selectedAnneeId, setSelectedAnneeId] = useState<number | null>(null);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
 
   useEffect(() => {
-    fetchCertificatData();
+    initCertificat();
   }, [id]);
 
-  const fetchCertificatData = async () => {
+  const initCertificat = async () => {
+    const anneeCourante = await fetchAnnees();
+    await fetchCertificatData(anneeCourante);
+  };
+
+  const fetchAnnees = async (): Promise<number | null> => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/api/caisse/etudiant/${id}/annees`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (!response.ok) return null;
+      const result = await response.json();
+      if (!result.success) return null;
+      const liste: AnneeOption[] = result.data.annees || [];
+      setAnnees(liste);
+      const courante = liste.find((a) => a.is_current) || liste[0];
+      const anneeId = courante ? courante.annee_academique_id : null;
+      setSelectedAnneeId(anneeId);
+      return anneeId;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleChangeAnnee = (anneeId: number) => {
+    setSelectedAnneeId(anneeId);
+    fetchCertificatData(anneeId);
+  };
+
+  const fetchCertificatData = async (anneeAcademiqueId?: number | null) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const token = localStorage.getItem('token');
       if (!token) {
         message.error('Authentification requise');
@@ -116,7 +160,8 @@ const CertificatScolarite = () => {
         return;
       }
 
-      const response = await fetch(`${API_URL}/api/CertificatScolarite/certificat/etudiant/${id}`, {
+      const anneeQuery = anneeAcademiqueId ? `?anneeAcademiqueId=${anneeAcademiqueId}` : '';
+      const response = await fetch(`${API_URL}/api/CertificatScolarite/certificat/etudiant/${id}${anneeQuery}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -240,7 +285,7 @@ const CertificatScolarite = () => {
             </Text>
             <Button 
               icon={<ReloadOutlined />} 
-              onClick={fetchCertificatData}
+              onClick={() => fetchCertificatData(selectedAnneeId)}
               type="primary"
             >
               Réessayer
@@ -268,7 +313,7 @@ const CertificatScolarite = () => {
             <div style={{ marginTop: 16 }}>
               <Button 
                 icon={<ReloadOutlined />} 
-                onClick={fetchCertificatData}
+                onClick={() => fetchCertificatData(selectedAnneeId)}
                 style={{ marginRight: 8 }}
               >
                 Réessayer
@@ -308,17 +353,25 @@ const CertificatScolarite = () => {
           >
             Retour à la liste
           </Button>
-          
+
           <Space>
-            {/* <Button 
-              type="primary" 
+            <Text strong>Année académique :</Text>
+            <Select
+              value={selectedAnneeId ?? undefined}
+              onChange={handleChangeAnnee}
+              style={{ width: 160 }}
+              options={annees.map((a) => ({ value: a.annee_academique_id, label: a.annee }))}
+              placeholder="Année"
+            />
+            {/* <Button
+              type="primary"
               icon={<DownloadOutlined />}
               loading={generatingPdf}
               onClick={generatePDF}
             >
               Télécharger PDF
             </Button> */}
-            <Button 
+            <Button
               icon={<PrinterOutlined />}
               onClick={printCertificat}
             >
@@ -326,7 +379,7 @@ const CertificatScolarite = () => {
             </Button>
             <Button 
               icon={<ReloadOutlined />}
-              onClick={fetchCertificatData}
+              onClick={() => fetchCertificatData(selectedAnneeId)}
             >
               Actualiser
             </Button>
