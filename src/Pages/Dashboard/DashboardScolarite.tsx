@@ -33,7 +33,10 @@ interface DashboardScolariteData {
   parEcole: { ecole: string; total: number }[];
   parNiveau: { niveau: string; total: number }[];
   parFiliere: { filiere: string; total: number }[];
-  activiteAgents: { agent: string; total_30j: number; moyenne_jour: number; tendance: string }[];
+  // Chantier "Activité des agents" (2026-09-06) — admissions ET réinscriptions, source unique
+  // historique_inscription (voir statistiquesInscriptions.service.js::getActiviteAgents). Remplace
+  // l'ancien {agent, total_30j, moyenne_jour, tendance} qui ne comptait jamais les réinscriptions.
+  activiteAgents: { agent_id: number; agent_nom: string; nouvelles_admissions: number; reinscriptions: number; total: number }[];
   dossiersEnAttente: {
     admissions: { total: number; par_origine: Record<string, number> };
     reinscriptions: { total: number; par_origine: Record<string, number> };
@@ -53,12 +56,6 @@ const getUserInfo = () => {
   } catch {
     return null;
   }
-};
-
-const TENDANCE_COLOR: Record<string, string> = {
-  hausse: 'success',
-  baisse: 'warning',
-  stable: 'default',
 };
 
 // Libellés d'affichage pour `source_inscription` — 'web'/'agent' sont les valeurs connues
@@ -300,16 +297,16 @@ const DashboardScolarite = () => {
           <Card title="Activité des agents — étudiants traités (30 derniers jours)">
             <Table
               dataSource={data.activiteAgents}
-              rowKey="agent"
+              rowKey="agent_id"
               pagination={false}
               locale={{ emptyText: 'Aucune activité sur la période' }}
               columns={[
-                { title: 'Agent', dataIndex: 'agent' },
-                { title: 'Inscriptions traitées', dataIndex: 'total_30j', align: 'right' },
-                { title: 'Moy. / jour', dataIndex: 'moyenne_jour', align: 'right' },
+                { title: 'Agent', dataIndex: 'agent_nom' },
+                { title: 'Nouvelles admissions', dataIndex: 'nouvelles_admissions', align: 'right' },
+                { title: 'Réinscriptions', dataIndex: 'reinscriptions', align: 'right' },
                 {
-                  title: 'Tendance', dataIndex: 'tendance',
-                  render: (v: string) => <Tag color={TENDANCE_COLOR[v] || 'default'}>{v}</Tag>,
+                  title: 'Total', dataIndex: 'total', align: 'right',
+                  render: (v: number) => <Tag color="blue">{v}</Tag>,
                 },
               ]}
             />

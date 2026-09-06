@@ -1,13 +1,14 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Row, 
-  Col, 
-  Statistic, 
-  DatePicker, 
-  Table, 
+import {
+  Card,
+  Row,
+  Col,
+  Statistic,
+  DatePicker,
+  Select,
+  Table,
   Spin,
   Alert,
   Typography,
@@ -28,9 +29,11 @@ import type { Dayjs } from 'dayjs';
 import type { ColumnsType } from 'antd/es/table';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import StatusTag from '../../Components/ui/StatusTag';
+import { apiFetch } from '../../lib/api';
 
 const { Text } = Typography;
 const { RangePicker } = DatePicker;
+const { Option } = Select;
 
 // Interfaces pour le typage
 interface StatsData {
@@ -50,13 +53,23 @@ interface StatsData {
   };
 }
 
+interface AnneeOption {
+  id: number;
+  annee: string;
+  etat: string | null;
+}
+
+// Chantier "Activité des agents" (2026-09-06) — admissions ET réinscriptions, source unique
+// historique_inscription (voir statistiquesInscriptions.service.js::getActiviteAgents). Remplace
+// l'ancien {utilisateur_id, utilisateur_nom, utilisateur_email, total_inscrits, en_attente,
+// confirmes} qui ne comptait jamais les réinscriptions (basé sur etudiant.inscrit_par, jamais
+// réécrit par une réinscription).
 interface InscriptionUtilisateur {
-  utilisateur_id: number;
-  utilisateur_nom: string;
-  utilisateur_email: string;
-  total_inscrits: number;
-  en_attente: number;
-  confirmes: number;
+  agent_id: number;
+  agent_nom: string;
+  nouvelles_admissions: number;
+  reinscriptions: number;
+  total: number;
 }
 
 interface PaiementUtilisateur {
@@ -82,26 +95,49 @@ const DashScolarite: React.FC = () => {
   const [stats, setStats] = useState<StatsData>({});
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
   const [error, setError] = useState<string | null>(null);
+  const [academicYears, setAcademicYears] = useState<AnneeOption[]>([]);
+  const [selectedAnneeId, setSelectedAnneeId] = useState<number | null>(null);
   const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
 
-  const fetchStats = async (startDate: Dayjs | null = null, endDate: Dayjs | null = null) => {
+  // Chantier "Activité des agents" (2026-09-06) — même endpoint/mécanisme déjà utilisé ailleurs
+  // dans le projet pour charger les années académiques (ex. ExportComptesEtudiants.tsx), jamais
+  // dupliqué. Sélection par défaut de l'année "en cours", même règle que DashboardScolarite.tsx.
+  useEffect(() => {
+    apiFetch<{ data: AnneeOption[] }>('/api/effectifs/annees-academiques')
+      .then((res) => {
+        const years = res.data || [];
+        setAcademicYears(years);
+        const currentYear = years.find((y) => y.etat === 'en cour' || y.etat === 'en cours');
+        setSelectedAnneeId(currentYear ? currentYear.id : years[0]?.id ?? null);
+      })
+      .catch(() => setAcademicYears([]));
+  }, []);
+
+  const fetchStats = async (
+    startDate: Dayjs | null = null,
+    endDate: Dayjs | null = null,
+    anneeAcademiqueId: number | null = selectedAnneeId
+  ) => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const token = localStorage.getItem('token');
       let url = `${API_URL}/api/StatsInscriptions/stats-inscriptions`;
-      
+
       const params = new URLSearchParams();
       if (startDate && endDate) {
         params.append('startDate', startDate.format('YYYY-MM-DD'));
         params.append('endDate', endDate.format('YYYY-MM-DD'));
       }
-      
+      if (anneeAcademiqueId) {
+        params.append('anneeAcademiqueId', String(anneeAcademiqueId));
+      }
+
       if (params.toString()) {
         url += `?${params.toString()}`;
       }
-      
+
       const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -112,7 +148,7 @@ const DashScolarite: React.FC = () => {
       if (!response.ok) {
         throw new Error(`Erreur ${response.status}: ${response.statusText}`);
       }
-      
+
       const data: StatsData = await response.json();
       setStats(data);
     } catch (error: any) {
@@ -123,54 +159,57 @@ const DashScolarite: React.FC = () => {
     }
   };
 
+  // Ne déclenche le premier chargement qu'une fois l'année par défaut résolue (évite un premier
+  // appel sans anneeAcademiqueId suivi d'un second dès que les années arrivent).
   useEffect(() => {
-    fetchStats();
-  }, []);
+    if (selectedAnneeId) {
+      fetchStats(dateRange[0], dateRange[1], selectedAnneeId);
+    }
+  }, [selectedAnneeId]);
 
   const handleDateChange = (dates: [Dayjs | null, Dayjs | null] | null) => {
     if (dates) {
       setDateRange(dates);
       if (dates[0] && dates[1]) {
-        fetchStats(dates[0], dates[1]);
+        fetchStats(dates[0], dates[1], selectedAnneeId);
       } else {
-        fetchStats();
+        fetchStats(null, null, selectedAnneeId);
       }
     } else {
       setDateRange([null, null]);
-      fetchStats();
+      fetchStats(null, null, selectedAnneeId);
     }
+  };
+
+  const handleAnneeChange = (value: number) => {
+    setSelectedAnneeId(value);
   };
 
   const columnsInscriptions: ColumnsType<InscriptionUtilisateur> = [
     {
-      title: 'Utilisateur',
-      dataIndex: 'utilisateur_nom',
-      key: 'utilisateur_nom',
-      render: (text: string, record: InscriptionUtilisateur) => (
-        <div>
-          <div style={{ fontWeight: 'bold' }}>{text}</div>
-          <Text type="secondary">{record.utilisateur_email}</Text>
-        </div>
-      ),
+      title: 'Agent',
+      dataIndex: 'agent_nom',
+      key: 'agent_nom',
+      render: (text: string) => <div style={{ fontWeight: 'bold' }}>{text}</div>,
     },
     {
-      title: 'Total Inscrits',
-      dataIndex: 'total_inscrits',
-      key: 'total_inscrits',
+      title: 'Nouvelles admissions',
+      dataIndex: 'nouvelles_admissions',
+      key: 'nouvelles_admissions',
       align: 'center',
-      render: (text: number) => <StatusTag tone="info" label={String(text)} />,
+      render: (text: number) => <StatusTag tone="info" icon={<UserOutlined />} label={String(text)} />,
     },
     {
-      title: 'En Attente',
-      dataIndex: 'en_attente',
-      key: 'en_attente',
+      title: 'Réinscriptions',
+      dataIndex: 'reinscriptions',
+      key: 'reinscriptions',
       align: 'center',
-      render: (text: number) => <StatusTag tone="warning" icon={<ClockCircleOutlined />} label={String(text)} />,
+      render: (text: number) => <StatusTag tone="warning" icon={<TeamOutlined />} label={String(text)} />,
     },
     {
-      title: 'Confirmés',
-      dataIndex: 'confirmes',
-      key: 'confirmes',
+      title: 'Total',
+      dataIndex: 'total',
+      key: 'total',
       align: 'center',
       render: (text: number) => <StatusTag tone="success" icon={<CheckCircleOutlined />} label={String(text)} />,
     },
@@ -250,8 +289,8 @@ const DashScolarite: React.FC = () => {
     <div style={{ padding: '20px' }}>
       <PageHeader />
       
-      {/* Filtre de période */}
-      <Card 
+      {/* Filtre de période + année académique */}
+      <Card
         title={
           <div>
             <BarChartOutlined /> Filtre par Période
@@ -259,16 +298,28 @@ const DashScolarite: React.FC = () => {
         }
         style={{ marginBottom: 20 }}
         extra={
-          <RangePicker 
-            onChange={handleDateChange}
-            value={dateRange}
-            style={{ width: 300 }}
-            format="DD/MM/YYYY"
-          />
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Select
+              value={selectedAnneeId ?? undefined}
+              onChange={handleAnneeChange}
+              style={{ width: 160 }}
+              placeholder="Année académique"
+            >
+              {academicYears.map((y) => (
+                <Option key={y.id} value={y.id}>{y.annee}</Option>
+              ))}
+            </Select>
+            <RangePicker
+              onChange={handleDateChange}
+              value={dateRange}
+              style={{ width: 300 }}
+              format="DD/MM/YYYY"
+            />
+          </div>
         }
       >
         <Text type="secondary">
-          {dateRange[0] && dateRange[1] 
+          {dateRange[0] && dateRange[1]
             ? `Période sélectionnée: ${dateRange[0].format('DD/MM/YYYY')} au ${dateRange[1].format('DD/MM/YYYY')}`
             : 'Toutes les périodes'
           }
@@ -354,7 +405,7 @@ const DashScolarite: React.FC = () => {
           <Table
             columns={columnsInscriptions}
             dataSource={stats.inscriptionsParUtilisateur}
-            rowKey="utilisateur_id"
+            rowKey="agent_id"
             pagination={{ pageSize: 10 }}
             scroll={{ x: 600 }}
           />
