@@ -34,6 +34,7 @@ import Sites from "../../Pages/Gestion_academique/Sites";
 import EtablissementsOrigine from "../../Pages/Gestion_academique/EtablissementsOrigine";
 import Classes from "../../Pages/Gestion_academique/Classes";
 import GestionGroupes from "../../Pages/Gestion_academique/GestionGroupes";
+import ProjectionGroupes from "../../Pages/Gestion_academique/ProjectionGroupes";
 
 import Cartes from "../../Pages/Etudiant/Cartes";
 import Dossiers from "../../Pages/Etudiant/Dossiers";
@@ -307,6 +308,15 @@ const AppRoutes = () => {
       <Route path="/Gestion_academique/GestionGroupes" element={
         <ProtectedRoute requiredPermission="admin">
           <GestionGroupes />
+        </ProtectedRoute>
+      } />
+
+      {/* Chantier "Projection des listes de classes prévisionnelles" (2026-09-05) — page ISOLÉE,
+          n'affecte jamais les groupes réels ; même garde que GestionGroupes ci-dessus
+          (requiredPermission="admin" seul), non modifiée par ce chantier. */}
+      <Route path="/Gestion_academique/ProjectionGroupes" element={
+        <ProtectedRoute requiredPermission="admin">
+          <ProjectionGroupes />
         </ProtectedRoute>
       } />
 

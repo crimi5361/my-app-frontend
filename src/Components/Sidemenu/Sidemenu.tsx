@@ -26,6 +26,7 @@ import {
   FundOutlined,
   SwapOutlined,
   FileExcelOutlined,
+  ThunderboltOutlined,
 } from "@ant-design/icons";
 
 import { useLocation, useNavigate } from "react-router-dom";
@@ -177,6 +178,7 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
         { key: "/Gestion_academique/Niviaux", label: "Niveaux", icon: <AppstoreAddOutlined />, permission: ["admin", "Gestion_academique"] },
         { key: "/Gestion_academique/Classes", label: "Classes", icon: <AppstoreAddOutlined />, permission: ["admin", "Gestion_academique"] },
         { key: "/Gestion_academique/GestionGroupes", label: "Gestion des groupes", icon: <UsergroupAddOutlined />, permission: "admin" },
+        { key: "/Gestion_academique/ProjectionGroupes", label: "Projections des groupes", icon: <ThunderboltOutlined />, permission: "admin" },
         { key: "/Gestion_academique/Maquettes", label: "Maquettes", icon: <AppstoreAddOutlined />, permission: ["admin", "Gestion_academique"] },
         { key: "/Gestion_academique/Migrations", label: "Équivalence", icon: <AppstoreAddOutlined />, permission: ["admin", "Gestion_academique"] },
         { key: "/Gestion_academique/OrientationsReinscription", label: "Orientations de réinscription", icon: <AppstoreAddOutlined />, permission: "admin" },
