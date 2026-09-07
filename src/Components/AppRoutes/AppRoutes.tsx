@@ -17,6 +17,7 @@ import Stock from "../../Pages/MoyensGeneraux/Stock";
 import Distribution from "../../Pages/MoyensGeneraux/Distribution";
 import RecuDistribution from "../../Pages/MoyensGeneraux/RecuDistribution";
 import HistoriqueDistributions from "../../Pages/MoyensGeneraux/HistoriqueDistributions";
+import SuiviDistributions from "../../Pages/MoyensGeneraux/SuiviDistributions";
 import Transferts from "../../Pages/MoyensGeneraux/Transferts";
 
 // Scolarité
@@ -207,6 +208,15 @@ const AppRoutes = () => {
       <Route path="/moyens-generaux/historique" element={
         <ProtectedRoute requiredPermission={["admin", "moyens_generaux"]}>
           <HistoriqueDistributions />
+        </ProtectedRoute>
+      } />
+
+      {/* Chantier "Suivi des distributions" — Phase 2 frontend (2026-09-07) — page ISOLÉE,
+          consomme uniquement GET /api/moyens-generaux/distribution/suivi (Phase 1), même garde
+          que les autres pages Distribution ci-dessus (non modifiée). */}
+      <Route path="/moyens-generaux/distribution/suivi" element={
+        <ProtectedRoute requiredPermission={["admin", "moyens_generaux"]}>
+          <SuiviDistributions />
         </ProtectedRoute>
       } />
 

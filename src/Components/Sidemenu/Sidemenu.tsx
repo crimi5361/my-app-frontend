@@ -215,6 +215,7 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
         { key: "/moyens-generaux/commandes", label: "Commandes", icon: <SolutionOutlined />, permission: ["admin", "moyens_generaux"] },
         { key: "/moyens-generaux/stock", label: "Stock", icon: <DatabaseOutlined />, permission: ["admin", "moyens_generaux"] },
         { key: "/moyens-generaux/distribution", label: "Distribution", icon: <UserSwitchOutlined />, permission: ["admin", "moyens_generaux"] },
+        { key: "/moyens-generaux/distribution/suivi", label: "Suivi des distributions", icon: <SolutionOutlined />, permission: ["admin", "moyens_generaux"] },
         { key: "/moyens-generaux/transferts", label: "Transferts entre sites", icon: <SwapOutlined />, permission: ["admin", "moyens_generaux"] },
         { key: "/moyens-generaux/historique", label: "Historique", icon: <HistoryOutlined />, permission: ["admin", "moyens_generaux"] },
       ],
