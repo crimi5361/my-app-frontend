@@ -51,8 +51,15 @@ interface DistributionDetail {
   lignes: LigneDistrib[];
 }
 
+// Chantier "Historique détaillé par accessoire" (2026-09-07) : 1 ligne = 1 accessoire réellement
+// remis (ligne_distribution JOIN accessoire côté backend), plus le même total_accessoires agrégé
+// — ligne_id (ligne_distribution.id) est désormais la clé unique de ligne ; distribution_id (ancien
+// champ "id") reste nécessaire pour ouvrir le détail complet de LA remise (bouton "voir détail" /
+// reçu consolidé, inchangés). groupe_nom = position ACTUELLE de l'étudiant (jamais figée sur
+// `distribution`, à la différence de ecole_nom/filiere_nom/niveau_nom/classe_nom).
 interface HistoriqueLigne {
-  id: number;
+  ligne_id: number;
+  distribution_id: number;
   numero_recu: string;
   date_remise: string;
   etudiant_id: number;
@@ -61,13 +68,16 @@ interface HistoriqueLigne {
   filiere_nom: string;
   niveau_nom: string;
   classe_nom: string | null;
+  groupe_nom: string | null;
   nom: string;
   prenoms: string;
   matricule: string;
   matricule_iipea: string;
+  telephone: string | null;
   agent_nom: string;
   annee_academique: string;
-  total_accessoires: number;
+  accessoire_nom: string;
+  quantite: number;
 }
 
 interface AcademicYear { id: number; annee: string; etat: string; }
@@ -176,18 +186,22 @@ const HistoriqueDistributions = () => {
     return res.data;
   };
 
+  // Chantier "Historique détaillé par accessoire" (2026-09-07) — colonnes exactement demandées :
+  // Date de remise, Matricule IIPEA, Nom & Prénoms, Téléphone, Filière, Niveau, Groupe, Accessoire,
+  // Quantité, Agent. `data` est déjà 1 ligne par accessoire réellement remis (backend) — aucune
+  // agrégation, aucune ligne perdue, export complet (fetchToutPourExport, limite large, inchangé).
   const handleExportExcel = async () => {
     setExportingExcel(true);
     try {
       const data = await fetchToutPourExport();
       if (data.length === 0) { message.warning("Aucune donnée à exporter"); return; }
-      const headerRow = ["N° reçu", "Date", "Étudiant", "Matricule IIPEA", "École", "Filière", "Niveau", "Classe", "Agent", "Nb accessoires"];
+      const headerRow = ["Date de remise", "Matricule IIPEA", "Nom & Prénoms", "Téléphone", "Filière", "Niveau", "Groupe", "Accessoire", "Quantité", "Agent"];
       const dataRows = data.map((l) => [
-        l.numero_recu, new Date(l.date_remise).toLocaleString("fr-FR"), `${l.nom} ${l.prenoms}`, l.matricule_iipea,
-        l.ecole_nom, l.filiere_nom, l.niveau_nom, l.classe_nom ?? "", l.agent_nom, l.total_accessoires,
+        new Date(l.date_remise).toLocaleString("fr-FR"), l.matricule_iipea, `${l.nom} ${l.prenoms}`, l.telephone ?? "—",
+        l.filiere_nom, l.niveau_nom, l.groupe_nom ?? "—", l.accessoire_nom, l.quantite, l.agent_nom,
       ]);
       const ws = XLSX.utils.aoa_to_sheet([["HISTORIQUE DES DISTRIBUTIONS — MOYENS GÉNÉRAUX"], [], headerRow, ...dataRows]);
-      ws["!cols"] = [{ wch: 26 }, { wch: 18 }, { wch: 24 }, { wch: 16 }, { wch: 22 }, { wch: 30 }, { wch: 14 }, { wch: 24 }, { wch: 20 }, { wch: 14 }];
+      ws["!cols"] = [{ wch: 18 }, { wch: 16 }, { wch: 26 }, { wch: 16 }, { wch: 30 }, { wch: 14 }, { wch: 22 }, { wch: 18 }, { wch: 10 }, { wch: 20 }];
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, "Historique");
       XLSX.writeFile(wb, `historique_distributions_${new Date().toISOString().slice(0, 10)}.xlsx`);
@@ -211,10 +225,10 @@ const HistoriqueDistributions = () => {
       doc.text(`Généré le ${new Date().toLocaleDateString("fr-FR")} — ${data.length} remise(s)`, 14, 20);
       autoTable(doc, {
         startY: 26,
-        head: [["N° reçu", "Date", "Étudiant", "Matricule IIPEA", "École", "Filière", "Niveau", "Agent", "Qté"]],
+        head: [["N° reçu", "Date", "Étudiant", "Matricule IIPEA", "Filière", "Niveau", "Accessoire", "Qté", "Agent"]],
         body: data.map((l) => [
           l.numero_recu, new Date(l.date_remise).toLocaleDateString("fr-FR"), `${l.nom} ${l.prenoms}`, l.matricule_iipea,
-          l.ecole_nom, l.filiere_nom, l.niveau_nom, l.agent_nom, String(l.total_accessoires),
+          l.filiere_nom, l.niveau_nom, l.accessoire_nom, String(l.quantite), l.agent_nom,
         ]),
         styles: { fontSize: 7 },
         headStyles: { fillColor: [24, 144, 255] },
@@ -237,8 +251,8 @@ const HistoriqueDistributions = () => {
       <tr>
         <td>${l.numero_recu}</td><td>${new Date(l.date_remise).toLocaleString("fr-FR")}</td>
         <td>${l.nom} ${l.prenoms}</td><td>${l.matricule_iipea}</td>
-        <td>${l.ecole_nom}</td><td>${l.filiere_nom}</td><td>${l.niveau_nom}</td>
-        <td>${l.agent_nom}</td><td style="text-align:right">${l.total_accessoires}</td>
+        <td>${l.filiere_nom}</td><td>${l.niveau_nom}</td>
+        <td>${l.accessoire_nom}</td><td style="text-align:right">${l.quantite}</td><td>${l.agent_nom}</td>
       </tr>`).join("");
     printWindow.document.write(`
       <!DOCTYPE html><html><head><meta charset="utf-8"><title>Historique des distributions</title>
@@ -251,8 +265,8 @@ const HistoriqueDistributions = () => {
       </style></head>
       <body onload="window.print(); window.onafterprint = function(){ window.close(); }">
         <h2>Historique des distributions — Moyens Généraux</h2>
-        <p>Généré le ${new Date().toLocaleDateString("fr-FR")} — ${data.length} remise(s)</p>
-        <table><thead><tr><th>N° reçu</th><th>Date</th><th>Étudiant</th><th>Matricule IIPEA</th><th>École</th><th>Filière</th><th>Niveau</th><th>Agent</th><th>Qté</th></tr></thead>
+        <p>Généré le ${new Date().toLocaleDateString("fr-FR")} — ${data.length} ligne(s)</p>
+        <table><thead><tr><th>N° reçu</th><th>Date</th><th>Étudiant</th><th>Matricule IIPEA</th><th>Filière</th><th>Niveau</th><th>Accessoire</th><th>Qté</th><th>Agent</th></tr></thead>
         <tbody>${rows}</tbody></table>
       </body></html>
     `);
@@ -261,21 +275,24 @@ const HistoriqueDistributions = () => {
 
   const columns = [
     { title: "N° reçu", dataIndex: "numero_recu", key: "numero_recu" },
-    { title: "Date", dataIndex: "date_remise", key: "date_remise", render: (v: string) => new Date(v).toLocaleString("fr-FR") },
-    { title: "Étudiant", key: "etudiant", render: (_: any, r: HistoriqueLigne) => `${r.nom} ${r.prenoms}` },
+    { title: "Date de remise", dataIndex: "date_remise", key: "date_remise", render: (v: string) => new Date(v).toLocaleString("fr-FR") },
     { title: "Matricule IIPEA", dataIndex: "matricule_iipea", key: "matricule_iipea" },
+    { title: "Nom & Prénoms", key: "etudiant", render: (_: any, r: HistoriqueLigne) => `${r.nom} ${r.prenoms}` },
+    { title: "Téléphone", dataIndex: "telephone", key: "telephone", render: (v: string | null) => v || <span style={{ color: "var(--text-soft)" }}>—</span> },
     { title: "École", dataIndex: "ecole_nom", key: "ecole_nom" },
     { title: "Filière", dataIndex: "filiere_nom", key: "filiere_nom" },
     { title: "Niveau", dataIndex: "niveau_nom", key: "niveau_nom" },
+    { title: "Groupe", dataIndex: "groupe_nom", key: "groupe_nom", render: (v: string | null) => v ?? <span style={{ color: "var(--text-soft)" }}>—</span> },
     { title: "Classe", dataIndex: "classe_nom", key: "classe_nom", render: (v: string | null) => v ?? <span style={{ color: "var(--text-soft)" }}>—</span> },
+    { title: "Accessoire", dataIndex: "accessoire_nom", key: "accessoire_nom" },
+    { title: "Quantité", dataIndex: "quantite", key: "quantite", align: "right" as const },
     { title: "Agent", dataIndex: "agent_nom", key: "agent_nom" },
-    { title: "Nb accessoires", dataIndex: "total_accessoires", key: "total_accessoires", align: "right" as const },
     { title: "Statut", key: "statut", render: () => <StatusTag tone="success" label="Remise effectuée" /> },
     {
       title: "Action", key: "action",
       render: (_: any, r: HistoriqueLigne) => (
         <Space>
-          <Button icon={<EyeOutlined />} size="small" onClick={() => openDetail(r.id)} />
+          <Button icon={<EyeOutlined />} size="small" onClick={() => openDetail(r.distribution_id)} />
           {/* Chantier Moyens Généraux, Phase 2D — diagnostic reçu (2026-08-19) : reçu de remise
               CONSOLIDÉ (offerts + surplus), jamais l'ancien reçu par session — sinon un surplus déjà
               distribué n'apparaîtrait jamais depuis ce bouton. */}
@@ -306,7 +323,7 @@ const HistoriqueDistributions = () => {
         <DataTable<HistoriqueLigne>
           columns={columns}
           dataSource={lignes}
-          rowKey="id"
+          rowKey="ligne_id"
           loading={loading}
           onChange={handleTableChange}
           pagination={{ current: page, pageSize: limit, total, showSizeChanger: true }}
