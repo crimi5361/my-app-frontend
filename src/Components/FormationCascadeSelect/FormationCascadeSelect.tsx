@@ -51,11 +51,11 @@ interface Props {
    * Étudiant affecté par le Ministère : restreint encore le niveau, en plus de
    * premiereAnneeUniquement — LICENCE 1 (ou LICENCE 1 PRO) pour une filière universitaire
    * n'ayant pas cette distinction, BTS 1 ou LICENCE 1 PRO pour une filière professionnelle
-   * (aucun Master/Master Pro, même en 1ère année). Chantier tarification PRO (2026-08-21) :
-   * LICENCE 1 PRO est désormais autorisé pour un affecté (tarif dédié, voir
-   * controllers/tarif.controller.js) — LICENCE 2 PRO reste absent de cette liste : ce n'est
-   * jamais un niveau d'entrée en nouvelle admission (progression = réinscription). Sans effet
-   * si premiereAnneeUniquement n'est pas activé.
+   * (aucun Master/Master Pro, même en 1ère année), plus BTS 2 et LICENCE 2 dans les deux cas.
+   * Chantier tarification PRO (2026-08-21) : LICENCE 1 PRO est désormais autorisé pour un
+   * affecté (tarif dédié, voir controllers/tarif.controller.js) — LICENCE 2 PRO reste absent
+   * de cette liste : ce n'est jamais un niveau d'entrée en nouvelle admission (progression =
+   * réinscription). Sans effet si premiereAnneeUniquement n'est pas activé.
    */
   statutAffecte?: boolean;
 }
@@ -65,10 +65,10 @@ interface Props {
 // École→Département→Filière ici Filière→École→Département — copier cette logique isolée évite un
 // couplage artificiel entre deux composants qui ne partagent que ce fragment).
 const NIVEAU_PREMIERE_ANNEE_REGEX = /^(?:(?:BTS|LICENCE|MASTER) 1( PRO)?|BTS 2|LICENCE 2)$/i;
-const NIVEAU_LICENCE_1_REGEX = /^LICENCE 1$/i;
+const NIVEAU_LICENCE_1_REGEX = /^(?:LICENCE 1|BTS 2|LICENCE 2)$/i;
 // Chantier tarification PRO (2026-08-21) : un affecté sur une filière professionnelle peut
 // désormais choisir BTS 1 OU LICENCE 1 PRO (avant : BTS 1 uniquement).
-const NIVEAU_PRO_AFFECTE_ADMISSION_REGEX = /^(BTS 1|LICENCE 1 PRO)$/i;
+const NIVEAU_PRO_AFFECTE_ADMISSION_REGEX = /^(?:BTS 1|LICENCE 1 PRO|BTS 2|LICENCE 2)$/i;
 const NIVEAU_LICENCE_3_PRO_REGEX = /^LICENCE 3 PRO$/i;
 
 /**
