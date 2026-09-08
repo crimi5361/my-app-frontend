@@ -1,16 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Card, Row, Col, Statistic, Select, Table, Tag, Spin, Empty, Typography, Alert, Space } from 'antd';
+import { useCallback, useEffect, useState } from 'react';
+import { Card, Row, Col, Statistic, Select, Table, Tag, Spin, Empty, Typography, Alert, Space, Drawer, Button, message } from 'antd';
 import {
   TeamOutlined, GiftOutlined, CheckCircleOutlined, HourglassOutlined,
   WarningOutlined, InboxOutlined, DatabaseOutlined, DollarOutlined, SwapOutlined, StopOutlined,
 } from '@ant-design/icons';
-import {
-  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip,
-} from 'recharts';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import AccesRestreint from '../../Components/ui/AccesRestreint';
 import { apiFetch, ApiError } from '../../lib/api';
 import { hasPermission } from '../../lib/permissions';
+import { useEtudiantFilterOptions } from '../../lib/useEtudiantFilterOptions';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -73,6 +71,31 @@ interface StockKpis {
 
 interface CategorieOption { id: number; nom: string; }
 interface AccessoireOption { id: number; nom: string; actif: boolean; }
+
+// Chantier "Suivi des accessoires par niveau" (2026-09-08) — tableau croisé niveau × accessoire,
+// GET /api/moyens-generaux/distribution/statistiques-par-niveau. Une ligne = un LIBELLÉ de niveau
+// (jamais un niveau_id : un même libellé existe sur plusieurs filières, voir le backend) ; une
+// cellule vaut `null` quand l'accessoire n'est pas prévu (regle_distribution_accessoire) pour ce
+// niveau, ou un nombre (peut être 0) quand il l'est.
+interface AccessoireColonne { id: number; nom: string; }
+interface NiveauStatLigne {
+  niveau: string;
+  inscrits: number;
+  accessoires: Record<number, number | null>;
+}
+interface StatistiquesAccessoiresNiveau {
+  accessoires: AccessoireColonne[];
+  niveaux: NiveauStatLigne[];
+}
+interface NonRecuperateurLigne {
+  matricule_iipea: string;
+  nom: string;
+  prenoms: string;
+  telephone: string | null;
+  filiere: string;
+  niveau: string;
+  groupe: string | null;
+}
 
 const TYPE_LABEL: Record<string, string> = {
   reception: 'Réception',
@@ -206,17 +229,70 @@ const DashboardMoyensGeneraux = () => {
     fetchStockDetail();
   }, [fetchStockDetail]);
 
-  // Répartition de la VALEUR du stock par catégorie (les articles sans catégorie sont regroupés
-  // sous "Sans catégorie") — agrégée côté client à partir du même jeu de données que le tableau,
-  // jamais une requête séparée.
-  const repartitionParCategorie = useMemo(() => {
-    const parCategorie = new Map<string, number>();
-    for (const a of articles) {
-      const cle = a.categorie_nom ?? 'Sans catégorie';
-      parCategorie.set(cle, (parCategorie.get(cle) ?? 0) + (a.valeur_stock ?? 0));
-    }
-    return Array.from(parCategorie.entries()).map(([categorie, valeur]) => ({ categorie, valeur })).sort((a, b) => b.valeur - a.valeur);
-  }, [articles]);
+  // ─── Suivi des accessoires par niveau (2026-09-08) ─────────────────────────────────────────
+  // Scopée sur distribution.voir (même permission que /suivi et /historique), indépendante de
+  // stock.voir — un agent peut légitimement avoir l'une sans l'autre.
+  const peutVoirStatsNiveau = hasPermission('distribution.voir');
+  const [statsNiveau, setStatsNiveau] = useState<StatistiquesAccessoiresNiveau | null>(null);
+  const [loadingStatsNiveau, setLoadingStatsNiveau] = useState(false);
+  const [statsNiveauError, setStatsNiveauError] = useState<string | null>(null);
+  const [filtreFiliereStatsId, setFiltreFiliereStatsId] = useState<number | null>(null);
+  const [filtreNiveauStatsId, setFiltreNiveauStatsId] = useState<number | null>(null);
+
+  // Filière/niveau réels de l'année sélectionnée — même hook, même patron que
+  // Pages/MoyensGeneraux/SuiviDistributions.tsx (cascade filière → niveaux de cette filière).
+  const { filieres: filieresStats } = useEtudiantFilterOptions(selectedYearId);
+  const niveauxDeLaFiliereStats = filtreFiliereStatsId
+    ? filieresStats.find((f) => f.id === filtreFiliereStatsId)?.niveaux ?? []
+    : [];
+
+  useEffect(() => {
+    setFiltreFiliereStatsId(null);
+    setFiltreNiveauStatsId(null);
+  }, [selectedYearId]);
+
+  const fetchStatsNiveau = useCallback(() => {
+    if (!selectedYearId || !peutVoirStatsNiveau) return;
+    setLoadingStatsNiveau(true);
+    setStatsNiveauError(null);
+    const params = new URLSearchParams({ anneeAcademiqueId: String(selectedYearId) });
+    if (filtreFiliereStatsId) params.set('filiereId', String(filtreFiliereStatsId));
+    if (filtreNiveauStatsId) params.set('niveauId', String(filtreNiveauStatsId));
+    apiFetch<{ data: StatistiquesAccessoiresNiveau }>(`/api/moyens-generaux/distribution/statistiques-par-niveau?${params.toString()}`)
+      .then((res) => setStatsNiveau(res.data))
+      .catch((e) => {
+        if (e instanceof ApiError && e.status === 401) return;
+        setStatsNiveauError('Impossible de charger le suivi des accessoires par niveau.');
+      })
+      .finally(() => setLoadingStatsNiveau(false));
+  }, [selectedYearId, filtreFiliereStatsId, filtreNiveauStatsId, peutVoirStatsNiveau]);
+
+  useEffect(() => {
+    fetchStatsNiveau();
+  }, [fetchStatsNiveau]);
+
+  const [nonRecupOpen, setNonRecupOpen] = useState(false);
+  const [nonRecupLoading, setNonRecupLoading] = useState(false);
+  const [nonRecupTitre, setNonRecupTitre] = useState('');
+  const [nonRecupListe, setNonRecupListe] = useState<NonRecuperateurLigne[]>([]);
+
+  const ouvrirNonRecuperateurs = (niveauLibelle: string, accessoireId: number, accessoireNom: string) => {
+    if (!selectedYearId) return;
+    setNonRecupTitre(`Étudiants n'ayant pas récupéré ${accessoireNom} — ${niveauLibelle}`);
+    setNonRecupOpen(true);
+    setNonRecupLoading(true);
+    setNonRecupListe([]);
+    const params = new URLSearchParams({
+      anneeAcademiqueId: String(selectedYearId),
+      niveau: niveauLibelle,
+      accessoireId: String(accessoireId),
+    });
+    if (filtreFiliereStatsId) params.set('filiereId', String(filtreFiliereStatsId));
+    apiFetch<{ data: NonRecuperateurLigne[] }>(`/api/moyens-generaux/distribution/non-recuperateurs?${params.toString()}`)
+      .then((res) => setNonRecupListe(res.data))
+      .catch(() => message.error("Impossible de charger la liste des étudiants n'ayant pas récupéré cet accessoire."))
+      .finally(() => setNonRecupLoading(false));
+  };
 
   if (loadingYears) {
     return (
@@ -373,7 +449,7 @@ const DashboardMoyensGeneraux = () => {
                 { title: 'Stock initial', dataIndex: 'stock_initial', align: 'right' as const },
                 { title: 'Reçu', dataIndex: 'recu', align: 'right' as const },
                 { title: 'Distribué (gratuit)', dataIndex: 'distribue_gratuit', align: 'right' as const },
-                { title: 'Distribué (surplus)', dataIndex: 'distribue_surplus', align: 'right' as const },
+                { title: 'Accessoire vendu', dataIndex: 'distribue_surplus', align: 'right' as const },
                 { title: 'Transféré', dataIndex: 'transfere_sortant', align: 'right' as const },
                 {
                   title: 'Restant', dataIndex: 'restant', align: 'right' as const,
@@ -387,20 +463,77 @@ const DashboardMoyensGeneraux = () => {
                 },
               ]}
             />
-
-            {repartitionParCategorie.length > 0 && (
-              <Card title="Valeur du stock par catégorie" size="small" style={{ marginTop: 20, height: 300 }}>
-                <ResponsiveContainer width="100%" height={230}>
-                  <BarChart data={repartitionParCategorie} layout="vertical" margin={{ left: 24 }}>
-                    <XAxis type="number" tickFormatter={(v) => `${(v / 1000).toLocaleString('fr-FR')}k`} />
-                    <YAxis type="category" dataKey="categorie" width={140} tick={{ fontSize: 11 }} />
-                    <Tooltip formatter={(v: number) => formatFCFA(v)} />
-                    <Bar dataKey="valeur" fill="var(--gold)" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </Card>
-            )}
           </>
+        )}
+      </Card>
+      )}
+
+      {/* ─── Suivi des accessoires par niveau (2026-09-08) ───────────────────────────────────────
+          Card autonome, distincte de "Suivi du stock" — tableau croisé niveau × accessoire, colonnes
+          dynamiques (accessoires réellement configurés). Cliquer un chiffre ouvre le détail des
+          étudiants n'ayant pas encore récupéré cet accessoire à ce niveau. */}
+      {peutVoirStatsNiveau && (
+      <Card
+        title={<span><TeamOutlined /> Suivi des accessoires par niveau</span>}
+        style={{ marginBottom: 24 }}
+        extra={<Text type="secondary" style={{ fontSize: 12 }}>Étudiants ayant récupéré chaque accessoire — cliquez un chiffre pour voir qui ne l'a pas encore reçu</Text>}
+      >
+        <Space wrap style={{ marginBottom: 16 }}>
+          <Select
+            allowClear
+            placeholder="Toutes les filières"
+            style={{ width: 240 }}
+            value={filtreFiliereStatsId ?? undefined}
+            onChange={(v) => { setFiltreFiliereStatsId(v ?? null); setFiltreNiveauStatsId(null); }}
+            showSearch
+            optionFilterProp="children"
+          >
+            {filieresStats.map((f) => <Option key={f.id} value={f.id}>{f.nom}</Option>)}
+          </Select>
+          <Select
+            allowClear
+            placeholder="Tous les niveaux"
+            style={{ width: 200 }}
+            value={filtreNiveauStatsId ?? undefined}
+            onChange={(v) => setFiltreNiveauStatsId(v ?? null)}
+            disabled={!filtreFiliereStatsId}
+          >
+            {niveauxDeLaFiliereStats.map((n) => <Option key={n.id} value={n.id}>{n.libelle}</Option>)}
+          </Select>
+        </Space>
+
+        {statsNiveauError ? (
+          <Alert type="warning" showIcon message={statsNiveauError} />
+        ) : (
+          <Table<NiveauStatLigne>
+            dataSource={statsNiveau?.niveaux ?? []}
+            rowKey="niveau"
+            size="small"
+            loading={loadingStatsNiveau}
+            pagination={false}
+            scroll={{ x: 'max-content' }}
+            locale={{ emptyText: <Empty description="Aucune donnée pour cette sélection" /> }}
+            columns={[
+              { title: 'Niveau', dataIndex: 'niveau', fixed: 'left' as const, width: 160 },
+              { title: 'Inscrits', dataIndex: 'inscrits', align: 'right' as const, width: 100 },
+              ...(statsNiveau?.accessoires ?? []).map((acc) => ({
+                title: acc.nom,
+                key: `acc-${acc.id}`,
+                align: 'right' as const,
+                render: (_: unknown, record: NiveauStatLigne) => {
+                  const valeur = record.accessoires[acc.id];
+                  if (valeur === null || valeur === undefined) {
+                    return <Text type="secondary">—</Text>;
+                  }
+                  return (
+                    <Button type="link" size="small" onClick={() => ouvrirNonRecuperateurs(record.niveau, acc.id, acc.nom)}>
+                      {valeur}
+                    </Button>
+                  );
+                },
+              })),
+            ]}
+          />
         )}
       </Card>
       )}
@@ -424,6 +557,28 @@ const DashboardMoyensGeneraux = () => {
           />
         </Card>
       )}
+
+      <Drawer title={nonRecupTitre} open={nonRecupOpen} onClose={() => setNonRecupOpen(false)} width={560}>
+        {nonRecupLoading ? (
+          <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div>
+        ) : nonRecupListe.length === 0 ? (
+          <Empty description="Tous les étudiants concernés ont récupéré cet accessoire" />
+        ) : (
+          <Table<NonRecuperateurLigne>
+            dataSource={nonRecupListe}
+            rowKey="matricule_iipea"
+            size="small"
+            pagination={false}
+            columns={[
+              { title: 'Matricule', dataIndex: 'matricule_iipea' },
+              { title: 'Nom & Prénoms', render: (_: unknown, r: NonRecuperateurLigne) => `${r.nom} ${r.prenoms}` },
+              { title: 'Téléphone', dataIndex: 'telephone', render: (v: string | null) => v ?? '—' },
+              { title: 'Filière', dataIndex: 'filiere' },
+              { title: 'Groupe', dataIndex: 'groupe', render: (v: string | null) => v ?? '—' },
+            ]}
+          />
+        )}
+      </Drawer>
     </div>
   );
 };
