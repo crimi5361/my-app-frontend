@@ -42,8 +42,9 @@ interface Props {
   onFormationInfo?: (info: { typeFiliereLibelle: string | null; niveauLibelle: string | null }) => void;
   /**
    * N'affiche que les niveaux de 1ère année de chaque cycle (BTS 1, LICENCE 1, LICENCE 1 PRO,
-   * MASTER 1, MASTER 1 PRO) — à utiliser uniquement pour la Nouvelle inscription, qui ne concerne
-   * jamais un niveau supérieur. Ne pas activer pour la Réinscription ni la gestion académique.
+   * MASTER 1, MASTER 1 PRO), plus BTS 2 et LICENCE 2 — à utiliser uniquement pour la Nouvelle
+   * inscription, qui ne concerne jamais un niveau supérieur. Ne pas activer pour la Réinscription
+   * ni la gestion académique.
    */
   premiereAnneeUniquement?: boolean;
   /**
@@ -63,7 +64,7 @@ interface Props {
 // (copiées, pas partagées par import : les deux composants ont des flux de données inversés —
 // École→Département→Filière ici Filière→École→Département — copier cette logique isolée évite un
 // couplage artificiel entre deux composants qui ne partagent que ce fragment).
-const NIVEAU_PREMIERE_ANNEE_REGEX = /^(BTS|LICENCE|MASTER) 1( PRO)?$/i;
+const NIVEAU_PREMIERE_ANNEE_REGEX = /^(?:(?:BTS|LICENCE|MASTER) 1( PRO)?|BTS 2|LICENCE 2)$/i;
 const NIVEAU_LICENCE_1_REGEX = /^LICENCE 1$/i;
 // Chantier tarification PRO (2026-08-21) : un affecté sur une filière professionnelle peut
 // désormais choisir BTS 1 OU LICENCE 1 PRO (avant : BTS 1 uniquement).
