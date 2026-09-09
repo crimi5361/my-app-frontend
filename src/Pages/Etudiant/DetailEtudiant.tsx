@@ -113,6 +113,9 @@ interface EtudiantDetails {
   contact_etudiant: string | null;
   email: string;
   email_personnel: string | null;
+  numero_acte_naissance: string | null;
+  numero_piece_identite: string | null;
+  mention_bac: string | null;
   lieu_residence: string;
   contact_parent: string;
   contact_parent_2: string;
@@ -515,10 +518,13 @@ const DetailEtudiant = () => {
               </Descriptions.Item>
               <Descriptions.Item label={<Text strong>E-mail personnel</Text>}>{etudiant.email_personnel || '-'}</Descriptions.Item>
               <Descriptions.Item label={<Text strong><CalendarOutlined /> Naissance</Text>}>{formatDate(etudiant.date_naissance)} à {etudiant.lieu_naissance}</Descriptions.Item>
+              <Descriptions.Item label={<Text strong>N° acte de naissance</Text>}>{etudiant.numero_acte_naissance || '-'}</Descriptions.Item>
               <Descriptions.Item label={<Text strong><UserOutlined /> Genre / Nationalité</Text>}>{etudiant.sexe} · {etudiant.nationalite}</Descriptions.Item>
               <Descriptions.Item label={<Text strong><HomeOutlined /> Ville</Text>}>{etudiant.lieu_residence}</Descriptions.Item>
               <Descriptions.Item label={<Text strong>Matricule MENET</Text>}>{etudiant.matricule}</Descriptions.Item>
               <Descriptions.Item label={<Text strong>Matricule ministère</Text>}>{etudiant.ip_ministere || '-'}</Descriptions.Item>
+              <Descriptions.Item label={<Text strong>N° pièce d'identité</Text>}>{etudiant.numero_piece_identite || '-'}</Descriptions.Item>
+              <Descriptions.Item label={<Text strong>Mention BAC</Text>}>{etudiant.mention_bac || '-'}</Descriptions.Item>
             </Descriptions>
           </Col>
         </Row>
