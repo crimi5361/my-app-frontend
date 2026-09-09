@@ -244,41 +244,54 @@ const Statistique = () => {
   const thStyle = { background: 'var(--ink)', color: '#fff', fontWeight: 700, textAlign: 'center' as const };
   const tdCenter = { textAlign: 'center' as const };
 
+  // Largeurs explicites (2026-09-09) : sans `width` par colonne, `Table.Summary` (ligne "Total
+  // Général") recalculait ses largeurs indépendamment du corps du tableau dès que le contenu d'une
+  // cellule (ex. "Total Général") dépassait celui des lignes de données — désalignement visuel
+  // constaté en production. Fixer une largeur identique sur chaque colonne, header/corps/summary,
+  // élimine la divergence, y compris en responsive (scroll horizontal sur petit écran).
+  const FIRST_COL_WIDTH = 170;
   const baseDataCols = [
-    { title: 'Affectés', dataIndex: 'etudiants_affectes', key: 'aff', onHeaderCell: () => ({ style: thStyle }), onCell: () => ({ style: tdCenter }),
+    { title: 'Affectés', dataIndex: 'etudiants_affectes', key: 'aff', width: 110, onHeaderCell: () => ({ style: thStyle }), onCell: () => ({ style: tdCenter }),
       render: (v: string) => <span style={{ color: 'var(--success)', fontWeight: 600 }}>{parseInt(v||'0').toLocaleString('fr-FR')}</span> },
-    { title: 'Non Affectés', dataIndex: 'etudiants_non_affectes', key: 'naff', onHeaderCell: () => ({ style: thStyle }), onCell: () => ({ style: tdCenter }),
+    { title: 'Non Affectés', dataIndex: 'etudiants_non_affectes', key: 'naff', width: 130, onHeaderCell: () => ({ style: thStyle }), onCell: () => ({ style: tdCenter }),
       render: (v: string) => <span style={{ color: 'var(--danger)', fontWeight: 600 }}>{parseInt(v||'0').toLocaleString('fr-FR')}</span> },
-    { title: 'Inscriptions', dataIndex: 'inscriptions', key: 'insc', onHeaderCell: () => ({ style: thStyle }), onCell: () => ({ style: tdCenter }),
+    { title: 'Inscriptions', dataIndex: 'inscriptions', key: 'insc', width: 120, onHeaderCell: () => ({ style: thStyle }), onCell: () => ({ style: tdCenter }),
       render: (v: string) => parseInt(v||'0').toLocaleString('fr-FR') },
-    { title: 'Ré-inscriptions', dataIndex: 'reinscriptions', key: 'reinsc', onHeaderCell: () => ({ style: thStyle }), onCell: () => ({ style: tdCenter }),
+    { title: 'Ré-inscriptions', dataIndex: 'reinscriptions', key: 'reinsc', width: 140, onHeaderCell: () => ({ style: thStyle }), onCell: () => ({ style: tdCenter }),
       render: (v: string) => parseInt(v||'0').toLocaleString('fr-FR') },
-    { title: 'Total', dataIndex: 'total', key: 'total', onHeaderCell: () => ({ style: { ...thStyle, background: '#1a3366' } }), onCell: () => ({ style: { ...tdCenter, fontWeight: 700 } }),
+    { title: 'Total', dataIndex: 'total', key: 'total', width: 110, onHeaderCell: () => ({ style: { ...thStyle, background: '#1a3366' } }), onCell: () => ({ style: { ...tdCenter, fontWeight: 700 } }),
       render: (v: string) => <strong>{parseInt(v||'0').toLocaleString('fr-FR')}</strong> },
   ];
+  // 170 + 110 + 130 + 120 + 140 + 110 = 780 — doit rester égal à la somme utilisée par `scroll.x`
+  // sur chaque <Table> ci-dessous, pour ne jamais réintroduire l'écart corps/summary corrigé ici.
+  const TABLE_SCROLL_X = 780;
 
   const colsNiveau = [
-    { title: 'Niveau', dataIndex: 'niveau', key: 'niveau', onHeaderCell: () => ({ style: thStyle }),
+    { title: 'Niveau', dataIndex: 'niveau', key: 'niveau', width: FIRST_COL_WIDTH, onHeaderCell: () => ({ style: thStyle }),
       render: (t: string) => <strong>{t}</strong> },
     ...baseDataCols,
   ];
   const colsCursus = [
-    { title: 'Cursus', dataIndex: 'cursus', key: 'cursus', onHeaderCell: () => ({ style: thStyle }),
+    { title: 'Cursus', dataIndex: 'cursus', key: 'cursus', width: FIRST_COL_WIDTH, onHeaderCell: () => ({ style: thStyle }),
       render: (t: string) => <strong>{t}</strong> },
     ...baseDataCols,
   ];
   const colsCycle = [
-    { title: 'Cycle', dataIndex: 'cycle', key: 'cycle', onHeaderCell: () => ({ style: thStyle }),
+    { title: 'Cycle', dataIndex: 'cycle', key: 'cycle', width: FIRST_COL_WIDTH, onHeaderCell: () => ({ style: thStyle }),
       render: (t: string) => <strong>{t}</strong> },
     ...baseDataCols,
   ];
 
+  // `fixed` retiré (2026-09-09) : cette page n'utilise aucun `scroll.y` (pas de défilement vertical
+  // interne), donc pas de pied de tableau "collant" à préserver — `fixed` forçait justement le
+  // recalcul de largeur indépendant à l'origine du désalignement. Les largeurs explicites
+  // ci-dessus suffisent désormais à garder chaque valeur exactement sous sa colonne.
   const summaryRow = (data: any[]) => (
-    <Table.Summary fixed>
+    <Table.Summary>
       <Table.Summary.Row style={{ background: '#f0f4ff', fontWeight: 700 }}>
         <Table.Summary.Cell index={0}><strong style={{ color: 'var(--ink)' }}>Total Général</strong></Table.Summary.Cell>
         {['etudiants_affectes','etudiants_non_affectes','inscriptions','reinscriptions','total'].map((k, i) => (
-          <Table.Summary.Cell index={i+1} key={k}>
+          <Table.Summary.Cell index={i+1} key={k} align="center">
             <strong>{data.reduce((s,r) => s + parseInt(r[k]||'0'), 0).toLocaleString('fr-FR')}</strong>
           </Table.Summary.Cell>
         ))}
@@ -588,7 +601,7 @@ const Statistique = () => {
                     dataSource={statistiques.niveau}
                     rowKey="niveau"
                     pagination={false}
-                    scroll={{ x: 700 }}
+                    scroll={{ x: TABLE_SCROLL_X }}
                     summary={() => summaryRow(statistiques.niveau)}
                     size="middle"
                   />
@@ -604,7 +617,7 @@ const Statistique = () => {
                     dataSource={statistiques.cursus}
                     rowKey="cursus_id"
                     pagination={false}
-                    scroll={{ x: 700 }}
+                    scroll={{ x: TABLE_SCROLL_X }}
                     size="middle"
                   />
                 </Card>
@@ -619,7 +632,7 @@ const Statistique = () => {
                     dataSource={statistiques.cycle}
                     rowKey="cycle_id"
                     pagination={false}
-                    scroll={{ x: 700 }}
+                    scroll={{ x: TABLE_SCROLL_X }}
                     size="middle"
                   />
                 </Card>
@@ -694,7 +707,7 @@ const Statistique = () => {
                               rowKey="niveau"
                               size="small"
                               pagination={false}
-                              scroll={{ x: 700 }}
+                              scroll={{ x: TABLE_SCROLL_X }}
                             />
                           </div>
                         </div>

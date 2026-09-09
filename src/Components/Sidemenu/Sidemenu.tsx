@@ -129,6 +129,19 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
     ],
   };
 
+  // Accès Fondateur à "Export des comptes étudiants" (2026-09-09) — même principe que
+  // fondateurStatsItem ci-dessus : le groupe "Parametres" générique (plus bas) reste réservé à
+  // admin (ses autres entrées — Gestion utilisateurs/permissions, Dossiers en attente — ne
+  // concernent pas le fondateur), donc injecté à part plutôt que d'élargir allowedKeys.
+  const fondateurParametresItem = {
+    key: "fondateur-parametres",
+    icon: <SettingOutlined />,
+    label: "Paramètres",
+    children: [
+      { key: "/Parametres/export_comptes_etudiants", label: "Export des comptes étudiants", icon: <FileExcelOutlined /> },
+    ],
+  };
+
   const menuItems = [
     {
       key: "scolarite",
@@ -235,7 +248,7 @@ const Sidemenu: React.FC<SidemenuProps> = ({ isSidemenuOpen }) => {
 
   const filteredMenuItems = [
     ...(allowedKeys.includes("dashboard") ? [dashboardMenuItem] : []),
-    ...(currentUserRole === "fondateur" ? [fondateurStatsItem] : []),
+    ...(currentUserRole === "fondateur" ? [fondateurStatsItem, fondateurParametresItem] : []),
     ...menuItems
       .filter((item) => allowedKeys.includes(item.key))
       .map((item) => ({ ...item, children: filterChildren(item.children) }))

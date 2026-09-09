@@ -579,10 +579,13 @@ const AppRoutes = () => {
         </ProtectedRoute>
       } />
 
-      {/* Réservé exclusivement à l'administrateur, même principe que dossiers_en_attente ci-dessus
-          — chantier "Export des comptes étudiants par année académique" (2026-09-03). */}
+      {/* Chantier "Export des comptes étudiants par année académique" (2026-09-03), ouvert au
+          fondateur (2026-09-09) — réutilise le jeton 'fondateur' déjà présent dans
+          PAGE_PERMISSIONS.fondateur (lib/access.ts), aucune nouvelle permission créée. Les autres
+          entrées de Paramètres (Gestion utilisateurs/permissions, Dossiers en attente) restent
+          exclusivement admin, inchangées. */}
       <Route path="/Parametres/export_comptes_etudiants" element={
-        <ProtectedRoute requiredPermission="admin">
+        <ProtectedRoute requiredPermission={["admin", "fondateur"]}>
           <ExportComptesEtudiants />
         </ProtectedRoute>
       } />
