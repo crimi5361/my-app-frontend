@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState } from 'react';
 import {
-  Input, Button, List, Avatar, Card, Descriptions, Alert, Row, Col,
-  Divider, Form, message, Spin, Empty, Typography, Space, Radio, Select, Result, Checkbox
+  App, Input, Button, List, Avatar, Card, Descriptions, Alert, Row, Col,
+  Divider, Form, Spin, Empty, Typography, Space, Radio, Select, Result, Checkbox
 } from 'antd';
 import DataTable from '../../Components/ui/DataTable';
 import StatusTag, { type StatusTone } from '../../Components/ui/StatusTag';
@@ -85,7 +85,8 @@ interface Dossier {
   } | null;
   situation_academique_erreur: string | null;
   niveau_propose: { id: number | null; libelle: string; filiere_id: number | null; tarif: TarifInfo | null } | null;
-  niveau_retenu_propose: number;
+  niveau_retenu_propose: number | null;
+  redoublement_bloque_message: string | null;
   orientations_disponibles: OrientationDisponible[];
   tarif_niveau_actuel: TarifInfo | null;
   annee_cible: { id: number; annee: string } | null;
@@ -119,7 +120,21 @@ const decisionTone = (decision?: string): StatusTone => {
   return 'neutral';
 };
 
-const Reinscription = () => {
+// ✅ Correctif "Message d'erreur invisible" (2026-09-09) : `message` importé statiquement depuis
+// 'antd' ne consomme pas le contexte (thème dynamique) — antd l'annonce lui-même en avertissement
+// console et, en pratique sur cette page, le toast d'erreur ne s'affichait tout simplement jamais
+// (vérifié : une soumission refusée en 409 ne montrait rien à l'écran). App.useApp() est le
+// mécanisme recommandé par antd v5 pour un message lié au contexte — nécessite un ancêtre <App>,
+// ajouté ici en enveloppant uniquement cette page (aucun <App> global existant dans ce projet,
+// changement volontairement limité à cet écran plutôt qu'à toute l'application).
+const Reinscription = () => (
+  <App>
+    <ReinscriptionContent />
+  </App>
+);
+
+const ReinscriptionContent = () => {
+  const { message } = App.useApp();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<EtudiantResultat[]>([]);
   const [searching, setSearching] = useState(false);
@@ -266,7 +281,12 @@ const Reinscription = () => {
 
   const niveauRetenuId = (() => {
     if (!dossier) return undefined;
-    if (progressionMode === 'redoublement') return dossier.etudiant.niveau_id;
+    // ✅ Correctif "Redoublement sur l'année cible" (2026-09-09) : dossier.etudiant.niveau_id
+    // appartient à l'ANCIENNE année (position actuelle de l'étudiant) — jamais utilisable
+    // directement comme niveau soumis, sous peine de déclencher NIVEAU_ANNEE_INCORRECTE. Le
+    // backend résout déjà le niveau correspondant (même libellé/filière/site) pour l'année
+    // cible — source de vérité unique, jamais recalculée ici.
+    if (progressionMode === 'redoublement') return dossier.niveau_retenu_propose ?? undefined;
     if (progressionMode === 'progression') return dossier.niveau_propose?.id;
     if (progressionMode === 'orientation') return orientationSelectionnee?.niveau_id;
     return cascadeSelection.niveau_id;
