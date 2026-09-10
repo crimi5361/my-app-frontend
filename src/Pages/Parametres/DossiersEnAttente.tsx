@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useCallback, useEffect, useState } from "react";
-import { Button, Popconfirm, message, Tabs, Tag } from "antd";
-import { DeleteOutlined, DownloadOutlined } from "@ant-design/icons";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button, Popconfirm, Select, message, Tabs, Tag } from "antd";
+import { DeleteOutlined, DownloadOutlined, ReloadOutlined } from "@ant-design/icons";
 import * as XLSX from "xlsx";
 import PageHeader from "../../Components/PageHeader/PageHeader";
 import PageContainer from "../../Components/ui/PageContainer";
@@ -49,6 +49,47 @@ const DossiersEnAttente = () => {
   const [admissions, setAdmissions] = useState<AdmissionEnAttente[]>([]);
   const [reinscriptions, setReinscriptions] = useState<ReinscriptionEnAttente[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Recherche/filtre 100% client : l'endpoint renvoie déjà la liste complète en un seul appel
+  // (aucune pagination/recherche côté serveur sur cet écran, cf. exporterExcel plus bas) — pas de
+  // debounce nécessaire, il n'y a aucun aller-retour réseau à économiser.
+  const [admissionSearch, setAdmissionSearch] = useState("");
+  const [admissionOrigine, setAdmissionOrigine] = useState<string | null>(null);
+  const [admissionPage, setAdmissionPage] = useState(1);
+  const [admissionPageSize, setAdmissionPageSize] = useState(10);
+
+  const [reinscriptionSearch, setReinscriptionSearch] = useState("");
+  const [reinscriptionStatut, setReinscriptionStatut] = useState<string | null>(null);
+  const [reinscriptionPage, setReinscriptionPage] = useState(1);
+  const [reinscriptionPageSize, setReinscriptionPageSize] = useState(10);
+
+  // Retour à la page 1 à chaque changement de recherche/filtre — sans ça, une recherche qui
+  // réduit fortement le nombre de résultats pourrait laisser l'utilisateur sur une page vide.
+  useEffect(() => { setAdmissionPage(1); }, [admissionSearch, admissionOrigine]);
+  useEffect(() => { setReinscriptionPage(1); }, [reinscriptionSearch, reinscriptionStatut]);
+
+  const admissionsFiltrees = useMemo(() => {
+    const q = admissionSearch.trim().toLowerCase();
+    return admissions.filter((a) => {
+      if (admissionOrigine && a.source_inscription !== admissionOrigine) return false;
+      if (!q) return true;
+      return [a.nom, a.prenoms, a.telephone, a.code_paiement, a.filiere, a.niveau, a.annee_academique]
+        .some((v) => v && String(v).toLowerCase().includes(q));
+    });
+  }, [admissions, admissionSearch, admissionOrigine]);
+
+  const reinscriptionsFiltrees = useMemo(() => {
+    const q = reinscriptionSearch.trim().toLowerCase();
+    return reinscriptions.filter((r) => {
+      if (reinscriptionStatut && r.statut !== reinscriptionStatut) return false;
+      if (!q) return true;
+      return [r.nom, r.prenoms, r.telephone, r.matricule_iipea, r.niveau_retenu, r.annee_academique]
+        .some((v) => v && String(v).toLowerCase().includes(q));
+    });
+  }, [reinscriptions, reinscriptionSearch, reinscriptionStatut]);
+
+  const reinitialiserFiltresAdmissions = () => { setAdmissionSearch(""); setAdmissionOrigine(null); };
+  const reinitialiserFiltresReinscriptions = () => { setReinscriptionSearch(""); setReinscriptionStatut(null); };
 
   const fetchDossiers = useCallback(() => {
     setLoading(true);
@@ -103,13 +144,15 @@ const DossiersEnAttente = () => {
     XLSX.writeFile(wb, `${prefixeFichier}_${new Date().toISOString().slice(0, 10)}.xlsx`);
   };
 
+  // Exporte la liste actuellement affichée (recherche/filtre appliqués) — cohérent avec ce que
+  // l'administrateur voit à l'écran au moment du clic, jamais une liste plus large en silence.
   const exporterAdmissions = () => {
-    if (admissions.length === 0) {
+    if (admissionsFiltrees.length === 0) {
       message.warning("Aucun dossier d'admission à exporter.");
       return;
     }
     exporterExcel(
-      admissions.map((a) => ({
+      admissionsFiltrees.map((a) => ({
         "Nom": a.nom,
         "Prénoms": a.prenoms,
         "Téléphone": a.telephone || "",
@@ -126,12 +169,12 @@ const DossiersEnAttente = () => {
   };
 
   const exporterReinscriptions = () => {
-    if (reinscriptions.length === 0) {
+    if (reinscriptionsFiltrees.length === 0) {
       message.warning("Aucun dossier de réinscription à exporter.");
       return;
     }
     exporterExcel(
-      reinscriptions.map((r) => ({
+      reinscriptionsFiltrees.map((r) => ({
         "Nom": r.nom,
         "Prénoms": r.prenoms,
         "Téléphone": r.telephone || "",
@@ -222,13 +265,45 @@ const DossiersEnAttente = () => {
               children: (
                 <DataTable<AdmissionEnAttente>
                   columns={admissionColumns}
-                  dataSource={admissions}
+                  dataSource={admissionsFiltrees}
                   rowKey="id"
                   loading={loading}
-                  emptyTitle="Aucune admission en attente"
-                  emptyDescription="Tous les dossiers d'admission ont été finalisés ou n'ont jamais été laissés en suspens."
+                  searchValue={admissionSearch}
+                  searchPlaceholder="Nom, téléphone, code paiement…"
+                  onSearchChange={setAdmissionSearch}
+                  filters={
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <Select
+                        allowClear
+                        placeholder="Origine"
+                        style={{ width: 160 }}
+                        value={admissionOrigine ?? undefined}
+                        onChange={(v) => setAdmissionOrigine(v ?? null)}
+                        options={[
+                          { value: "web", label: "Portail Web" },
+                          { value: "agent", label: "Agent" },
+                        ]}
+                      />
+                      {(admissionSearch || admissionOrigine) && (
+                        <Button icon={<ReloadOutlined />} onClick={reinitialiserFiltresAdmissions}>
+                          Réinitialiser
+                        </Button>
+                      )}
+                    </div>
+                  }
+                  emptyTitle={admissions.length === 0 ? "Aucune admission en attente" : "Aucun résultat"}
+                  emptyDescription={
+                    admissions.length === 0
+                      ? "Tous les dossiers d'admission ont été finalisés ou n'ont jamais été laissés en suspens."
+                      : "Aucun dossier d'admission ne correspond à votre recherche ou aux filtres sélectionnés."
+                  }
+                  pagination={{
+                    current: admissionPage,
+                    pageSize: admissionPageSize,
+                    onChange: (page, pageSize) => { setAdmissionPage(page); setAdmissionPageSize(pageSize); },
+                  }}
                   toolbarExtra={
-                    <Button icon={<DownloadOutlined />} onClick={exporterAdmissions} disabled={admissions.length === 0}>
+                    <Button icon={<DownloadOutlined />} onClick={exporterAdmissions} disabled={admissionsFiltrees.length === 0}>
                       Exporter Excel
                     </Button>
                   }
@@ -241,13 +316,45 @@ const DossiersEnAttente = () => {
               children: (
                 <DataTable<ReinscriptionEnAttente>
                   columns={reinscriptionColumns}
-                  dataSource={reinscriptions}
+                  dataSource={reinscriptionsFiltrees}
                   rowKey="id"
                   loading={loading}
-                  emptyTitle="Aucune réinscription en attente"
-                  emptyDescription="Tous les dossiers de réinscription ont été finalisés ou n'ont jamais été laissés en suspens."
+                  searchValue={reinscriptionSearch}
+                  searchPlaceholder="Nom, téléphone, matricule…"
+                  onSearchChange={setReinscriptionSearch}
+                  filters={
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <Select
+                        allowClear
+                        placeholder="Statut"
+                        style={{ width: 190 }}
+                        value={reinscriptionStatut ?? undefined}
+                        onChange={(v) => setReinscriptionStatut(v ?? null)}
+                        options={[
+                          { value: "en_attente_paiement", label: "En attente de paiement" },
+                          { value: "non_eligible", label: "Non éligible" },
+                        ]}
+                      />
+                      {(reinscriptionSearch || reinscriptionStatut) && (
+                        <Button icon={<ReloadOutlined />} onClick={reinitialiserFiltresReinscriptions}>
+                          Réinitialiser
+                        </Button>
+                      )}
+                    </div>
+                  }
+                  emptyTitle={reinscriptions.length === 0 ? "Aucune réinscription en attente" : "Aucun résultat"}
+                  emptyDescription={
+                    reinscriptions.length === 0
+                      ? "Tous les dossiers de réinscription ont été finalisés ou n'ont jamais été laissés en suspens."
+                      : "Aucun dossier de réinscription ne correspond à votre recherche ou aux filtres sélectionnés."
+                  }
+                  pagination={{
+                    current: reinscriptionPage,
+                    pageSize: reinscriptionPageSize,
+                    onChange: (page, pageSize) => { setReinscriptionPage(page); setReinscriptionPageSize(pageSize); },
+                  }}
                   toolbarExtra={
-                    <Button icon={<DownloadOutlined />} onClick={exporterReinscriptions} disabled={reinscriptions.length === 0}>
+                    <Button icon={<DownloadOutlined />} onClick={exporterReinscriptions} disabled={reinscriptionsFiltrees.length === 0}>
                       Exporter Excel
                     </Button>
                   }
