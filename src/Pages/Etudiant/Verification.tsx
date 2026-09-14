@@ -680,6 +680,7 @@ interface DossierReinscription {
   photo_url: string | null;
   telephone: string | null;
   email: string | null;
+  email_personnel: string | null;
   lieu_residence: string | null;
   contact_parent: string | null;
   contact_parent_2: string | null;
@@ -791,7 +792,7 @@ const VerificationReinscription = () => {
     const d = dossierReponse.dossier;
     form.setFieldsValue({
       telephone: d.telephone,
-      email: d.email,
+      email: d.email_personnel,
       lieu_residence: d.lieu_residence,
       contact_parent: d.contact_parent,
       contact_parent_2: d.contact_parent_2,

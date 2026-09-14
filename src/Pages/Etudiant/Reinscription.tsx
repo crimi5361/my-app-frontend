@@ -44,6 +44,7 @@ interface DossierEtudiant {
   photo_url: string | null;
   telephone: string;
   email: string;
+  email_personnel: string;
   lieu_residence: string;
   contact_parent: string;
   contact_parent_2: string;
@@ -183,7 +184,7 @@ const ReinscriptionContent = () => {
     if (!dossier) return;
     form.setFieldsValue({
       telephone: dossier.etudiant.telephone,
-      email: dossier.etudiant.email,
+      email: dossier.etudiant.email_personnel,
       lieu_residence: dossier.etudiant.lieu_residence,
       contact_parent: dossier.etudiant.contact_parent,
       contact_parent_2: dossier.etudiant.contact_parent_2,
