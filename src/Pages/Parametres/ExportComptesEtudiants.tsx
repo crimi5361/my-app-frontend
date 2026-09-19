@@ -33,6 +33,7 @@ interface CompteEtudiant {
   statut_scolaire: string | null;
   date_inscription_annee: string | null;
   sexe: string | null;
+  email: string | null;
   filiere: string;
   niveau: string;
   annee_academique: string;
@@ -141,6 +142,7 @@ const ExportComptesEtudiants = () => {
       "Statut scolaire": r.statut_scolaire || "",
       "Date inscription": formatDate(r.date_inscription_annee),
       "Sexe": r.sexe || "",
+      "Email": r.email || "",
       "Filière": r.filiere || "",
       "Niveau": r.niveau || "",
       "Année académique": r.annee_academique || "",
