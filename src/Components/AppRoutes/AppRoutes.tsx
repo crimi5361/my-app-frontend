@@ -62,6 +62,7 @@ import DetailClasse from "../../Pages/Gestion_academique/DetailClasse";
 import DetailGroupe from "../../Pages/Gestion_academique/DetailGroupe";
 import ListePEC from "../../Pages/Dashboard/ListePEC";
 import RecuEtudiant from "../../Pages/Scolarite/RecuEtudiant";
+import ImpressionCombinee from "../../Pages/Scolarite/ImpressionCombinee";
 import PriseEnchargeTraiter from "../../Pages/Dashboard/PriseEnchargeTraiter";
 import CertidicatScolarite from "../../Pages/Etudiant/CertidicatScolarite";
 import CertificatFrequentation from "../../Pages/Etudiant/CertificatFrequentation";
@@ -480,7 +481,18 @@ const AppRoutes = () => {
           <RecuEtudiant />
         </ProtectedRoute>
       } />
-      
+
+      {/* Chantier "Impression reçu + certificats" (2026-09-21) — vue combinée additive, accessible
+          depuis le bouton "Imprimer reçu + certificats" de /Etudiant/Recu_Payement/:id. Pas de lien
+          dans le menu latéral (cf. demande). Mêmes rôles/jetons que le reçu ci-dessus — "Etudiant"
+          est bien nécessaire ici : PAGE_PERMISSIONS['scolarite'] (src/lib/access.ts) ne contient
+          pas la chaîne "scolarite" elle-même, seulement "Etudiant"/"Gestion_academique". */}
+      <Route path="/Etudiant/ImpressionCombinee/:id" element={
+        <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant", "comptabilite", "caissier"]}>
+          <ImpressionCombinee />
+        </ProtectedRoute>
+      } />
+
       <Route path="/Etudiant/Certificat_Scolarite/:id" element={
         <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
           <CertidicatScolarite />
