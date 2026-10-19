@@ -16,6 +16,8 @@ interface Niveau {
   id: number;
   libelle: string;
   prix_formation: string;
+  /** Rang de progression du cycle. Déjà renvoyé par l'API, jusqu'ici inutilisé ici. */
+  ordre?: number | null;
 }
 
 interface FiliereWithNiveaux {
@@ -41,11 +43,12 @@ interface Props {
   /** Appelé avec le type de filière (Universitaire/Professionnelles) et le libellé du niveau à chaque changement */
   onFormationInfo?: (info: { typeFiliereLibelle: string | null; niveauLibelle: string | null }) => void;
   /**
-   * N'affiche que les niveaux de 1ère année de chaque cycle (BTS 1, LICENCE 1, LICENCE 1 PRO,
-   * MASTER 1, MASTER 1 PRO), plus BTS 2, LICENCE 2 et LICENCE 3 — à utiliser uniquement pour la
-   * Nouvelle inscription, qui ne concerne jamais un niveau supérieur. Pour un Non affecté sur une
-   * filière professionnelle, LICENCE 2 PRO et LICENCE 3 PRO sont également proposés (BTS/LICENCE 2
-   * obtenu ailleurs). Ne pas activer pour la Réinscription ni la gestion académique.
+   * N'affiche que les niveaux d'entrée : 1ère année de chaque cycle (BTS 1, LICENCE 1,
+   * LICENCE 1 PRO, MASTER 1, MASTER 1 PRO), plus les niveaux atteignables avec un diplôme obtenu
+   * ailleurs — BTS 2, LICENCE 2, LICENCE 3 et MASTER 2. À utiliser uniquement pour la Nouvelle
+   * inscription. Pour un Non affecté sur une filière professionnelle, LICENCE 2 PRO, LICENCE 3 PRO
+   * et MASTER 2 PRO sont également proposés. Ne pas activer pour la Réinscription ni la gestion
+   * académique.
    */
   premiereAnneeUniquement?: boolean;
   /**
@@ -63,18 +66,31 @@ interface Props {
   statutAffecte?: boolean;
 }
 
-// Règles de filtrage du niveau identiques à Components/AcademicCascadeSelect/AcademicCascadeSelect.tsx
-// (copiées, pas partagées par import : les deux composants ont des flux de données inversés —
-// École→Département→Filière ici Filière→École→Département — copier cette logique isolée évite un
-// couplage artificiel entre deux composants qui ne partagent que ce fragment).
-const NIVEAU_PREMIERE_ANNEE_REGEX = /^(?:(?:BTS|LICENCE|MASTER) 1( PRO)?|BTS 2|LICENCE 2|LICENCE 3)$/i;
+// Règles de filtrage du niveau, copiées à l'origine depuis
+// Components/AcademicCascadeSelect/AcademicCascadeSelect.tsx (pas partagées par import : les deux
+// composants ont des flux de données inversés — École→Département→Filière là-bas, Filière→École→
+// Département ici — copier cette logique isolée évite un couplage artificiel entre deux composants
+// qui ne partagent que ce fragment).
+//
+// ⚠️ Depuis le chantier Master 2 (2026-10-19), les deux copies ne sont plus identiques : seule
+// celle-ci connaît MASTER 2 / MASTER 2 PRO. La copie d'AcademicCascadeSelect n'a volontairement pas
+// été touchée — son unique appelant (Pages/Gestion_academique/Filieres.tsx) ne passe ni
+// `premiereAnneeUniquement` ni `statutAffecte`, ces expressions n'y sont donc jamais évaluées.
+// À synchroniser le jour où ce composant servirait à une saisie d'admission.
+// Chantier Master 2 (2026-10-19) : MASTER 2 rejoint BTS 2 / LICENCE 2 / LICENCE 3 — même cas de
+// figure, un candidat qui entre directement à ce niveau avec le diplôme précédent (MASTER 1)
+// obtenu dans un autre établissement. L'ancre finale `$` fait que « MASTER 2 PRO » n'est pas
+// couvert ici : la variante professionnelle est traitée plus bas, comme LICENCE 2/3 PRO.
+const NIVEAU_PREMIERE_ANNEE_REGEX = /^(?:(?:BTS|LICENCE|MASTER) 1( PRO)?|BTS 2|LICENCE 2|LICENCE 3|MASTER 2)$/i;
 const NIVEAU_LICENCE_1_REGEX = /^(?:LICENCE 1|BTS 2|LICENCE 2|LICENCE 3)$/i;
 // Chantier tarification PRO (2026-08-21) : un affecté sur une filière professionnelle peut
 // désormais choisir BTS 1 OU LICENCE 1 PRO (avant : BTS 1 uniquement).
 const NIVEAU_PRO_AFFECTE_ADMISSION_REGEX = /^(?:BTS 1|LICENCE 1 PRO|BTS 2|LICENCE 2)$/i;
-// LICENCE 2 PRO et LICENCE 3 PRO (BTS/LICENCE 2 obtenu ailleurs) — uniquement pour les Non
-// affecté, uniquement sur une filière professionnelle (cf. usage ci-dessous).
-const NIVEAU_PRO_SUPERIEUR_NON_AFFECTE_REGEX = /^(?:LICENCE 2 PRO|LICENCE 3 PRO)$/i;
+// LICENCE 2 PRO, LICENCE 3 PRO et MASTER 2 PRO (diplôme précédent obtenu ailleurs) — uniquement
+// pour les Non affecté, uniquement sur une filière professionnelle (cf. usage ci-dessous).
+// MASTER 2 PRO ajouté avec le chantier Master 2 : les deux listes « affecté » restent volontairement
+// inchangées, un étudiant affecté par le Ministère n'entre à aucun niveau de Master.
+const NIVEAU_PRO_SUPERIEUR_NON_AFFECTE_REGEX = /^(?:LICENCE 2 PRO|LICENCE 3 PRO|MASTER 2 PRO)$/i;
 
 /**
  * Sélecteur en cascade Filière → Niveau (Chantier 7, 2026-08-01), pour le formulaire
@@ -141,6 +157,18 @@ const FormationCascadeSelect = ({
           return true;
         }
         return false;
+      })
+      /* Tri par rang de cycle. /api/filieres/table/Filiere agrège les niveaux sans ORDER BY —
+         contrairement à sa variante « préparation », qui trie par `n.ordre NULLS LAST, n.libelle`.
+         L'ordre d'affichage dépendait donc de l'ordre physique des lignes : il paraissait correct
+         tant que MASTER 1 fermait la liste, et devient faux dès que MASTER 2 (id inférieur) s'y
+         ajoute. Le tri est fait ici, sur le champ `ordre` déjà présent dans la charge utile, plutôt
+         que dans l'endpoint, partagé avec d'autres écrans. */
+      .slice()
+      .sort((a, b) => {
+        const oa = a.ordre ?? Number.MAX_SAFE_INTEGER;
+        const ob = b.ordre ?? Number.MAX_SAFE_INTEGER;
+        return oa !== ob ? oa - ob : a.libelle.localeCompare(b.libelle, 'fr');
       })
     : [];
 
