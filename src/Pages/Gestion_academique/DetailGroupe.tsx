@@ -34,7 +34,8 @@ import {
   CalendarOutlined,
   BarChartOutlined,
   FileTextOutlined,
-  FileDoneOutlined
+  FileDoneOutlined,
+  PrinterOutlined
 } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import jsPDF from 'jspdf';
@@ -809,8 +810,29 @@ const DetailGroupe = () => {
                 </Button>
               </Tooltip>
 
-              <Button 
-                type="primary" 
+              {/* Reçus récapitulatifs de scolarité du groupe (2026-11-10).
+                  Un onglet est ouvert directement par le clic — et non après un
+                  appel réseau — pour que le navigateur ne le prenne pas pour une
+                  fenêtre publicitaire. Le chargement et l'impression sont ensuite
+                  assurés par la page ouverte. */}
+              <Tooltip title={`Générer les reçus récapitulatifs de scolarité des ${groupe.etudiants.length} étudiants du groupe ${groupe.nom}`}>
+                <Button
+                  type="primary"
+                  icon={<PrinterOutlined />}
+                  onClick={() => window.open(`/Gestion_academique/RecusGroupe/${id}`, '_blank')}
+                  disabled={!groupe.etudiants || groupe.etudiants.length === 0}
+                  style={{
+                    backgroundColor: 'var(--mod-comptabilite, #7b341e)',
+                    borderColor: 'var(--mod-comptabilite, #7b341e)',
+                    fontSize: '12px'
+                  }}
+                >
+                  Imprimer les reçus du groupe
+                </Button>
+              </Tooltip>
+
+              <Button
+                type="primary"
                 icon={<CalendarOutlined />}
                 onClick={generateListeAppelPDF}
                 size="large"

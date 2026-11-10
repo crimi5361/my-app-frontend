@@ -63,6 +63,7 @@ import DetailGroupe from "../../Pages/Gestion_academique/DetailGroupe";
 import ListePEC from "../../Pages/Dashboard/ListePEC";
 import RecuEtudiant from "../../Pages/Scolarite/RecuEtudiant";
 import ImpressionCombinee from "../../Pages/Scolarite/ImpressionCombinee";
+import RecusGroupe from "../../Pages/Scolarite/RecusGroupe";
 import PriseEnchargeTraiter from "../../Pages/Dashboard/PriseEnchargeTraiter";
 import CertidicatScolarite from "../../Pages/Etudiant/CertidicatScolarite";
 import CertificatFrequentation from "../../Pages/Etudiant/CertificatFrequentation";
@@ -388,6 +389,16 @@ const AppRoutes = () => {
       <Route path="/Gestion_academique/DetailGroupe/:id" element={
         <ProtectedRoute requiredPermission={["admin", "Gestion_academique"]}>
           <DetailGroupe />
+        </ProtectedRoute>
+      } />
+
+      {/* Reçus de scolarité de tout un groupe, en un seul document (2026-11-10).
+          Mêmes permissions que DetailGroupe, son unique point d'entrée : quiconque
+          peut consulter le groupe peut en imprimer les reçus, et personne d'autre.
+          La page réutilise le composant du reçu individuel — aucun second modèle. */}
+      <Route path="/Gestion_academique/RecusGroupe/:id" element={
+        <ProtectedRoute requiredPermission={["admin", "Gestion_academique"]}>
+          <RecusGroupe />
         </ProtectedRoute>
       } />
       

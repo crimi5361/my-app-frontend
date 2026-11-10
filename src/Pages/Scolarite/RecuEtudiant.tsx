@@ -984,82 +984,11 @@ export const RecuContent = ({
   );
 };
 
-const RecuEtudiant = () => {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const anneeAcademiqueId = searchParams.get('anneeAcademiqueId');
-  const [paiements, setPaiements] = useState<Paiement[]>([]);
-  const [etudiant, setEtudiant] = useState<EtudiantDetails | null>(null);
-  const [loading, setLoading] = useState(true);
-  const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const token = localStorage.getItem('token');
-
-        const url = anneeAcademiqueId
-          ? `${API_URL}/api/etudiants/recu-data/${id}?anneeAcademiqueId=${encodeURIComponent(anneeAcademiqueId)}`
-          : `${API_URL}/api/etudiants/recu-data/${id}`;
-        const response = await fetch(url, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-
-        if (!response.ok) {
-          if (response.status === 404) {
-            setEtudiant(null);
-            setPaiements([]);
-            message.error('Étudiant non trouvé');
-          } else {
-            throw new Error('Erreur de chargement');
-          }
-          return;
-        }
-
-        const data = await response.json();
-        setEtudiant(data.data.etudiant);
-        setPaiements(data.data.paiements || []);
-
-      } catch (error) {
-        message.error('Erreur lors du chargement des données');
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (id) {
-      fetchData();
-    }
-  }, [id, API_URL, anneeAcademiqueId]);
-
-  const handlePrint = () => {
-    const printContent = document.getElementById('printable-area');
-    if (!printContent) return;
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      message.error('Veuillez autoriser les pop-ups pour imprimer');
-      return;
-    }
-
-    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
-      .map(el => el.outerHTML)
-      .join('');
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Reçu ${etudiant?.matricule}</title>
-          <meta charset="utf-8">
-          ${styles}
-          <style>
+// Feuille d'impression du reçu. Extraite de handlePrint (2026-11-10) pour être
+// partagée avec l'impression par groupe (Pages/Scolarite/RecusGroupe.tsx) : une
+// seule feuille à maintenir, et la garantie que le reçu imprimé en masse est
+// strictement celui du reçu individuel. Aucune règle n'a été modifiée.
+export const STYLES_IMPRESSION_RECU = `
             @media print {
               body {
                 margin: 0;
@@ -1191,7 +1120,84 @@ const RecuEtudiant = () => {
               background: white;
               font-size: 10px;
             }
-          </style>
+`;
+
+const RecuEtudiant = () => {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const anneeAcademiqueId = searchParams.get('anneeAcademiqueId');
+  const [paiements, setPaiements] = useState<Paiement[]>([]);
+  const [etudiant, setEtudiant] = useState<EtudiantDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const API_URL = import.meta.env.VITE_API_URL_SERVER || "";
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+
+        const url = anneeAcademiqueId
+          ? `${API_URL}/api/etudiants/recu-data/${id}?anneeAcademiqueId=${encodeURIComponent(anneeAcademiqueId)}`
+          : `${API_URL}/api/etudiants/recu-data/${id}`;
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!response.ok) {
+          if (response.status === 404) {
+            setEtudiant(null);
+            setPaiements([]);
+            message.error('Étudiant non trouvé');
+          } else {
+            throw new Error('Erreur de chargement');
+          }
+          return;
+        }
+
+        const data = await response.json();
+        setEtudiant(data.data.etudiant);
+        setPaiements(data.data.paiements || []);
+
+      } catch (error) {
+        message.error('Erreur lors du chargement des données');
+        console.error(error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
+      fetchData();
+    }
+  }, [id, API_URL, anneeAcademiqueId]);
+
+  const handlePrint = () => {
+    const printContent = document.getElementById('printable-area');
+    if (!printContent) return;
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      message.error('Veuillez autoriser les pop-ups pour imprimer');
+      return;
+    }
+
+    const styles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map(el => el.outerHTML)
+      .join('');
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Reçu ${etudiant?.matricule}</title>
+          <meta charset="utf-8">
+          ${styles}
+          <style>${STYLES_IMPRESSION_RECU}</style>
         </head>
         <body onload="window.print(); window.onafterprint = function() { window.close(); }">
           <div class="print-container">
