@@ -64,6 +64,7 @@ const titles: Record<string, string> = {
   "/Etudiant/Dossiers": "Dossiers étudiants",
   "/Etudiant/Effectifs": "Effectifs étudiants",
   "/Etudiant/Cartes": "Cartes étudiantes",
+  "/Etudiant/CartesEtudiantes": "Impression des cartes étudiantes",
   "/Etudiant/Listes_Ministere": "Listes transmises au ministère",
   "/Etudiant/Listes_Etudiant": "Liste des étudiants",
   "/Etudiant/Details_Etudiant/:id": "Détails de l'etudiant",

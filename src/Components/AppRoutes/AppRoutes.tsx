@@ -38,6 +38,7 @@ import GestionGroupes from "../../Pages/Gestion_academique/GestionGroupes";
 import ProjectionGroupes from "../../Pages/Gestion_academique/ProjectionGroupes";
 
 import Cartes from "../../Pages/Etudiant/Cartes";
+import CartesEtudiantes from "../../Pages/Etudiant/CartesEtudiantes";
 import Dossiers from "../../Pages/Etudiant/Dossiers";
 import EffectifsEtudiant from "../../Pages/Etudiant/EffectifsEtudiant";
 import InscriptionsEnAttente from "../../Pages/Etudiant/InscriptionsEnAttente";
@@ -452,8 +453,17 @@ const AppRoutes = () => {
       } />
       
       <Route path="/Etudiant/Cartes" element={
-        <ProtectedRoute requiredPermission={["admin", "scolarite", "Etudiant"]}>
+        <ProtectedRoute requiredPermission="admin">
           <Cartes />
+        </ProtectedRoute>
+      } />
+
+      {/* Impression des cartes étudiantes (12/11/2026). Distincte de
+          /Etudiant/Cartes ci-dessus, qui reste la liste et l'export Excel des
+          photos et ne produit aucune carte. Réservé ADMIN. */}
+      <Route path="/Etudiant/CartesEtudiantes" element={
+        <ProtectedRoute requiredPermission="admin">
+          <CartesEtudiantes />
         </ProtectedRoute>
       } />
 

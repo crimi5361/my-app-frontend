@@ -79,6 +79,7 @@ import EdtEtudiant from "./Pages/ESPACE_ETUDIANT/EdtEtudiant";
 import MaquetteEtudiant from "./Pages/ESPACE_ETUDIANT/MaquetteEtudiant";
 import TransportEtudiant from "./Pages/ESPACE_ETUDIANT/TransportEtudiant";
 import DepotMemoire from "./Pages/ESPACE_ETUDIANT/DepotMemoire";
+import VerificationCarte from "./Pages/Public/VerificationCarte";
 
 function AppContent() {
   const { user, isAuthenticated, setIsAuthenticated, setUser } = useContext(UserContext);
@@ -130,6 +131,12 @@ function AppContent() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+
+      {/* Vérification publique d'une carte étudiante — cible du QR code.
+          Déclarée AVANT le « /* » plus bas, qui redirige tout visiteur non
+          authentifié vers /login : un tiers qui scanne une carte n'a pas de
+          session, et doit pourtant obtenir une réponse. */}
+      <Route path="/verification-carte" element={<VerificationCarte />} />
 
       {/* Hub - point d'entrée après connexion pour les rôles staff */}
       <Route
