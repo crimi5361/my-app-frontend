@@ -68,6 +68,8 @@ export type ConfigurationCartes = {
   format: { largeur_mm: number; hauteur_mm: number; orientation: string; rayon_mm: number };
   verification: { url: string; etiquette: string };
   lot_max: number;
+  /** `null` : statut illisible côté serveur (informatif uniquement). */
+  photos_verrouillees?: boolean | null;
 };
 
 export type OptionAnnee = { id: number; annee: string };
@@ -364,3 +366,26 @@ export const injecterStylesCartes = () => {
   balise.textContent = STYLES_CARTE_ETUDIANTE;
   document.head.appendChild(balise);
 };
+
+// ─── Verrouillage / Déverrouillage des photos étudiantes ─────────────────────
+
+export type StatutVerrouillagePhotos = {
+  verrouille: boolean;
+  updated_at: string | null;
+  modifie_par_id: number | null;
+  modifie_par_nom: string | null;
+};
+
+export const chargerStatutVerrouillagePhotos = async (): Promise<StatutVerrouillagePhotos> =>
+  (await apiFetch<{ data: StatutVerrouillagePhotos }>(`${BASE}/photos/verrouillage`)).data;
+
+export const modifierVerrouillagePhotos = async (
+  verrouille: boolean
+): Promise<{ success: boolean; message: string; data: StatutVerrouillagePhotos }> =>
+  await apiFetch<{ success: boolean; message: string; data: StatutVerrouillagePhotos }>(
+    `${BASE}/photos/verrouillage`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ verrouille }),
+    }
+  );

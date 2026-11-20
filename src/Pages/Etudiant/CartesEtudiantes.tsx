@@ -24,6 +24,8 @@ import {
   FilterOutlined,
   SearchOutlined,
   ReloadOutlined,
+  LockOutlined,
+  UnlockOutlined,
 } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import { CarteRecto, CarteVerso, CARTE_LARGEUR_MM, CARTE_HAUTEUR_MM } from '../../Components/CarteEtudiante/CarteEtudiante';
@@ -36,6 +38,8 @@ import {
   chargerGroupes,
   chargerEtudiants,
   chargerLot,
+  chargerStatutVerrouillagePhotos,
+  modifierVerrouillagePhotos,
   ecrireDocumentImpression,
   injecterStylesCartes,
   type CarteEtudianteData,
@@ -46,6 +50,7 @@ import {
   type OptionNiveau,
   type OptionGroupe,
   type Filtres,
+  type StatutVerrouillagePhotos,
 } from '../../lib/cartesEtudiantes';
 
 /**
@@ -73,7 +78,9 @@ const CartesEtudiantes = () => (
 );
 
 const CartesEtudiantesContent = () => {
-  const { message } = App.useApp();
+  // `modal` vient du contexte <App>, comme `message` : `Modal.confirm` statique
+  // n'est jamais monté sous React 19 (aucun rendu, onOk jamais appelé).
+  const { message, modal } = App.useApp();
 
   const [configuration, setConfiguration] = useState<ConfigurationCartes | null>(null);
   const [annees, setAnnees] = useState<OptionAnnee[]>([]);
@@ -105,6 +112,11 @@ const CartesEtudiantesContent = () => {
   const [apercuOuvert, setApercuOuvert] = useState(false);
   const [indexApercu, setIndexApercu] = useState(0);
 
+  // Verrouillage global des photos étudiantes
+  const [statutPhotos, setStatutPhotos] = useState<StatutVerrouillagePhotos | null>(null);
+  const [actionVerrouillageEnCours, setActionVerrouillageEnCours] = useState(false);
+  const [erreurStatutPhotos, setErreurStatutPhotos] = useState<string | null>(null);
+
   // Lot préparé pour l'impression : rempli au moment de générer, puis vidé.
   const [lot, setLot] = useState<CarteEtudianteData[]>([]);
   const [generation, setGeneration] = useState(false);
@@ -117,7 +129,10 @@ const CartesEtudiantesContent = () => {
     injecterStylesCartes();
     (async () => {
       try {
-        const [config, listeAnnees] = await Promise.all([chargerConfiguration(), chargerAnnees()]);
+        const [config, listeAnnees] = await Promise.all([
+          chargerConfiguration(),
+          chargerAnnees(),
+        ]);
         setConfiguration(config);
         setAnnees(listeAnnees);
         // L'année la plus récente est présélectionnée : c'est celle pour
@@ -132,6 +147,52 @@ const CartesEtudiantesContent = () => {
       }
     })();
   }, [message]);
+
+  // Statut chargé à part : une panne de ce seul point ne doit ni bloquer
+  // l'impression des cartes, ni afficher un faux « DÉVERROUILLÉES ».
+  const rafraichirStatutPhotos = useCallback(async () => {
+    try {
+      setStatutPhotos(await chargerStatutVerrouillagePhotos());
+      setErreurStatutPhotos(null);
+    } catch (e) {
+      setStatutPhotos(null);
+      setErreurStatutPhotos(e instanceof Error ? e.message : 'Statut indisponible.');
+    }
+  }, []);
+
+  useEffect(() => {
+    rafraichirStatutPhotos();
+  }, [rafraichirStatutPhotos]);
+
+  const handleToggleVerrouillagePhotos = (verrouiller: boolean) => {
+    modal.confirm({
+      title: verrouiller
+        ? 'Verrouiller les photos étudiantes'
+        : 'Déverrouiller les photos étudiantes',
+      icon: verrouiller ? <LockOutlined style={{ color: '#d97706' }} /> : <UnlockOutlined style={{ color: '#16a34a' }} />,
+      content: verrouiller
+        ? "Êtes-vous sûr de vouloir verrouiller la modification des photos ? Tous les étudiants de l'établissement ne pourront plus modifier leur photo de profil depuis leur espace."
+        : "Êtes-vous sûr de vouloir autoriser à nouveau les étudiants de l'établissement à modifier leur photo de profil ?",
+      okText: verrouiller ? 'Oui, verrouiller les photos' : 'Oui, déverrouiller les photos',
+      cancelText: 'Annuler',
+      okButtonProps: verrouiller ? { danger: true } : { type: 'primary' },
+      onOk: async () => {
+        setActionVerrouillageEnCours(true);
+        try {
+          const res = await modifierVerrouillagePhotos(verrouiller);
+          setStatutPhotos(res.data);
+          setErreurStatutPhotos(null);
+          message.success(res.message);
+        } catch (e) {
+          message.error(e instanceof Error ? e.message : 'Erreur lors de la mise à jour du verrouillage.');
+          // Le badge reflète la base, pas l'intention : on relit l'état réel.
+          await rafraichirStatutPhotos();
+        } finally {
+          setActionVerrouillageEnCours(false);
+        }
+      },
+    });
+  };
 
   // Filtres en cascade : chaque changement vide les niveaux inférieurs, sans
   // quoi on pourrait demander une filière qui n'appartient pas à l'école
@@ -481,6 +542,67 @@ const CartesEtudiantesContent = () => {
       <PageHeader />
 
       <div style={{ padding: '0 24px' }}>
+        {/* Gestion administrative du verrouillage global des photos */}
+        <Card
+          size="small"
+          style={{ borderRadius: 12, marginBottom: 16 }}
+          styles={{ body: { padding: '12px 16px' } }}
+        >
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
+                Gestion des photos étudiantes :
+              </span>
+              {statutPhotos === null ? (
+                <Tooltip title={erreurStatutPhotos ?? undefined}>
+                  <Tag color="default" style={{ padding: '3px 10px', fontSize: 12, fontWeight: 600 }}>
+                    {erreurStatutPhotos ? 'Statut des photos indisponible' : 'Chargement du statut…'}
+                  </Tag>
+                </Tooltip>
+              ) : statutPhotos.verrouille ? (
+                <Tag color="error" icon={<LockOutlined />} style={{ padding: '3px 10px', fontSize: 12, fontWeight: 600 }}>
+                  Photos VERROUILLÉES (modifications suspendues)
+                </Tag>
+              ) : (
+                <Tag color="success" icon={<UnlockOutlined />} style={{ padding: '3px 10px', fontSize: 12, fontWeight: 600 }}>
+                  Photos DÉVERROUILLÉES (modifications autorisées)
+                </Tag>
+              )}
+              {statutPhotos?.updated_at && (
+                <span style={{ fontSize: 11, color: '#6B7280' }}>
+                  Dernière mise à jour : {new Date(statutPhotos.updated_at).toLocaleString('fr-FR')}
+                  {statutPhotos.modifie_par_nom ? ` par ${statutPhotos.modifie_par_nom}` : ''}
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Button
+                danger
+                icon={<LockOutlined />}
+                loading={actionVerrouillageEnCours}
+                disabled={statutPhotos?.verrouille === true}
+                onClick={() => handleToggleVerrouillagePhotos(true)}
+              >
+                Verrouiller les photos
+              </Button>
+              <Button
+                type="primary"
+                style={{
+                  backgroundColor: statutPhotos?.verrouille ? '#16a34a' : undefined,
+                  borderColor: '#16a34a',
+                }}
+                icon={<UnlockOutlined />}
+                loading={actionVerrouillageEnCours}
+                disabled={statutPhotos?.verrouille === false}
+                onClick={() => handleToggleVerrouillagePhotos(false)}
+              >
+                Déverrouiller les photos
+              </Button>
+            </div>
+          </div>
+        </Card>
+
         {/* Étape 1 — Filtres */}
         <Card
           size="small"

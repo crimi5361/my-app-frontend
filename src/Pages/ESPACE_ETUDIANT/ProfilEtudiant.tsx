@@ -1,15 +1,14 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Card, 
   Form, 
   Input, 
   Button, 
   DatePicker, 
-  Select, 
-  Upload, 
-  message, 
+  Select,
+  App,
   Spin,
   Row,
   Col,
@@ -17,7 +16,8 @@ import {
   Divider,
   Tag,
   Alert,
-  Modal
+  Modal,
+  Avatar
 } from 'antd';
 import { 
   CameraOutlined, 
@@ -32,9 +32,9 @@ import {
   IdcardOutlined,
   LockOutlined,
   EyeOutlined,
-
+  CheckCircleOutlined,
+  UploadOutlined
 } from '@ant-design/icons';
-import type { UploadFile, UploadProps } from 'antd';
 import dayjs from 'dayjs';
 import 'dayjs/locale/fr';
 
@@ -64,16 +64,44 @@ interface StudentData {
   is_profile_complete?: boolean;
 }
 
-const MiseAJourProfil: React.FC = () => {
+const MiseAJourProfilContent: React.FC = () => {
+  // `message` statique d'antd n'affiche rien sous React 19 : on passe par le
+  // contexte <App> (voir l'enveloppe en bas de fichier).
+  const { message } = App.useApp();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState<boolean>(true);
-  const [saving, setSaving] = useState<boolean>(false);
   const [studentData, setStudentData] = useState<StudentData | null>(null);
-  const [fileList, setFileList] = useState<UploadFile[]>([]);
   const [isProfileComplete, setIsProfileComplete] = useState<boolean>(false);
   const [showReadOnlyModal, setShowReadOnlyModal] = useState<boolean>(false);
 
+  // Gestion du verrouillage et de la photo de profil
+  const [photosVerrouillees, setPhotosVerrouillees] = useState<boolean>(false);
+  const [selectedPhotoFile, setSelectedPhotoFile] = useState<File | null>(null);
+  const [previewPhotoUrl, setPreviewPhotoUrl] = useState<string | null>(null);
+  const [savingPhoto, setSavingPhoto] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoCardRef = useRef<HTMLDivElement>(null);
+
   const API_URL = import.meta.env.VITE_API_URL_SERVER || '';
+
+  const ALLOWED_PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+  const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 Mo = 5 242 880 octets inclus
+
+  // Formater la taille des fichiers
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} o`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} Mo`;
+  };
+
+  // Nettoyage de l'URL objet en cas de démontage
+  useEffect(() => {
+    return () => {
+      if (previewPhotoUrl) {
+        URL.revokeObjectURL(previewPhotoUrl);
+      }
+    };
+  }, [previewPhotoUrl]);
 
   // Vérifier si le profil est complet
   const checkProfileCompletion = (data: any) => {
@@ -88,7 +116,7 @@ const MiseAJourProfil: React.FC = () => {
       'serie_bac',
       'lieu_residence',
       'pays_naissance',
-      'annee_bac' // AJOUTÉ ICI
+      'annee_bac'
     ];
 
     return requiredFields.every(field => {
@@ -121,6 +149,13 @@ const MiseAJourProfil: React.FC = () => {
       const studentInfo = data.informations_personnelles;
 
       setStudentData(studentInfo);
+
+      // Statut du verrouillage global des photos
+      const verrouille = Boolean(data.photos_verrouillees ?? data.securite?.photos_verrouillees ?? false);
+      setPhotosVerrouillees(verrouille);
+      if (verrouille) {
+        handleCancelSelectedPhoto();
+      }
       
       // Vérifier si le profil est complet
       const profileComplete = checkProfileCompletion(studentInfo);
@@ -137,22 +172,12 @@ const MiseAJourProfil: React.FC = () => {
           lieu_naissance: studentInfo.lieu_naissance,
           sexe: studentInfo.sexe,
           serie_bac: studentInfo.serie_bac,
-          annee_bac: studentInfo.annee_bac, // AJOUTÉ ICI
+          annee_bac: studentInfo.annee_bac,
           lieu_residence: studentInfo.lieu_residence,
           pays_naissance: studentInfo.pays_naissance
         };
 
         form.setFieldsValue(formValues);
-        
-        // Configurer l'upload de photo si une photo existe
-        if (studentInfo.photo_url) {
-          setFileList([{
-            uid: '-1',
-            name: 'photo_profil',
-            status: 'done',
-            url: `${API_URL}${studentInfo.photo_url}`,
-          }]);
-        }
       }
     } catch (error) {
       message.error('Erreur lors du chargement des données du profil');
@@ -162,113 +187,145 @@ const MiseAJourProfil: React.FC = () => {
     }
   };
 
-  useEffect(() => {
-    fetchStudentData();
-  }, []);
-
-  // Gestion de l'upload de photo - TOUJOURS AUTORISÉ
-  const handleUploadChange: UploadProps['onChange'] = ({ fileList: newFileList }) => {
-    setFileList(newFileList);
+  // Annulation de la sélection en cours
+  const handleCancelSelectedPhoto = () => {
+    if (previewPhotoUrl) {
+      URL.revokeObjectURL(previewPhotoUrl);
+    }
+    setSelectedPhotoFile(null);
+    setPreviewPhotoUrl(null);
   };
 
-  // Vérifier avant l'upload - TOUJOURS AUTORISÉ (limite 5 Mo inclus = 5 242 880 octets)
-  const beforeUpload = (file: File) => {
-    const isImage = file.type.startsWith('image/');
-    if (!isImage) {
-      message.error('Vous ne pouvez uploader que des images !');
-      return false;
-    }
-
-    const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 Mo = 5 242 880 octets inclus
-    const isUnderOrEqual5M = file.size <= MAX_PHOTO_SIZE;
-    if (!isUnderOrEqual5M) {
-      message.error("L'image ne doit pas dépasser 5 Mo !");
-      return false;
-    }
-
-    return true;
-  };
-
-  // Soumission du formulaire
-  const handleSubmit = async (values: any) => {
-    setSaving(true);
+  // Vérification périodique légère du statut de verrouillage (actualisation en temps réel sans reconnexion)
+  const verifierStatutVerrouillage = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
-      const studentId = localStorage.getItem('user_id');
-      
-      if (!token || !studentId) {
-        throw new Error('Token ou ID étudiant manquant');
-      }
+      if (!token) return;
 
-      let hasUpdates = false;
-
-      // 1. Mise à jour des informations modifiables par l'étudiant
-      //
-      // Phase 0 (2026-11-11) : le serveur n'accepte plus que les champs de sa
-      // liste blanche (matricule, IP Ministère, date de naissance… sont désormais
-      // refusés et journalisés). On n'envoie donc QUE ce qui sera réellement
-      // enregistré : transmettre le reste donnerait un message de succès pour
-      // des saisies ignorées en silence.
-      //
-      // La condition `!isProfileComplete` est levée : l'adresse de résidence doit
-      // rester modifiable même une fois le dossier réputé complet.
-      const formattedValues = {
-        lieu_residence: values.lieu_residence,
-      };
-
-
-      const response = await fetch(`${API_URL}/api/donneeespaceetudiant/mise-a-jour-profile/${studentId}`, {
-        method: 'POST',
+      const response = await fetch(`${API_URL}/api/donneeespaceetudiant/statut-photos`, {
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify(formattedValues),
       });
-      
-      const responseData = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(responseData.message || 'Erreur lors de la mise à jour');
-      }
-      
-      message.success('Informations du profil mises à jour avec succès');
-      hasUpdates = true;
 
-      // 2. Si un nouveau fichier a été uploadé, mettre à jour la photo (TOUJOURS AUTORISÉ)
-      if (fileList.length > 0 && fileList[0].originFileObj) {
-        const formData = new FormData();
-        formData.append('photo', fileList[0].originFileObj as File);
-        
-        const uploadResponse = await fetch(`${API_URL}/api/donneeespaceetudiant/profile/${studentId}/photo`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-          body: formData,
-        });
-        
-        if (!uploadResponse.ok) {
-          const uploadError = await uploadResponse.json();
-          throw new Error(uploadError.message || 'Erreur lors de l\'upload de la photo');
+      if (!response.ok) return;
+
+      const data = await response.json();
+      if (typeof data.photos_verrouillees !== 'boolean') return;
+      const estVerrouille = data.photos_verrouillees;
+
+      setPhotosVerrouillees(estVerrouille);
+      // Verrouillage survenu pendant une sélection : on l'abandonne. L'URL d'aperçu
+      // est révoquée par l'effet de nettoyage lié à `previewPhotoUrl`.
+      if (estVerrouille) {
+        setSelectedPhotoFile(null);
+        setPreviewPhotoUrl(null);
+      }
+    } catch (_) {
+      // Échec silencieux pour le polling périodique en arrière-plan
+    }
+  }, [API_URL]);
+
+  useEffect(() => {
+    // 1. Chargement complet à l'ouverture, au rafraîchissement ou après reconnexion
+    fetchStudentData();
+
+    // 2. Vérification périodique légère toutes les 15 secondes, et immédiate au
+    //    retour sur l'onglet (cas le plus fréquent : l'étudiant revient sur la page).
+    const intervalId = setInterval(verifierStatutVerrouillage, 15000);
+    const auRetourSurOnglet = () => {
+      if (document.visibilityState === 'visible') verifierStatutVerrouillage();
+    };
+    document.addEventListener('visibilitychange', auRetourSurOnglet);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', auRetourSurOnglet);
+    };
+  }, [verifierStatutVerrouillage]);
+
+  // Sélection d'un nouveau fichier photo
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Réinitialiser la valeur de l'input pour permettre de resélectionner le même fichier si besoin
+    e.target.value = '';
+
+    if (photosVerrouillees) {
+      message.warning("La modification des photos de profil est temporairement suspendue par l'administration.");
+      handleCancelSelectedPhoto();
+      return;
+    }
+
+    if (!ALLOWED_PHOTO_TYPES.includes(file.type)) {
+      message.error('Format de fichier non accepté. Formats autorisés : JPG, PNG, WebP.');
+      return;
+    }
+
+    if (file.size > MAX_PHOTO_SIZE) {
+      message.error("L'image ne doit pas dépasser 5 Mo !");
+      return;
+    }
+
+    if (previewPhotoUrl) {
+      URL.revokeObjectURL(previewPhotoUrl);
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setSelectedPhotoFile(file);
+    setPreviewPhotoUrl(objectUrl);
+  };
+
+  // Confirmation et enregistrement définitif de la photo sur le serveur
+  const handleConfirmPhotoUpload = async () => {
+    if (!selectedPhotoFile) return;
+
+    const token = localStorage.getItem('token');
+    const studentId = localStorage.getItem('user_id');
+
+    if (!token || !studentId) {
+      message.error('Session expirée, veuillez vous reconnecter');
+      return;
+    }
+
+    if (photosVerrouillees) {
+      message.error("La modification des photos de profil est temporairement suspendue par l'administration.");
+      handleCancelSelectedPhoto();
+      return;
+    }
+
+    setSavingPhoto(true);
+    try {
+      const formData = new FormData();
+      formData.append('photo', selectedPhotoFile);
+
+      const response = await fetch(`${API_URL}/api/donneeespaceetudiant/profile/${studentId}/photo`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          setPhotosVerrouillees(true);
+          handleCancelSelectedPhoto();
+          throw new Error(data.message || "La modification des photos de profil est temporairement suspendue par l'administration.");
         }
-        
-        message.success('Photo de profil mise à jour avec succès');
-        hasUpdates = true;
+        throw new Error(data.message || "Erreur lors de l'enregistrement de la photo");
       }
-      
-      // Recharger les données seulement si des mises à jour ont été faites
-      if (hasUpdates) {
-        fetchStudentData();
-      } else {
-        message.info('Aucune modification à enregistrer');
-      }
-      
+
+      message.success('Photo de profil mise à jour avec succès');
+      handleCancelSelectedPhoto();
+      await fetchStudentData();
     } catch (error: any) {
-      console.error('Erreur détaillée:', error);
-      message.error(error.message || 'Erreur lors de la mise à jour');
+      message.error(error.message || "Erreur lors de l'enregistrement de la photo");
     } finally {
-      setSaving(false);
+      setSavingPhoto(false);
     }
   };
 
@@ -401,262 +458,341 @@ const MiseAJourProfil: React.FC = () => {
           </div>
         )}
 
-        {/* Formulaire de mise à jour */}
-        <Card 
-          title={
-            <div className="flex items-center">
-             
-              <div className="ml-4">
-                {isProfileComplete ? (
-                  <Tag color="green" icon={<LockOutlined />}>
-                    Lecture Seule
+        {/* Carte dédiée à la gestion de la photo de profil */}
+        <div ref={photoCardRef}>
+          <Card 
+            title={
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center">
+                  <CameraOutlined className="text-blue-600 text-lg mr-2" />
+                  <span className="font-semibold text-gray-800">Photo de profil</span>
+                </div>
+                {photosVerrouillees ? (
+                  <Tag color="red" icon={<LockOutlined />}>
+                    Verrouillée par l'administration
                   </Tag>
                 ) : (
-                  <Tag color="blue"></Tag>
+                  <Tag color="green" icon={<CheckCircleOutlined />}>
+                    Modification autorisée
+                  </Tag>
                 )}
               </div>
+            }
+            className="w-full shadow-md border-0 mb-6"
+          >
+            {/* Input de sélection masqué */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+              onChange={handleFileSelect}
+              className="hidden"
+              disabled={photosVerrouillees}
+            />
+
+            {/* Alerte si modification suspendue */}
+            {photosVerrouillees && (
+              <Alert
+                message="Modification des photos suspendue"
+                description="La modification des photos de profil est temporairement suspendue par l'administration."
+                type="warning"
+                showIcon
+                icon={<LockOutlined />}
+                className="mb-6"
+              />
+            )}
+
+            <Row gutter={[24, 24]} align="middle">
+              {/* Colonne 1 : Photo actuelle */}
+              <Col xs={24} md={(!photosVerrouillees && selectedPhotoFile) ? 8 : 8} className="flex flex-col items-center text-center">
+                <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+                  Photo actuelle
+                </div>
+                <div className="relative w-36 h-44 rounded-lg overflow-hidden border-2 border-gray-200 shadow-sm bg-gray-100 flex items-center justify-center">
+                  {studentData?.photo_url ? (
+                    <img
+                      src={`${API_URL}${studentData.photo_url}`}
+                      alt="Photo actuelle"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Avatar size={72} icon={<UserOutlined />} className="bg-gray-300" />
+                  )}
+                </div>
+                <span className="text-xs text-gray-500 mt-2">
+                  {studentData?.photo_url ? 'Photo enregistrée' : 'Aucune photo enregistrée'}
+                </span>
+              </Col>
+
+              {/* Colonne 2 : Aperçu nouvelle photo si sélectionnée (uniquement si déverrouillé) */}
+              {!photosVerrouillees && selectedPhotoFile && previewPhotoUrl && (
+                <Col xs={24} md={8} className="flex flex-col items-center text-center">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-blue-600 mb-2">
+                    Aperçu avant enregistrement
+                  </div>
+                  <div className="relative w-36 h-44 rounded-lg overflow-hidden border-2 border-blue-500 shadow-md bg-gray-100 flex items-center justify-center">
+                    <img
+                      src={previewPhotoUrl}
+                      alt="Nouvel aperçu"
+                      className="w-full h-full object-cover"
+                    />
+                    <span className="absolute top-1 right-1 bg-blue-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded">
+                      Nouveau
+                    </span>
+                  </div>
+                  <div className="mt-2 text-xs text-gray-700 font-medium truncate max-w-[200px]" title={selectedPhotoFile.name}>
+                    {selectedPhotoFile.name}
+                  </div>
+                  <div className="text-[11px] text-gray-500">
+                    Taille : {formatFileSize(selectedPhotoFile.size)}
+                  </div>
+                </Col>
+              )}
+
+              {/* Colonne 3 : Consignes et Actions */}
+              <Col xs={24} md={(!photosVerrouillees && selectedPhotoFile) ? 8 : 16}>
+                <div className="space-y-4">
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                    <h4 className="text-sm font-semibold text-gray-800 mb-2">
+                      Consignes pour la photo de profil
+                    </h4>
+                    <ul className="text-xs text-gray-600 space-y-1.5 list-disc list-inside">
+                      <li>Format photo d'identité : cadrage buste / visage de face, fond clair et neutre.</li>
+                      <li>Formats de fichier acceptés : <strong>JPG, JPEG, PNG, WebP</strong>.</li>
+                      <li>Taille maximale autorisée : <strong>5 Mo</strong>.</li>
+                      <li>Cette photo figurera notamment sur votre carte étudiante officielle.</li>
+                    </ul>
+                  </div>
+
+                  {/* Boutons d'action */}
+                  <div className="pt-2">
+                    {photosVerrouillees ? (
+                      <Button
+                        disabled
+                        icon={<LockOutlined />}
+                        size="large"
+                        className="w-full sm:w-auto font-medium"
+                      >
+                        La modification des photos de profil est temporairement suspendue par l'administration.
+                      </Button>
+                    ) : !selectedPhotoFile ? (
+                      <Button
+                        type="primary"
+                        icon={<CameraOutlined />}
+                        size="large"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full sm:w-auto"
+                      >
+                        {studentData?.photo_url ? 'Sélectionner une nouvelle photo' : 'Sélectionner une photo'}
+                      </Button>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Button
+                          type="primary"
+                          icon={<SaveOutlined />}
+                          size="large"
+                          loading={savingPhoto}
+                          onClick={handleConfirmPhotoUpload}
+                          className="bg-blue-600 hover:bg-blue-500 font-medium"
+                        >
+                          Confirmer l'enregistrement
+                        </Button>
+                        <Button
+                          icon={<UploadOutlined />}
+                          size="large"
+                          disabled={savingPhoto}
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          Remplacer la sélection
+                        </Button>
+                        <Button
+                          danger
+                          size="large"
+                          disabled={savingPhoto}
+                          onClick={handleCancelSelectedPhoto}
+                        >
+                          Annuler
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Col>
+            </Row>
+          </Card>
+        </div>
+
+        {/* Formulaire en lecture seule des informations d'état civil et académiques */}
+        <Card 
+          title={
+            <div className="flex items-center justify-between w-full">
+              <div className="flex items-center">
+                <IdcardOutlined className="text-blue-500 mr-2 text-lg" />
+                <span className="font-semibold text-gray-800">Informations Personnelles et Académiques</span>
+              </div>
+              <Tag color="blue" icon={<LockOutlined />}>
+                Lecture Seule
+              </Tag>
             </div>
           } 
           className="w-full shadow-md border-0 mb-6"
-          // extra={
-          //   isProfileComplete && (
-          //     <Button 
-          //       icon={<EditOutlined />}
-          //       onClick={() => setShowReadOnlyModal(true)}
-          //     >
-          //       Mode Consultation
-          //     </Button>
-          //   )
-          // }
         >
           <Form
             form={form}
             layout="vertical"
-            onFinish={handleSubmit}
-            scrollToFirstError
-            disabled={isProfileComplete}
+            disabled={true}
           >
-            <Row gutter={[24, 24]}>
-              
-              {/* Section Photo - TOUJOURS MODIFIABLE */}
-              <Col xs={24} lg={6}>
-                <div className="flex flex-col items-center">
-                  <div className="mb-4">
-                    <Upload
-                      listType="picture-circle"
-                      fileList={fileList}
-                      onChange={handleUploadChange}
-                      beforeUpload={beforeUpload}
-                      accept="image/*"
-                      showUploadList={{ showPreviewIcon: false }}
-                      // SUPPRIMEZ disabled={isProfileComplete} - LA PHOTO EST TOUJOURS MODIFIABLE
-                    >
-                      {fileList.length >= 1 ? null : (
-                        <div className="flex flex-col items-center justify-center">
-                          <CameraOutlined style={{ fontSize: '28px', color: '#1890ff' }} />
-                          <div className="mt-2 text-sm text-blue-600 font-medium">
-                            {studentData?.photo_url ? 'Changer photo' : 'Charger photo'}
-                          </div>
-                        </div>
-                      )}
-                    </Upload>
-                  </div>
-                  <p className="text-xs text-gray-500 text-center">
-                    Format: JPG, PNG, WEBP
-                    <br />
-                    Taille max: 5 Mo
-                    <br />
-                    {isProfileComplete && (
-                      <Tag color="blue" className="mt-1">
-                        Toujours modifiable
-                      </Tag>
-                    )}
-                  </p>
-                </div>
+            <Row gutter={[16, 8]}>
+              <Col xs={24}>
+                <Form.Item
+                  label="Établissement d'origine"
+                  name="etablissement_origine"
+                >
+                  <Input 
+                    size="large" 
+                    placeholder="Ex: Lycée Moderne..." 
+                    suffix={<LockOutlined />}
+                  />
+                </Form.Item>
               </Col>
 
-              {/* Formulaire principal */}
-              <Col xs={24} lg={18}>
-                <Row gutter={[16, 8]}>
-                  
-                  <Col xs={24}>
-                    <Form.Item
-                      label="Établissement d'origine"
-                      name="etablissement_origine"
-                      rules={[{ required: true, message: 'Veuillez saisir votre établissement d\'origine' }]}
-                    >
-                      <Input 
-                        size="large" 
-                        placeholder="Ex: Lycée Moderne..." 
-                        suffix={isProfileComplete ? <LockOutlined /> : null}
-                      />
-                    </Form.Item>
-                  </Col>
-
-                  <Col xs={24} md={12}>
-                    <Form.Item
-                      label="Date de naissance"
-                      name="date_naissance"
-                      rules={[{ required: true, message: 'Veuillez sélectionner votre date de naissance' }]}
-                    >
-                      <DatePicker 
-                        className="w-full" 
-                        format="DD/MM/YYYY"
-                        size="large"
-                        placeholder="Sélectionnez la date"
-                        disabled={isProfileComplete}
-                      />
-                    </Form.Item>
-                  </Col>
-
-                  <Col xs={24} md={12}>
-                    <Form.Item
-                      label="Lieu de naissance"
-                      name="lieu_naissance"
-                      rules={[{ required: true, message: 'Veuillez saisir votre lieu de naissance' }]}
-                    >
-                      <Input 
-                        size="large" 
-                        placeholder="Ex: Abidjan, Cocody..." 
-                        suffix={isProfileComplete ? <LockOutlined /> : null}
-                      />
-                    </Form.Item>
-                  </Col>
-
-                  <Col xs={24} md={8}>
-                    <Form.Item
-                      label="Matricule MERS"
-                      name="matricule_mers"
-                      rules={[{ required: true, message: 'Requis' }]}
-                      extra="Format attendu : 183456789F"
-                    >
-                      <Input 
-                        size="large" 
-                        placeholder="Ex: 183456789F" 
-                        suffix={isProfileComplete ? <LockOutlined /> : null}
-                      />
-                    </Form.Item>
-                  </Col>
-
-                  <Col xs={24} md={8}>
-                    <Form.Item
-                      label="Matricule MENET"
-                      name="matricule_menet"
-                      rules={[{ required: true, message: 'Requis' }]}
-                      extra="Format attendu : COUA0906070001"
-                    >
-                      <Input 
-                        size="large" 
-                        placeholder="Ex: COUA0906070001" 
-                        suffix={isProfileComplete ? <LockOutlined /> : null}
-                      />
-                    </Form.Item>
-                  </Col>
-
-                  <Col xs={24} md={8}>
-                    <Form.Item
-                      label="Numéro de table BAC"
-                      name="numero_table_bac"
-                      rules={[{ required: true, message: 'Requis' }]}
-                      extra="Numéro figurant sur votre collante du BAC"
-                    >
-                      <Input 
-                        size="large" 
-                        placeholder="Ex : 00000" 
-                        suffix={isProfileComplete ? <LockOutlined /> : null}
-                      />
-                    </Form.Item>
-                  </Col>
-
-                  <Col xs={24} md={8}>
-                    <Form.Item
-                      label="Sexe"
-                      name="sexe"
-                      rules={[{ required: true, message: 'Veuillez sélectionner votre sexe' }]}
-                    >
-                      <Select 
-                        size="large" 
-                        placeholder="Sélectionnez"
-                        disabled={isProfileComplete}
-                      >
-                        <Select.Option value="Masculin">Masculin</Select.Option>
-                        <Select.Option value="Féminin">Féminin</Select.Option>
-                      </Select>
-                    </Form.Item>
-                  </Col>
-                  
-                  <Col xs={24} md={8}>
-                    <Form.Item
-                      label="Série BAC"
-                      name="serie_bac"
-                      rules={[{ required: true, message: 'Veuillez saisir votre série BAC' }]}
-                    >
-                      <Input 
-                        size="large" 
-                        placeholder="Ex: G2, D, C..." 
-                        suffix={isProfileComplete ? <LockOutlined /> : null}
-                      />
-                    </Form.Item>
-                  </Col>
-
-                  <Col xs={24} md={8}>
-                    <Form.Item
-                      label="Année du BAC"
-                      name="annee_bac"
-                      rules={[{ required: true, message: 'Veuillez saisir l\'année du BAC' }]}
-                      extra="Ex: 2023, 2024..."
-                    >
-                      <Input 
-                        size="large" 
-                        placeholder="Ex: 2024" 
-                        suffix={isProfileComplete ? <LockOutlined /> : null}
-                      />
-                    </Form.Item>
-                  </Col>
-
-                  <Col xs={24} md={12}>
-                    <Form.Item
-                      label="Lieu de résidence"
-                      name="lieu_residence"
-                      rules={[{ required: true, message: 'Veuillez saisir votre lieu de résidence' }]}
-                    >
-                      <Input 
-                        size="large" 
-                        placeholder="Ex: Abidjan, Cocody..." 
-                        suffix={isProfileComplete ? <LockOutlined /> : null}
-                      />
-                    </Form.Item>
-                  </Col>
-
-                  <Col xs={24} md={12}>
-                    <Form.Item
-                      label="Pays de naissance"
-                      name="pays_naissance"
-                      rules={[{ required: true, message: 'Veuillez saisir votre pays de naissance' }]}
-                    >
-                      <Input 
-                        size="large" 
-                        placeholder="Ex: Côte d'Ivoire" 
-                        suffix={isProfileComplete ? <LockOutlined /> : null}
-                      />
-                    </Form.Item>
-                  </Col>
-
-                </Row>
-
-                {/* Bouton de soumission - TOUJOURS VISIBLE POUR LA PHOTO */}
-                <div className="flex justify-end mt-6">
-                  <Button 
-                    type="primary" 
-                    icon={<SaveOutlined />}
-                    loading={saving}
-                    onClick={() => form.submit()}
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="Date de naissance"
+                  name="date_naissance"
+                >
+                  <DatePicker 
+                    className="w-full" 
+                    format="DD/MM/YYYY"
                     size="large"
-                    className="min-w-48 h-12 text-base font-medium"
+                    placeholder="Date de naissance"
+                    disabled={true}
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="Lieu de naissance"
+                  name="lieu_naissance"
+                >
+                  <Input 
+                    size="large" 
+                    placeholder="Ex: Abidjan, Cocody..." 
+                    suffix={<LockOutlined />}
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <Form.Item
+                  label="Matricule MERS"
+                  name="matricule_mers"
+                  extra="Format attendu : 183456789F"
+                >
+                  <Input 
+                    size="large" 
+                    placeholder="Ex: 183456789F" 
+                    suffix={<LockOutlined />}
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <Form.Item
+                  label="Matricule MENET"
+                  name="matricule_menet"
+                  extra="Format attendu : COUA0906070001"
+                >
+                  <Input 
+                    size="large" 
+                    placeholder="Ex: COUA0906070001" 
+                    suffix={<LockOutlined />}
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <Form.Item
+                  label="Numéro de table BAC"
+                  name="numero_table_bac"
+                  extra="Numéro figurant sur votre collante du BAC"
+                >
+                  <Input 
+                    size="large" 
+                    placeholder="Ex : 00000" 
+                    suffix={<LockOutlined />}
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <Form.Item
+                  label="Sexe"
+                  name="sexe"
+                >
+                  <Select 
+                    size="large" 
+                    placeholder="Sélectionnez"
+                    disabled={true}
                   >
-                    {isProfileComplete ? 'Mettre à jour la photo' : 'Enregistrer les modifications'}
-                  </Button>
-                </div>
+                    <Select.Option value="Masculin">Masculin</Select.Option>
+                    <Select.Option value="Féminin">Féminin</Select.Option>
+                  </Select>
+                </Form.Item>
+              </Col>
+              
+              <Col xs={24} md={8}>
+                <Form.Item
+                  label="Série BAC"
+                  name="serie_bac"
+                >
+                  <Input 
+                    size="large" 
+                    placeholder="Ex: G2, D, C..." 
+                    suffix={<LockOutlined />}
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <Form.Item
+                  label="Année du BAC"
+                  name="annee_bac"
+                  extra="Ex: 2023, 2024..."
+                >
+                  <Input 
+                    size="large" 
+                    placeholder="Ex: 2024" 
+                    suffix={<LockOutlined />}
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="Lieu de résidence"
+                  name="lieu_residence"
+                >
+                  <Input 
+                    size="large" 
+                    placeholder="Ex: Abidjan, Cocody..." 
+                    suffix={<LockOutlined />}
+                  />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={12}>
+                <Form.Item
+                  label="Pays de naissance"
+                  name="pays_naissance"
+                >
+                  <Input 
+                    size="large" 
+                    placeholder="Ex: Côte d'Ivoire" 
+                    suffix={<LockOutlined />}
+                  />
+                </Form.Item>
               </Col>
             </Row>
           </Form>
@@ -779,18 +915,20 @@ const MiseAJourProfil: React.FC = () => {
               key="photo" 
               type="primary" 
               icon={<CameraOutlined />}
+              disabled={photosVerrouillees}
               onClick={() => {
                 setShowReadOnlyModal(false);
-                // Focus sur l'upload de photo
                 setTimeout(() => {
-                  const uploadElement = document.querySelector('.ant-upload-select');
-                  if (uploadElement) {
-                    uploadElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  if (photoCardRef.current) {
+                    photoCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
                   }
-                }, 100);
+                  if (!photosVerrouillees && fileInputRef.current) {
+                    fileInputRef.current.click();
+                  }
+                }, 200);
               }}
             >
-              Modifier ma photo
+              {photosVerrouillees ? 'Modification suspendue' : 'Modifier ma photo'}
             </Button>
           ]}
           width={800}
@@ -873,5 +1011,13 @@ const MiseAJourProfil: React.FC = () => {
     </div>
   );
 };
+
+/* Enveloppe <App> : fournit `message` à App.useApp(). Même convention que
+   CartesEtudiantes.tsx, RecusGroupe.tsx et AttestationsMasse.tsx. */
+const MiseAJourProfil: React.FC = () => (
+  <App>
+    <MiseAJourProfilContent />
+  </App>
+);
 
 export default MiseAJourProfil;
