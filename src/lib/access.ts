@@ -23,6 +23,12 @@ export const PAGE_PERMISSIONS: Record<string, string[]> = {
   // Moyens Généraux (Chantier 10) — chez lui dans son propre module, même principe que caissier :
   // pas de lien vers le Dashboard générique.
   moyens_generaux: ['moyens_generaux'],
+  // Étudiant (Phase 0, 2026-11-11) — le rôle n'avait AUCUNE entrée : les 12 routes
+  // de l'espace étudiant étaient déclarées hors de ProtectedRoute et s'affichaient
+  // sans session (vérifié au navigateur : 10 routes sur 12). Le jeton 'etudiant'
+  // n'ouvre que l'espace étudiant ; aucune page du personnel ne l'exige, donc un
+  // étudiant reste refusé partout ailleurs, exactement comme avant.
+  etudiant: ['etudiant'],
 };
 
 /**

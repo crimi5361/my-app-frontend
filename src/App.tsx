@@ -6,6 +6,7 @@ import { ConfigProvider, theme as antdTheme } from "antd";
 import Layout from "./Components/Layout/Layout";
 import Login from "./Components/Login/Login";
 import AppRoutes from "./Components/AppRoutes/AppRoutes";
+import ProtectedRoute from "./Components/ProtectedRoute";
 import Hub from "./Pages/Hub/Hub";
 import { UserProvider, UserContext } from "./context/UserContext";
 import { useTheme } from "./context/ThemeContext";
@@ -79,6 +80,7 @@ import EdtEtudiant from "./Pages/ESPACE_ETUDIANT/EdtEtudiant";
 import MaquetteEtudiant from "./Pages/ESPACE_ETUDIANT/MaquetteEtudiant";
 import TransportEtudiant from "./Pages/ESPACE_ETUDIANT/TransportEtudiant";
 import DepotMemoire from "./Pages/ESPACE_ETUDIANT/DepotMemoire";
+import SecuriteEtudiant from "./Pages/ESPACE_ETUDIANT/SecuriteEtudiant";
 import VerificationCarte from "./Pages/Public/VerificationCarte";
 
 function AppContent() {
@@ -144,20 +146,84 @@ function AppContent() {
         element={isAuthenticated ? <Hub /> : <Navigate to="/login" replace />}
       />
 
-      {/* Routes de l'espace étudiant - Layout indépendant */}
-      <Route path="/acceuil/espace_etudiant" element={<Acceuille />} />
-      <Route path="/espace-etudiant" element={<Acceuille />} />
-      <Route path="/espace-etudiant/scolarite" element={<ScolariteEtudiant />} />
-      <Route path="/espace-etudiant/documents" element={<DocumentsEtudiant />} />
-      <Route path="/espace-etudiant/mes-acces" element={<AccesEtudiant />} />
-      <Route path="/espace-etudiant/carte" element={<CarteEtudiant />} />
-      <Route path="/espace-etudiant/notes" element={<NotesEtudiant />} />
-      <Route path="/espace-etudiant/profil" element={<ProfilEtudiant />} />
-      <Route path="/espace-etudiant/cours" element={<CoursEtudiant />} />
-      <Route path="/espace-etudiant/emploi-du-temps" element={<EdtEtudiant />} />
-      <Route path="/espace-etudiant/maquette-pedagogique" element={<MaquetteEtudiant />} />
-      <Route path="/espace-etudiant/transports" element={<TransportEtudiant />} />
-      <Route path="/espace-etudiant/depot-memoire" element={<DepotMemoire />} />
+      {/* ════════ Espace étudiant — layout indépendant ════════
+          Phase 0 (2026-11-11) : ces routes étaient déclarées SANS garde. Vérifié au
+          navigateur, 10 d'entre elles s'affichaient sans aucune session — certaines
+          en exposant des messages techniques. Elles passent sous le ProtectedRoute
+          déjà utilisé par le reste de l'application : sans session, redirection vers
+          /login ; avec un rôle du personnel, redirection vers /hub.
+          Cette garde ne remplace pas les contrôles serveur, qui restent la seule
+          barrière réelle (middleware/dossierEtudiant.middleware.js côté backend). */}
+      <Route path="/acceuil/espace_etudiant" element={
+        <ProtectedRoute requiredPermission={["etudiant"]}>
+          <Acceuille />
+        </ProtectedRoute>
+      } />
+      <Route path="/espace-etudiant" element={
+        <ProtectedRoute requiredPermission={["etudiant"]}>
+          <Acceuille />
+        </ProtectedRoute>
+      } />
+      <Route path="/espace-etudiant/scolarite" element={
+        <ProtectedRoute requiredPermission={["etudiant"]}>
+          <ScolariteEtudiant />
+        </ProtectedRoute>
+      } />
+      <Route path="/espace-etudiant/documents" element={
+        <ProtectedRoute requiredPermission={["etudiant"]}>
+          <DocumentsEtudiant />
+        </ProtectedRoute>
+      } />
+      <Route path="/espace-etudiant/mes-acces" element={
+        <ProtectedRoute requiredPermission={["etudiant"]}>
+          <AccesEtudiant />
+        </ProtectedRoute>
+      } />
+      <Route path="/espace-etudiant/carte" element={
+        <ProtectedRoute requiredPermission={["etudiant"]}>
+          <CarteEtudiant />
+        </ProtectedRoute>
+      } />
+      <Route path="/espace-etudiant/notes" element={
+        <ProtectedRoute requiredPermission={["etudiant"]}>
+          <NotesEtudiant />
+        </ProtectedRoute>
+      } />
+      <Route path="/espace-etudiant/profil" element={
+        <ProtectedRoute requiredPermission={["etudiant"]}>
+          <ProfilEtudiant />
+        </ProtectedRoute>
+      } />
+      <Route path="/espace-etudiant/cours" element={
+        <ProtectedRoute requiredPermission={["etudiant"]}>
+          <CoursEtudiant />
+        </ProtectedRoute>
+      } />
+      <Route path="/espace-etudiant/emploi-du-temps" element={
+        <ProtectedRoute requiredPermission={["etudiant"]}>
+          <EdtEtudiant />
+        </ProtectedRoute>
+      } />
+      <Route path="/espace-etudiant/maquette-pedagogique" element={
+        <ProtectedRoute requiredPermission={["etudiant"]}>
+          <MaquetteEtudiant />
+        </ProtectedRoute>
+      } />
+      <Route path="/espace-etudiant/transports" element={
+        <ProtectedRoute requiredPermission={["etudiant"]}>
+          <TransportEtudiant />
+        </ProtectedRoute>
+      } />
+      <Route path="/espace-etudiant/depot-memoire" element={
+        <ProtectedRoute requiredPermission={["etudiant"]}>
+          <DepotMemoire />
+        </ProtectedRoute>
+      } />
+      <Route path="/espace-etudiant/securite" element={
+        <ProtectedRoute requiredPermission={["etudiant"]}>
+          <SecuriteEtudiant />
+        </ProtectedRoute>
+      } />
 
       <Route
         path="/*"

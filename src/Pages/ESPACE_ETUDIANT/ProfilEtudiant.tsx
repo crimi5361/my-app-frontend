@@ -171,17 +171,18 @@ const MiseAJourProfil: React.FC = () => {
     setFileList(newFileList);
   };
 
-  // Vérifier avant l'upload - TOUJOURS AUTORISÉ
+  // Vérifier avant l'upload - TOUJOURS AUTORISÉ (limite 5 Mo inclus = 5 242 880 octets)
   const beforeUpload = (file: File) => {
     const isImage = file.type.startsWith('image/');
     if (!isImage) {
-      message.error('Vous ne pouvez uploader que des images!');
+      message.error('Vous ne pouvez uploader que des images !');
       return false;
     }
 
-    const isLt2M = file.size / 1024 / 1024 < 2;
-    if (!isLt2M) {
-      message.error('L\'image doit être inférieure à 2MB!');
+    const MAX_PHOTO_SIZE = 5 * 1024 * 1024; // 5 Mo = 5 242 880 octets inclus
+    const isUnderOrEqual5M = file.size <= MAX_PHOTO_SIZE;
+    if (!isUnderOrEqual5M) {
+      message.error("L'image ne doit pas dépasser 5 Mo !");
       return false;
     }
 
@@ -201,41 +202,38 @@ const MiseAJourProfil: React.FC = () => {
 
       let hasUpdates = false;
 
-      // 1. Si le profil n'est PAS complet, mettre à jour les informations
-      if (!isProfileComplete) {
-        const formattedValues = {
-          etablissement_origine: values.etablissement_origine,
-          date_naissance: values.date_naissance ? values.date_naissance.format('YYYY-MM-DD') : null,
-          matricule_mers: values.matricule_mers,
-          numero_table_bac: values.numero_table_bac,
-          matricule_menet: values.matricule_menet,
-          lieu_naissance: values.lieu_naissance,
-          sexe: values.sexe,
-          serie_bac: values.serie_bac,
-          annee_bac: values.annee_bac, // AJOUTÉ ICI
-          lieu_residence: values.lieu_residence,
-          pays_naissance: values.pays_naissance
-        };
+      // 1. Mise à jour des informations modifiables par l'étudiant
+      //
+      // Phase 0 (2026-11-11) : le serveur n'accepte plus que les champs de sa
+      // liste blanche (matricule, IP Ministère, date de naissance… sont désormais
+      // refusés et journalisés). On n'envoie donc QUE ce qui sera réellement
+      // enregistré : transmettre le reste donnerait un message de succès pour
+      // des saisies ignorées en silence.
+      //
+      // La condition `!isProfileComplete` est levée : l'adresse de résidence doit
+      // rester modifiable même une fois le dossier réputé complet.
+      const formattedValues = {
+        lieu_residence: values.lieu_residence,
+      };
 
 
-        const response = await fetch(`${API_URL}/api/donneeespaceetudiant/mise-a-jour-profile/${studentId}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-          body: JSON.stringify(formattedValues),
-        });
-        
-        const responseData = await response.json();
-        
-        if (!response.ok) {
-          throw new Error(responseData.message || 'Erreur lors de la mise à jour');
-        }
-        
-        message.success('Informations du profil mises à jour avec succès');
-        hasUpdates = true;
+      const response = await fetch(`${API_URL}/api/donneeespaceetudiant/mise-a-jour-profile/${studentId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(formattedValues),
+      });
+      
+      const responseData = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Erreur lors de la mise à jour');
       }
+      
+      message.success('Informations du profil mises à jour avec succès');
+      hasUpdates = true;
 
       // 2. Si un nouveau fichier a été uploadé, mettre à jour la photo (TOUJOURS AUTORISÉ)
       if (fileList.length > 0 && fileList[0].originFileObj) {
@@ -334,6 +332,22 @@ const MiseAJourProfil: React.FC = () => {
             <span className="text-gray-700">.</span>
           </div>
         </div>
+
+        {/* Informations officielles : plus modifiables depuis l'espace étudiant
+            (Phase 0, 2026-11-11). Dit explicitement, pour qu'une saisie ignorée
+            par le serveur ne passe pas pour un enregistrement réussi. */}
+        <Alert
+          message="Informations officielles"
+          description={
+            "Votre matricule, votre IP Ministère, votre date et lieu de naissance et vos "
+            + "informations de BAC sont désormais gérés par l'administration et ne peuvent "
+            + "plus être modifiés depuis cet espace. Pour signaler une erreur, adressez-vous "
+            + "à la Scolarité. Votre adresse de résidence et votre photo restent modifiables ici."
+          }
+          type="info"
+          showIcon
+          className="mb-6"
+        />
 
         {/* Alertes importantes */}
         {isProfileComplete && (
@@ -448,9 +462,9 @@ const MiseAJourProfil: React.FC = () => {
                     </Upload>
                   </div>
                   <p className="text-xs text-gray-500 text-center">
-                    Format: JPG, PNG
+                    Format: JPG, PNG, WEBP
                     <br />
-                    Taille max: 2MB
+                    Taille max: 5 Mo
                     <br />
                     {isProfileComplete && (
                       <Tag color="blue" className="mt-1">

@@ -4,15 +4,15 @@ import {
   FileText, 
   User, 
   BarChart3, 
-  Key, 
   Car, 
-  CreditCard as CardIcon,
+  IdCard,
   LogOut,
   School,
   Calendar,
   BookOpen,
   ClipboardList,
   QrCode,
+  ShieldAlert,
   Sparkles} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -35,6 +35,7 @@ const Acceuille = () => {
   const [error, setError] = useState<string | null>(null);
   const [, setIsMobileMenuOpen] = useState(false);
   const [hasPlayedConfetti, setHasPlayedConfetti] = useState(false);
+  const [motDePasseInitial, setMotDePasseInitial] = useState(false);
   const API_URL = import.meta.env.VITE_API_URL_SERVER || '';
   const navigate = useNavigate();
 
@@ -68,6 +69,10 @@ const Acceuille = () => {
         }
 
         const data = await response.json();
+
+        if (data.securite && typeof data.securite.mot_de_passe_initial === 'boolean') {
+          setMotDePasseInitial(data.securite.mot_de_passe_initial);
+        }
         
         if (data.informations_personnelles && data.informations_academiques) {
           let photoUrl = data.informations_personnelles.photo_url || '';
@@ -184,25 +189,25 @@ const Acceuille = () => {
       path: '/espace-etudiant/documents',
     },
     {
-      id: 'acces',
-      title: 'Mes Accès',
-      icon: Key,
-      colorIndex: 2,
-      path: '#',
-    },
-    {
       id: 'carte',
-      title: 'Ma Carte',
-      icon: CardIcon,
-      colorIndex: 3,
-      path: '#',
+      title: 'Carte étudiante',
+      icon: IdCard,
+      colorIndex: 2,
+      path: '/espace-etudiant/carte',
     },
     {
       id: 'notes',
       title: 'Mes Notes',
       icon: BarChart3,
-      colorIndex: 4,
+      colorIndex: 3,
       path: '#',
+    },
+    {
+      id: 'securite',
+      title: 'Mot de passe',
+      icon: ShieldAlert,
+      colorIndex: 4,
+      path: '/espace-etudiant/securite',
     },
     {
       id: 'profil',
@@ -354,6 +359,37 @@ const Acceuille = () => {
           </div>
         </div>
       </motion.div>
+
+      {/* ════════ Invitation à personnaliser le mot de passe ════════
+          Visible uniquement tant que l'étudiant utilise son mot de passe initial (@elites@).
+          Dès que le mot de passe est modifié côté serveur, motDePasseInitial devient false
+          et la bannière disparaît définitivement (y compris après reconnexion). */}
+      {motDePasseInitial && (
+        <div className="container mx-auto px-4">
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="max-w-2xl mx-auto mb-5"
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50/90 backdrop-blur-sm px-4 py-3">
+              <div className="flex items-start gap-3 flex-1">
+                <ShieldAlert className="text-amber-600 flex-shrink-0 mt-0.5" size={20} />
+                <p className="text-sm text-amber-900">
+                  Pour mieux protéger votre compte, nous vous recommandons de modifier
+                  votre mot de passe initial.
+                </p>
+              </div>
+              <button
+                onClick={() => navigate('/espace-etudiant/securite')}
+                className="flex-shrink-0 rounded-lg bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-700"
+              >
+                Modifier mon mot de passe
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Carte étudiante virtuelle centrale */}
       <div className="container mx-auto px-4">
