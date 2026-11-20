@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   ArrowLeft,
   IdCard,
@@ -9,9 +9,7 @@ import {
   Info,
   ShieldCheck,
   Barcode,
-  Mail,
-  Copy,
-  Check,
+  ExternalLink,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { CarteRecto, CarteVerso, CARTE_LARGEUR_MM, CARTE_HAUTEUR_MM } from '../../Components/CarteEtudiante/CarteEtudiante';
@@ -23,6 +21,10 @@ import {
   type CarteEtudianteData,
   type ConfigurationCartes,
 } from '../../lib/cartesEtudiantes';
+
+// URL officielle du formulaire Google Forms pour le signalement d'erreurs sur la carte étudiante
+const GOOGLE_FORMS_CORRECTION_URL =
+  'https://docs.google.com/forms/d/e/1FAIpQLSfT5L3Tvc_3pAbIdvHo4gyN22o11JCK2kVUnfbDnPzZzj7Mzw/viewform';
 
 const MM_EN_PX = 96 / 25.4;
 const CARTE_LARGEUR_PX = CARTE_LARGEUR_MM * MM_EN_PX;
@@ -36,8 +38,6 @@ const CarteEtudiant = () => {
   const [erreur, setErreur] = useState<string | null>(null);
   const [face, setFace] = useState<'recto' | 'verso'>('recto');
   const [echelle, setEchelle] = useState(1.8);
-  const [modalAnomalieOuverte, setModalAnomalieOuverte] = useState(false);
-  const [messageCopie, setMessageCopie] = useState(false);
 
   const conteneurRef = useRef<HTMLDivElement>(null);
   const zoneImpressionRef = useRef<HTMLDivElement>(null);
@@ -105,33 +105,6 @@ const CarteEtudiant = () => {
       window.location.origin
     );
   }, [carte]);
-
-  // Construction du corps du mail pré-rempli pour le signalement d'anomalie
-  const sujetMail = `[Signalement Carte Étudiante] - ${carte?.nom ?? ''} ${carte?.prenoms ?? ''} (${carte?.numero_etudiant ?? ''})`;
-  const corpsMail = `Bonjour le service de la scolarité,
-
-Je constate une anomalie sur ma carte étudiante officielle IIPEA :
-
-- Titulaire : ${carte?.nom ?? ''} ${carte?.prenoms ?? ''}
-- N° Étudiant : ${carte?.numero_etudiant ?? 'Non renseigné'}
-- Matricule IP : ${carte?.matricule_ip ?? 'Non renseigné'}
-- École : ${carte?.ecole.nom ?? ''} (${carte?.ecole.code ?? ''})
-- Filière : ${carte?.filiere ?? ''}
-- Niveau : ${carte?.niveau ?? ''}
-
-Description de l'anomalie constatée :
-[Veuillez préciser ici l'erreur constatée : faute sur l'état civil, filière incorrecte, photo manquante ou erronée, etc.]
-
-Merci de bien vouloir régulariser mon dossier.
-Cordialement.`;
-
-  const lienMailto = `mailto:secretariat@iipea.com?subject=${encodeURIComponent(sujetMail)}&body=${encodeURIComponent(corpsMail)}`;
-
-  const copierMessage = () => {
-    navigator.clipboard.writeText(corpsMail);
-    setMessageCopie(true);
-    setTimeout(() => setMessageCopie(false), 2500);
-  };
 
   if (chargement) {
     return (
@@ -301,13 +274,15 @@ Cordialement.`;
                   </h2>
                 </div>
 
-                <button
-                  onClick={() => setModalAnomalieOuverte(true)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
+                <a
+                  href={GOOGLE_FORMS_CORRECTION_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-100"
                 >
-                  <AlertCircle size={14} />
-                  Signaler une anomalie
-                </button>
+                  <ExternalLink size={14} />
+                  Signaler une erreur sur ma carte
+                </a>
               </div>
 
               <dl className="grid grid-cols-1 gap-x-8 gap-y-3 sm:grid-cols-2">
@@ -340,12 +315,40 @@ Cordialement.`;
                 <p>
                   Vérifiez attentivement l'exactitude de ces informations avant impression.
                 </p>
-                <button
-                  onClick={() => setModalAnomalieOuverte(true)}
-                  className="font-medium text-red-600 hover:underline"
+                <a
+                  href={GOOGLE_FORMS_CORRECTION_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-amber-700 hover:underline inline-flex items-center gap-1"
                 >
-                  Une erreur ? Signalez-la ici
-                </button>
+                  Une erreur ? Signalez-la ici <ExternalLink size={12} />
+                </a>
+              </div>
+            </div>
+
+            {/* Assistance & Signalement d'erreur via Google Forms */}
+            <div className="mb-5 rounded-2xl bg-white p-5 shadow-sm border border-slate-200">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="mt-0.5 flex-shrink-0 text-amber-600" size={20} />
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-800">
+                      Signaler une anomalie ou une erreur sur votre carte
+                    </h3>
+                    <p className="mt-1 text-xs text-slate-600 leading-relaxed max-w-xl">
+                      Vous constatez une erreur sur votre nom, prénom, date de naissance ou matricule IP ? Signalez-la à l'aide du formulaire de correction. Le service de la scolarité vérifiera votre demande et effectuera les corrections nécessaires après validation.
+                    </p>
+                  </div>
+                </div>
+                <a
+                  href={GOOGLE_FORMS_CORRECTION_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-amber-700 whitespace-nowrap"
+                >
+                  <ExternalLink size={15} />
+                  Signaler une erreur sur ma carte
+                </a>
               </div>
             </div>
 
@@ -371,60 +374,6 @@ Cordialement.`;
                 </div>
               </div>
             </div>
-
-            {/* Modal de signalement d'anomalie */}
-            <AnimatePresence>
-              {modalAnomalieOuverte && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl border border-slate-200"
-                  >
-                    <div className="mb-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-red-600 font-bold text-base">
-                        <AlertCircle size={20} />
-                        Signaler une anomalie sur ma carte
-                      </div>
-                      <button
-                        onClick={() => setModalAnomalieOuverte(false)}
-                        className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
-                      >
-                        ✕
-                      </button>
-                    </div>
-
-                    <p className="mb-4 text-sm text-slate-600 leading-relaxed">
-                      Si vous constatez une erreur dans votre nom, vos prénoms, votre photo, votre filière ou votre niveau, un message pré-rempli est prêt pour le service de la scolarité :
-                    </p>
-
-                    <div className="mb-4 rounded-xl bg-slate-50 p-3.5 border border-slate-200 text-xs text-slate-700 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
-                      {corpsMail}
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-end gap-2.5">
-                      <button
-                        onClick={copierMessage}
-                        className="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                      >
-                        {messageCopie ? <Check size={14} className="text-green-600" /> : <Copy size={14} />}
-                        {messageCopie ? 'Copié !' : 'Copier le message'}
-                      </button>
-
-                      <a
-                        href={lienMailto}
-                        onClick={() => setModalAnomalieOuverte(false)}
-                        className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 shadow-sm"
-                      >
-                        <Mail size={14} />
-                        Ouvrir ma messagerie (secretariat@iipea.com)
-                      </a>
-                    </div>
-                  </motion.div>
-                </div>
-              )}
-            </AnimatePresence>
           </>
         )}
       </div>

@@ -163,41 +163,42 @@ export const STYLES_CARTE_ETUDIANTE = `
 /* Séparateur vertical doré entre photo et informations */
 .ci-separateur-photo {
   width: 0.32mm;
-  height: 22.8mm;
+  height: 24.5mm;
   background: var(--ci-or);
   opacity: 0.85;
-  margin: 0 1.3mm;
+  margin: 0 1.5mm;
   flex: none;
 }
 
-.ci-identite { flex: 1; min-width: 0; padding-top: 0.1mm; padding-right: 1.4mm; }
+.ci-identite { flex: 1; min-width: 0; padding-top: 0.1mm; padding-right: 1.2mm; }
 .ci-nom {
   font-weight: 800; color: var(--ci-principal); line-height: 1.05;
   letter-spacing: 0.03mm; overflow-wrap: anywhere;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .ci-prenoms {
-  font-weight: 700; color: #1A1A1A; line-height: 1.08; margin-top: 0.35mm;
+  font-weight: 700; color: #1A1A1A; line-height: 1.08; margin-top: 0.45mm;
   overflow-wrap: anywhere;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 
-.ci-champs { margin-top: 1.0mm; display: flex; flex-direction: column; gap: 0.55mm; }
+.ci-champs { margin-top: 1.3mm; display: flex; flex-direction: column; gap: 0.95mm; }
 .ci-champ { display: flex; align-items: baseline; }
 .ci-champ-libelle {
-  width: 12.8mm; flex: none;
-  font-size: 1.35mm; font-weight: 600; color: #6E747F;
+  width: 14.5mm; flex: none;
+  font-size: 1.5mm; font-weight: 700; color: #555E6D;
   letter-spacing: 0.04mm; text-transform: uppercase; line-height: 1.2;
 }
-.ci-champ-deuxpoints { width: 1.2mm; text-align: center; color: #A4A9B1; font-size: 1.35mm; flex: none; }
-.ci-champ-valeur { font-size: 1.85mm; font-weight: 700; color: #1A1A1A; line-height: 1.2; min-width: 0; flex: 1; overflow-wrap: anywhere; }
+.ci-champ-deuxpoints { width: 1.2mm; text-align: center; color: #9CA3AF; font-size: 1.5mm; font-weight: 700; flex: none; }
+.ci-champ-valeur { font-size: 2.15mm; font-weight: 700; color: #111827; line-height: 1.2; min-width: 0; flex: 1; overflow-wrap: anywhere; }
 .ci-champ-valeur--filiere {
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
-  line-height: 1.15;
+  line-height: 1.18;
 }
 .ci-champ-valeur--code {
-  color: var(--ci-principal); letter-spacing: 0.02mm;
+  color: var(--ci-principal); letter-spacing: 0.03mm;
   font-feature-settings: 'tnum';
+  font-weight: 800;
 }
 .ci-champ-valeur--manquant { color: #C0392B; font-weight: 700; font-style: italic; }
 
@@ -264,6 +265,10 @@ export const STYLES_CARTE_ETUDIANTE = `
   margin-top: 0.25mm;
   white-space: nowrap;
 }
+.ci-verso-ecole--com {
+  font-size: 1.45mm;
+  letter-spacing: -0.02mm;
+}
 .ci-pastille {
   width: 5.4mm;
   height: 5.4mm;
@@ -278,6 +283,10 @@ export const STYLES_CARTE_ETUDIANTE = `
   letter-spacing: 0.04mm;
   margin-left: 1.0mm;
   flex: none;
+}
+.ci-pastille--com {
+  margin-left: 0.6mm;
+  transform: translateY(0.2mm);
 }
 
 .ci-verso-corps {
@@ -350,11 +359,11 @@ export const STYLES_CARTE_ETUDIANTE = `
   margin-top: 0.8mm;
   display: flex;
   flex-direction: column;
-  gap: 0.45mm;
+  gap: 0.55mm;
 }
 .ci-verso-texte {
-  font-size: 1.35mm;
-  line-height: 1.24;
+  font-size: 1.28mm;
+  line-height: 1.22;
   color: rgba(255,255,255,0.92);
 }
 .ci-verso-fort {
@@ -502,13 +511,13 @@ const Valeur = ({ valeur, code = false }: { valeur: string | null; code?: boolea
 // RECTO
 // ─────────────────────────────────────────────────────────────────────────────
 export const CarteRecto = ({ carte, configuration, blason = BLASON_DEFAUT }: Props) => {
-  const tailleNom = tailleSelonLongueur(carte.nom || '', [[10, 4.2], [16, 3.6], [24, 3.0]], 2.6);
+  const tailleNom = tailleSelonLongueur(carte.nom || '', [[10, 4.4], [16, 3.8], [24, 3.2]], 2.8);
   const taillePrenoms = tailleSelonLongueur(
     carte.prenoms || '',
-    [[14, 2.7], [24, 2.3], [34, 2.0]],
-    1.8
+    [[14, 2.8], [24, 2.4], [34, 2.1]],
+    1.9
   );
-  const tailleFiliere = tailleSelonLongueur(carte.filiere || '', [[18, 1.85], [28, 1.65], [42, 1.5]], 1.35);
+  const tailleFiliere = tailleSelonLongueur(carte.filiere || '', [[16, 2.15], [26, 1.9], [38, 1.7]], 1.5);
 
   return (
     <div className="ci-carte ci-recto" style={variablesEcole(carte, configuration)}>
@@ -695,9 +704,13 @@ export const CarteVerso = ({ carte, configuration, blason = BLASON_DEFAUT }: Pro
         <div className="ci-filet-vertical" />
         <div className="ci-verso-textes">
           <span className="ci-sigle-etab">{etablissement.sigle}</span>
-          <span className="ci-verso-ecole">{carte.ecole.nom}</span>
+          <span className={`ci-verso-ecole${carte.ecole.code === 'COM' ? ' ci-verso-ecole--com' : ''}`}>
+            {carte.ecole.nom}
+          </span>
         </div>
-        <div className="ci-pastille">{carte.ecole.code}</div>
+        <div className={`ci-pastille${carte.ecole.code === 'COM' ? ' ci-pastille--com' : ''}`}>
+          {carte.ecole.code}
+        </div>
       </div>
 
       <div className="ci-verso-corps">
