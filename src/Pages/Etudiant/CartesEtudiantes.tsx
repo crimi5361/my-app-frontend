@@ -197,58 +197,78 @@ const CartesEtudiantesContent = () => {
   // Filtres en cascade : chaque changement vide les niveaux inférieurs, sans
   // quoi on pourrait demander une filière qui n'appartient pas à l'école
   // choisie et obtenir une liste vide sans comprendre pourquoi.
+  // Chaque échelon ignore une réponse arrivée après un nouveau changement de
+  // filtre (`perime`) : sans cela, la liste d'une autre école ou d'une autre
+  // année pouvait réapparaître sous les filtres courants.
   useEffect(() => {
     if (!filtres.annee_id) return;
+    let perime = false;
     (async () => {
       try {
-        setEcoles(await chargerEcoles(filtres.annee_id));
+        const liste = await chargerEcoles(filtres.annee_id);
+        if (!perime) setEcoles(liste);
       } catch (e) {
-        message.error(e instanceof Error ? e.message : 'Erreur de chargement des écoles.');
+        if (!perime) message.error(e instanceof Error ? e.message : 'Erreur de chargement des écoles.');
       }
     })();
+    return () => { perime = true; };
   }, [filtres.annee_id, message]);
 
   useEffect(() => {
     if (!filtres.annee_id) return;
+    let perime = false;
     (async () => {
       try {
-        setFilieres(await chargerFilieres(filtres.annee_id, filtres.ecole_id));
+        const liste = await chargerFilieres(filtres.annee_id, filtres.ecole_id);
+        if (!perime) setFilieres(liste);
       } catch (e) {
-        message.error(e instanceof Error ? e.message : 'Erreur de chargement des filières.');
+        if (!perime) message.error(e instanceof Error ? e.message : 'Erreur de chargement des filières.');
       }
     })();
+    return () => { perime = true; };
   }, [filtres.annee_id, filtres.ecole_id, message]);
 
   useEffect(() => {
     if (!filtres.annee_id) return;
+    let perime = false;
     (async () => {
       try {
-        setNiveaux(await chargerNiveaux(filtres.annee_id, filtres.ecole_id, filtres.filiere_id));
+        const liste = await chargerNiveaux(filtres.annee_id, filtres.ecole_id, filtres.filiere_id);
+        if (!perime) setNiveaux(liste);
       } catch (e) {
-        message.error(e instanceof Error ? e.message : 'Erreur de chargement des niveaux.');
+        if (!perime) message.error(e instanceof Error ? e.message : 'Erreur de chargement des niveaux.');
       }
     })();
+    return () => { perime = true; };
   }, [filtres.annee_id, filtres.ecole_id, filtres.filiere_id, message]);
 
   // Cinquième échelon : les groupes dépendent de tout ce qui précède.
   useEffect(() => {
     if (!filtres.annee_id) return;
+    let perime = false;
     (async () => {
       try {
-        setGroupes(
-          await chargerGroupes(filtres.annee_id, filtres.ecole_id, filtres.filiere_id, filtres.niveau_ids)
-        );
+        const liste = await chargerGroupes(filtres.annee_id, filtres.ecole_id, filtres.filiere_id, filtres.niveau_ids);
+        if (!perime) setGroupes(liste);
       } catch (e) {
-        message.error(e instanceof Error ? e.message : 'Erreur de chargement des groupes.');
+        if (!perime) message.error(e instanceof Error ? e.message : 'Erreur de chargement des groupes.');
       }
     })();
+    return () => { perime = true; };
   }, [filtres.annee_id, filtres.ecole_id, filtres.filiere_id, filtres.niveau_ids, message]);
+
+  // Numéro de la dernière demande de liste : seule la plus récente peut remplir
+  // le tableau (et donc la sélection imprimée).
+  const derniereDemandeListe = useRef(0);
 
   const chargerListe = useCallback(async () => {
     if (!filtres.annee_id) return;
+    const numero = ++derniereDemandeListe.current;
+    const perimee = () => numero !== derniereDemandeListe.current;
     setChargementListe(true);
     try {
       const reponse = await chargerEtudiants(filtres, recherche || undefined);
+      if (perimee()) return;
       setEtudiants(reponse.data);
       setPhotosIntrouvables(new Set());
       // La sélection est restreinte aux étudiants encore présents : changer de
@@ -256,10 +276,11 @@ const CartesEtudiantesContent = () => {
       // seraient imprimés sans que l'agent les ait vus.
       setSelection((s) => s.filter((id) => reponse.data.some((e) => e.etudiant_id === id)));
     } catch (e) {
+      if (perimee()) return;
       message.error(e instanceof Error ? e.message : 'Erreur de chargement des étudiants.');
       setEtudiants([]);
     } finally {
-      setChargementListe(false);
+      if (!perimee()) setChargementListe(false);
     }
   }, [filtres, recherche, message]);
 

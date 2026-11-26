@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
     Card,
     Statistic,
@@ -36,6 +36,7 @@ import {
     StarOutlined,
     EyeOutlined,
     FileExcelOutlined,
+    BankOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import * as XLSX from 'xlsx';
@@ -66,6 +67,15 @@ interface Filiere {
     nom: string;
     sigle: string;
     type_filiere_id: number;
+    ecole_id?: number | null;
+}
+
+// École / département académique (table `ecole`, rattachée via departement.ecole_id).
+// Le serveur ne renvoie que les écoles du périmètre de l'agent connecté.
+interface Ecole {
+    id: number;
+    code: string;
+    nom: string;
 }
 
 interface Niveau {
@@ -127,6 +137,7 @@ interface StatsResponse {
     etudiants: EtudiantResultat[];
     filieres: Filiere[];
     niveaux: Niveau[];
+    ecoles?: Ecole[];
     annees: AnneeAcademique[];
     date_generation: string;
     error?: string;
@@ -184,16 +195,24 @@ const StatsResultat: React.FC = () => {
     const [departementId, setDepartementId] = useState<number | null>(null);
     const [activeTab, setActiveTab] = useState<string>('all');
 
-    // ✅ Filtres avec semestre
+    // ✅ Filtres avec semestre. `ecoleId` : école / département choisi ; le serveur le
+    // cumule avec le périmètre de l'agent (site + école), il ne l'élargit jamais.
     const [filtres, setFiltres] = useState<{
+        ecoleId: string;
         filiereId: string;
         niveauId: string;
         semestreId: string;
     }>({
+        ecoleId: '',
         filiereId: '',
         niveauId: '',
         semestreId: ''
     });
+    const FILTRES_VIDES = { ecoleId: '', filiereId: '', niveauId: '', semestreId: '' };
+
+    // Numéro de la dernière requête de statistiques : une réponse plus ancienne (filtre
+    // précédent, calcul plus long) ne doit jamais écraser l'affichage du filtre courant.
+    const derniereRequeteStats = useRef(0);
 
     // Niveaux filtrés par filière
     const [niveauxFiltres, setNiveauxFiltres] = useState<Niveau[]>([]);
@@ -254,11 +273,15 @@ const StatsResultat: React.FC = () => {
     const fetchStats = useCallback(async () => {
         if (!selectedAnneeId) return;
 
+        const numeroRequete = ++derniereRequeteStats.current;
+        const estObsolete = () => numeroRequete !== derniereRequeteStats.current;
+
         setLoading(true);
         setError(null);
         try {
             const token = localStorage.getItem('token');
             const params = new URLSearchParams();
+            if (filtres.ecoleId) params.append('ecoleId', filtres.ecoleId);
             if (filtres.filiereId) params.append('filiereId', filtres.filiereId);
             if (filtres.niveauId) params.append('niveauId', filtres.niveauId);
             if (filtres.semestreId) params.append('semestreId', filtres.semestreId);
@@ -277,6 +300,7 @@ const StatsResultat: React.FC = () => {
             }
 
             const data: StatsResponse = await response.json();
+            if (estObsolete()) return;
 
             if (data.success) {
                 setStats(data);
@@ -297,10 +321,11 @@ const StatsResultat: React.FC = () => {
                 setError(data.error || 'Erreur lors du chargement des statistiques');
             }
         } catch (err) {
+            if (estObsolete()) return;
             console.error('Erreur chargement stats:', err);
             setError(err instanceof Error ? err.message : 'Erreur de connexion au serveur');
         } finally {
-            setLoading(false);
+            if (!estObsolete()) setLoading(false);
         }
     }, [filtres, selectedAnneeId]);
 
@@ -344,6 +369,13 @@ const StatsResultat: React.FC = () => {
     const handleAnneeChange = (value: number) => {
         setSelectedAnneeId(value);
         setFiltres(prev => ({ ...prev, filiereId: '', niveauId: '' }));
+        setNiveauxFiltres([]);
+    };
+
+    // Changement d'école / département : la filière et le niveau en dépendent, on les vide.
+    // Les filières proposées sont renvoyées par le serveur pour l'école choisie.
+    const handleEcoleChange = (value: string | undefined) => {
+        setFiltres(prev => ({ ...prev, ecoleId: value ?? '', filiereId: '', niveauId: '' }));
         setNiveauxFiltres([]);
     };
 
@@ -442,6 +474,7 @@ const StatsResultat: React.FC = () => {
 
         const dateStr = new Date().toISOString().slice(0, 10);
         const suffixeFiltre = [
+            filtres.ecoleId ? stats?.ecoles?.find(e => String(e.id) === filtres.ecoleId)?.code : null,
             filtres.filiereId ? stats?.filieres.find(f => String(f.id) === filtres.filiereId)?.sigle : null,
             filtres.niveauId ? stats?.niveaux.find(n => String(n.id) === filtres.niveauId)?.libelle : null,
             filtres.semestreId ? `S${filtres.semestreId}` : null,
@@ -463,6 +496,7 @@ const StatsResultat: React.FC = () => {
         try {
             const token = localStorage.getItem('token');
             const params = new URLSearchParams();
+            if (filtres.ecoleId) params.append('ecoleId', filtres.ecoleId);
             if (filtres.filiereId) params.append('filiereId', filtres.filiereId);
             if (filtres.niveauId) params.append('niveauId', filtres.niveauId);
             if (filtres.semestreId) params.append('semestreId', filtres.semestreId);
@@ -698,24 +732,53 @@ const StatsResultat: React.FC = () => {
         );
     }
 
+    // Sélecteur École / Département : présent aussi dans l'état vide, pour qu'une école sans
+    // résultat ne bloque pas l'agent (il peut en choisir une autre sans tout réinitialiser).
+    const selecteurEcole = (
+        <div className="flex items-center gap-2 min-w-0">
+            <BankOutlined className="text-gray-500 shrink-0" />
+            <Select
+                placeholder="École / Département"
+                allowClear
+                value={filtres.ecoleId || undefined}
+                onChange={handleEcoleChange}
+                className="w-full min-w-0"
+            >
+                <Option value="">Toutes les écoles du périmètre</Option>
+                {(stats?.ecoles || []).map(e => (
+                    <Option key={e.id} value={String(e.id)}>
+                        {e.nom} ({e.code})
+                    </Option>
+                ))}
+            </Select>
+        </div>
+    );
+
     if (!stats || stats.total_etudiants === 0) {
         return (
             <div className="p-4 sm:p-8 max-w-6xl mx-auto">
                 <Card className="mb-6 shadow-sm" bodyStyle={{ padding: '16px' }}>
-                    <div className="flex items-center gap-2 max-w-xs">
-                        <FileTextOutlined className="text-gray-500 shrink-0" />
-                        <Select
-                            placeholder="Année académique"
-                            value={selectedAnneeId ?? undefined}
-                            onChange={handleAnneeChange}
-                            className="w-full"
-                            loading={annees.length === 0}
-                        >
-                            {annees.map(a => (
-                                <Option key={a.id} value={a.id}>{a.annee} ({a.etat})</Option>
-                            ))}
-                        </Select>
-                    </div>
+                    <Row gutter={[12, 12]}>
+                        <Col xs={24} sm={12} md={8}>
+                            <div className="flex items-center gap-2 min-w-0">
+                                <FileTextOutlined className="text-gray-500 shrink-0" />
+                                <Select
+                                    placeholder="Année académique"
+                                    value={selectedAnneeId ?? undefined}
+                                    onChange={handleAnneeChange}
+                                    className="w-full"
+                                    loading={annees.length === 0}
+                                >
+                                    {annees.map(a => (
+                                        <Option key={a.id} value={a.id}>{a.annee} ({a.etat})</Option>
+                                    ))}
+                                </Select>
+                            </div>
+                        </Col>
+                        {(stats?.ecoles?.length ?? 0) > 0 && (
+                            <Col xs={24} sm={12} md={8}>{selecteurEcole}</Col>
+                        )}
+                    </Row>
                 </Card>
                 <Empty
                     image={Empty.PRESENTED_IMAGE_SIMPLE}
@@ -723,7 +786,7 @@ const StatsResultat: React.FC = () => {
                 />
                 <div className="text-center mt-4">
                     <Button type="primary" onClick={() => {
-                        setFiltres({ filiereId: '', niveauId: '', semestreId: '' });
+                        setFiltres(FILTRES_VIDES);
                         setSearchText('');
                         setActiveTab('all');
                         fetchStats();
@@ -789,6 +852,7 @@ const StatsResultat: React.FC = () => {
                                 </Select>
                             </div>
                         </Col>
+                        <Col xs={24} sm={12} md={6}>{selecteurEcole}</Col>
                         <Col xs={24} sm={12} md={6}>
                             <div className="flex items-center gap-2 min-w-0">
                                 <BookOutlined className="text-gray-500 shrink-0" />
@@ -859,7 +923,7 @@ const StatsResultat: React.FC = () => {
                                 <Button
                                     icon={<ReloadOutlined />}
                                     onClick={() => {
-                                        setFiltres({ filiereId: '', niveauId: '', semestreId: '' });
+                                        setFiltres(FILTRES_VIDES);
                                         setSearchText('');
                                         setActiveTab('all');
                                         fetchStats();
