@@ -41,6 +41,9 @@ export type CarteEtudianteData = {
   annee_academique: string | null;
   valable_jusquau: string | null;
   photo_url: string | null;
+  /** Site de rattachement de l'étudiant (« IIPEA COCODY »…), imprimé au verso.
+      null si inconnu : jamais remplacé par un site par défaut. */
+  site: string | null;
   ecole: IdentiteEcole;
   verification_url: string;
   champs_manquants: string[];

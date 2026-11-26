@@ -769,8 +769,10 @@ export const CarteVerso = ({ carte, configuration, blason = BLASON_DEFAUT }: Pro
       {/* Pied du verso */}
       <div className="ci-verso-pied">
         <span className="ci-verso-pied-gauche">VALIDITÉ : {carte.valable_jusquau || '—'}</span>
+        {/* Site de rattachement DE L'ÉTUDIANT (donnée de sa carte, pas de l'agent
+            qui imprime). Inconnu : tiret, comme la validité — jamais un site par défaut. */}
         <span className="ci-verso-pied-droite">
-          {mentions.authenticite} : <b>{configuration.verification.etiquette}</b>
+          <b>{carte.site || '—'}</b>
         </span>
       </div>
     </div>
