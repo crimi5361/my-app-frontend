@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Form, InputNumber, Input, Button, message, Spin, Result, Descriptions, Space, Row, Col, Statistic, Tag } from 'antd';
+import { App, Card, Form, InputNumber, Input, Button, Spin, Result, Descriptions, Space, Row, Col, Statistic, Tag } from 'antd';
 import { PrinterOutlined } from '@ant-design/icons';
 import PageHeader from '../../Components/PageHeader/PageHeader';
 import DataTable from '../../Components/ui/DataTable';
@@ -42,7 +42,16 @@ interface Rapport {
   ecart: number | null;
 }
 
-const FermerCaisse = () => {
+/* Enveloppe <App> : `message` statique d'antd n'affiche rien sous React 19 (succès ou
+   refus de fermeture invisibles). Même convention que CaisseDashboard.tsx. */
+const FermerCaisse = () => (
+  <App>
+    <FermerCaisseContent />
+  </App>
+);
+
+const FermerCaisseContent = () => {
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<SessionActive | null>(null);
@@ -63,7 +72,7 @@ const FermerCaisse = () => {
       }
     };
     load();
-  }, []);
+  }, [message]);
 
   const handleFermer = async (values: { montant_compte: number; observations?: string }) => {
     if (!session) return;

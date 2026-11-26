@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, Row, Col, Statistic, Button, Table, Tag, Spin, Modal, Form, InputNumber, message, Empty, Typography } from 'antd';
+import { App, Card, Row, Col, Statistic, Button, Table, Tag, Spin, Modal, Form, InputNumber, Empty, Typography } from 'antd';
 import {
   WalletOutlined, DollarCircleOutlined, TransactionOutlined, ClockCircleOutlined,
   UserAddOutlined, RedoOutlined, LockOutlined, UnlockOutlined
@@ -54,7 +54,17 @@ interface DashboardStats {
   kit: StatistiquesKit | null;
 }
 
-const CaisseDashboard = () => {
+/* Enveloppe <App> : sous React 19, `message` statique d'antd n'affiche rien. Le refus
+   d'ouverture (« Aucune caisse n'est configurée pour votre site ») restait invisible —
+   seul le 404 apparaissait dans la console. Même convention que CartesEtudiantes.tsx. */
+const CaisseDashboard = () => (
+  <App>
+    <CaisseDashboardContent />
+  </App>
+);
+
+const CaisseDashboardContent = () => {
+  const { message } = App.useApp();
   const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,7 +82,7 @@ const CaisseDashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [message]);
 
   useEffect(() => {
     fetchStats();
